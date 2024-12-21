@@ -1,0 +1,32 @@
+api-fuzzer/
+│
+├── cmd/                       # Entry points for the application
+│   └── api-fuzzer/            # Main package for the fuzzer command-line tool
+│       └── main.go
+│
+├── pkg/                       # Library code that's reusable and importable
+│   ├── generator/             # Seed generation and mutation logic
+│   ├── dispatcher/            # Logic for sending requests and handling responses
+│   ├── analyzer/              # Analyzing coverage and other results
+│   └── recorder/              # Logging and storing results
+│
+├── internal/                  # Application specific code
+│   └── fuzzer/                # Core fuzzing logic, possibly not intended for import outside the project
+│       ├── fuzzer.go          # Implements fuzzing logic 
+│       ├── config.go          # Configuration handling 
+│       └── util.go            # Utility functions
+│
+├── config/                    # Configuration files and templates
+│   └── config.yaml            # Configuration settings (e.g., API endpoints, fuzzing parameters)
+│
+├── scripts/                   # Auxiliary scripts (e.g., setup, deployment)
+│
+├── test/                      # Test packages
+│   ├── testdata/              # Sample data for testing
+│   └── fuzzer_test.go         # Unit and integration tests
+│
+├── docs/                      # Project documentation
+│   └── design.md              # Design specifications and architecture notes
+│
+├── go.mod                     # Module file
+└── go.sum                     # Module dependencies file
