@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"resttracefuzzer/internal/config"
 	"resttracefuzzer/pkg/logger"
 	"resttracefuzzer/pkg/parser"
 
@@ -13,10 +14,13 @@ func main() {
 	logger.ConfigLogger()
     log.Info().Msg("Hello, World!")
 
+	// Parse command line arguments and environment variables
+	config.InitConfig()
+	config.ParseCmdArgs()
+
 	// read OpenAPI spec and parse it
 	apiParser := parser.NewOpenAPIParser()
-	// TODO: we hard code the path here, we should make it configurable @xunzhou24
-	_, err := apiParser.ParseFromPath("path/to/openapi/spec")
+	_, err := apiParser.ParseFromPath(config.GlobalConfig.OpenAPISpecPath)
 	if err != nil {
 		fmt.Println("Failed to parse OpenAPI spec")
 		return

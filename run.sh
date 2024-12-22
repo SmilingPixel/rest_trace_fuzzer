@@ -10,6 +10,12 @@ if [ ! -f "$OUTPUT_DIR/$BINARY_NAME" ]; then
     exit 1
 fi
 
+
+# Arguments
+# 1. The input OpenAPI file
+OAS_FILE="../openapi/otel_demo_swagger.json"
+
 # Run the binary
 echo "Running the binary..."
-$OUTPUT_DIR/$BINARY_NAME
+$OUTPUT_DIR/$BINARY_NAME \
+    --openapi-spec $OAS_FILE

@@ -18,9 +18,8 @@ HEIGHT=$(tput lines)
 WIDTH=$(tput cols)
 
 # Build the project
-{
-    go build -v -x -o $OUTPUT_DIR/$BINARY_NAME ./cmd/api-fuzzer
-} 2>&1 | pv -l -s $(go list ./... | wc -l) | dialog --progressbox "Building the project..." $HEIGHT $WIDTH
+echo "Building the project..."
+go build -v -x -o $OUTPUT_DIR/$BINARY_NAME ./cmd/api-fuzzer
 
 # Check if the build was successful
 if [ $? -eq 0 ]; then
