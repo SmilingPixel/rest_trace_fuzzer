@@ -5,8 +5,8 @@ import (
 	// "fmt"
 	// "os"
 
-	"github.com/rs/zerolog/log"
 	"github.com/bytedance/sonic"
+	"github.com/rs/zerolog/log"
 )
 
 func ParseCmdArgs() {
