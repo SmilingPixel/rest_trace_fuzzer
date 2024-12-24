@@ -8,3 +8,11 @@ type APIDependencyGraph map[SimpleAPIMethod][]SimpleAPIMethod
 func NewAPIDependencyGraph() *APIDependencyGraph {
 	return &APIDependencyGraph{}
 }
+
+// AddDependency adds a dependency from a producer API method to a consumer API method.
+func (g *APIDependencyGraph) AddDependency(producer, consumer SimpleAPIMethod) {
+	if _, ok := (*g)[producer]; !ok {
+		(*g)[producer] = make([]SimpleAPIMethod, 0)
+	}
+	(*g)[producer] = append((*g)[producer], consumer)
+}

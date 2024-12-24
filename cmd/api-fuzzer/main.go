@@ -1,16 +1,17 @@
 package main
 
 import (
-	"fmt"
 	"resttracefuzzer/internal/config"
+	"resttracefuzzer/pkg/apimanager"
 	"resttracefuzzer/pkg/logger"
 	"resttracefuzzer/pkg/parser"
 
-    "github.com/rs/zerolog/log"
+	"github.com/rs/zerolog/log"
 )
 
 func main() {
 
+	// Initialize logger
 	logger.ConfigLogger()
     log.Info().Msg("Hello, World!")
 
@@ -18,17 +19,34 @@ func main() {
 	config.InitConfig()
 	config.ParseCmdArgs()
 
+	apiManager := apimanager.NewAPIManager()
+
 	// read OpenAPI spec and parse it
 	apiParser := parser.NewOpenAPIParser()
-	_, err := apiParser.ParseFromPath(config.GlobalConfig.OpenAPISpecPath)
+	doc, err := apiParser.ParseFromPath(config.GlobalConfig.OpenAPISpecPath)
 	if err != nil {
-		fmt.Println("Failed to parse OpenAPI spec")
+		log.Error().Msgf("Failed to parse OpenAPI spec: %v", err)
 		return
 	}
+	apiManager.APIDefinition = doc
 
 	// Read API dependency files
 	// You can generate the dependency files by running Restler
-	// TODO @xunzhou24
+	// We only parse Restler's output for now
+	// TODO: parse other dependency files @xunzhou24
+	var dependencyFileParser parser.APIDependencyParser
+	if config.GlobalConfig.DependencyFileType == "Restler" {
+		dependencyFileParser = parser.NewAPIDependencyRestlerParser()
+	} else {
+		log.Error().Msgf("Unsupported dependency file type: %s", config.GlobalConfig.DependencyFileType)
+		return
+	}
+	dependecyGraph, err := dependencyFileParser.ParseFromPath(config.GlobalConfig.DependencyFilePath)
+	if err != nil {
+		log.Error().Msgf("Failed to parse dependency file: %v", err)
+		return
+	}
+	apiManager.APIDependencyGraph = dependecyGraph
 
 	// set hyperparameters
 	// TODO @xunzhou24
