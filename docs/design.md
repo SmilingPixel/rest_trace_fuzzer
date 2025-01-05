@@ -1,4 +1,4 @@
-[WIP] 技术方案 trace_rest_test
+# [WIP] 技术方案 trace_rest_test
 
 
 
@@ -11,6 +11,8 @@ Repository: [GitHub - SmilingPixel/rest_trace_fuzzer](https://github.com/Smiling
 # 2. 总体架构
 
 ![You can download the raw file, and edit using draw.io](architecture.svg)
+
+The architecture diagram is powered by [draw.io](https://app.diagrams.net/).
 
 总体分为3个模块
 
