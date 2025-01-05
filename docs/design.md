@@ -43,5 +43,112 @@ Repository: [GitHub - SmilingPixel/rest_trace_fuzzer](https://github.com/Smiling
 | Trace Analyzer       | 查询相关的 trace 数据，生成预处理反馈，引导测试        |                                                                      |
 
 
+# 3. 具体实现方案
 
+## 3.1. OpenAPI 解析
+
+框架选取 [getkin/kin-openapi](https://github.com/getkin/kin-openapi/)
+
+解析时，对于输入的 OpenAPI Spec，构建两套数据：
+1. 整个系统的接口定义
+2. 每个 service 的接口定义，存储为一个 map，key 为 service name [TODO: 这里需要确认一下]
+
+
+## 3.2. ODG 解析
+
+### 3.2.1. ODG 数据结构
+
+Operation 定义粒度: (service, path, method)，例如```(pet_service, /api/v1/pet/{id}, GET)```
+
+Edge， a -> b 表示 a 依赖于 b，即 a 的执行需要 b 的执行结果
+| Field            | Type       | Description                         |
+|------------------|------------|-------------------------------------|
+| source           | Operation  | 表示依赖的源 Operation               |
+| target           | Operation  | 表示依赖的目标 Operation             |
+| source_resource  | [TODO: 待定] | 表示源 Operation 依赖的资源（例如某个参数） |
+
+Graph，包含一组 Edge，表示整个系统的依赖关系。fuzzer 中包含两个 Graph，一个是整个系统的 Graph，一个是 service 之间的 Graph。
+
+
+### 3.2.2. ODG 解析
+
+参考 [SeUniVr/RestTestGen](https://github.com/SeUniVr/RestTestGen)，原论文:
+```bibtex
+@article{corradini2022nominalerror,
+    doi = {10.1002/stvr.1808},
+    url = {https://doi.org/10.1002/stvr.1808},
+    year = {2022},
+    month = jan,
+    publisher = {Wiley},
+    author = {Davide Corradini and Amedeo Zampieri and Michele Pasqua and Emanuele Viglianisi and Michael Dallago and Mariano Ceccato},
+    title = {Automated black-box testing of nominal and error scenarios in RESTful APIs},
+    journal = {Software Testing, Verification and Reliability}
+}
+```
+
+核心方法 [extractDataDependencies](https://github.com/SeUniVr/RestTestGen/blob/363eebc9d8c26cb20a724e5dd58de1fb0cd1f346/src/main/java/io/resttestgen/core/operationdependencygraph/OperationDependencyGraph.java#L76)
+
+```java
+ // If input and output parameters have the same normalized name
+if (outputParameter.getNormalizedName().equals(inputParameter.getNormalizedName())) {
+
+    DependencyEdge edge = new DependencyEdge(outputParameter, inputParameter);
+
+    graph.addEdge(getNodeFromOperation(targetOperation), getNodeFromOperation(sourceOperation), edge);
+    commonParametersNames.add(outputParameter.getNormalizedName());
+}
+```
+
+主要依赖于两条规则：
+1. 如果两个参数的 normalized name 相同，那么认为这两个参数有依赖关系
+2. 两个操作之间存在“**资源创建**”的依赖关系
+
+## 3.3. Resource Pool
+
+
+
+[TODO: 待定]
+
+
+## 3.4. Seed Queue
+
+总体思路：
+- 从 ODG 中找到入度为 0 的节点，作为种子节点
+- 从种子节点开始，根据 ODG 的依赖关系，构建测试序列
+- 将测试序列中的节点加入 Seed Queue （类似于 DFS 的思路）
+- 优先级:
+  - 提高内部 ODG 覆盖率的种子具有更高的优先级
+  - 提高系统外部接口覆盖率（Path, Status Code）的种子具有更高的优先级
+  - ...
+
+[TODO: 具体细节待定]
+
+
+## 3.5. Test Driver
+
+测试执行，发送请求和处理响应，更新数据持久化模块中的数据
+
+
+## 3.6. Trace Analyzer
+
+根据 trace 数据，生成预处理反馈，引导测试
+
+### 3.6.1. Trace 搜集
+
+- OpenTelemetry Demo 中，使用 Jaeger 提供的 API 进行 trace 搜集
+
+
+### 3.6.2. Trace 分析
+
+1. 记录覆盖的调用边和调用次数，更新 ODG 实例
+2. 统计覆盖率更新，上报给 Resource Pool
+3. 更新 ODG，补充缺失的依赖关系，修改错误的依赖关系 [TODO: 具体实现待定]
+
+
+# 4. 子任务排期
+
+- [ ] 初步的技术方案设计，包括整体架构和模块设计
+- [ ] OpenAPI 解析模块的实现
+- [ ] RestTestGen 的 ODG 解析模块的移植
+- [ ] TODO
 
