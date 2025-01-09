@@ -8,6 +8,7 @@ import (
 
 // CaseManager manages the test cases.
 type CaseManager struct {
+	// Testcases is a list of test cases.
 	Testcases []*Testcase
 }
 

@@ -2,9 +2,9 @@ package main
 
 import (
 	"resttracefuzzer/internal/config"
-	"resttracefuzzer/pkg/apimanager"
 	"resttracefuzzer/pkg/logger"
 	"resttracefuzzer/pkg/parser"
+	"resttracefuzzer/pkg/static"
 
 	"github.com/rs/zerolog/log"
 )
@@ -13,13 +13,13 @@ func main() {
 
 	// Initialize logger
 	logger.ConfigLogger()
-    log.Info().Msg("Hello, World!")
+	log.Info().Msg("Hello, World!")
 
 	// Parse command line arguments and environment variables
 	config.InitConfig()
 	config.ParseCmdArgs()
 
-	apiManager := apimanager.NewAPIManager()
+	apiManager := static.NewAPIManager()
 
 	// read OpenAPI spec and parse it
 	apiParser := parser.NewOpenAPIParser()

@@ -1,26 +1,25 @@
-package apimanager
+package static
 
 import (
-
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/rs/zerolog/log"
 )
 
 // APIDataflowNode represents a node in the dataflow graph of the internal APIs.
 type APIDataflowNode struct {
-	ServiceName string
+	ServiceName     string
 	SimpleAPIMethod *SimpleAPIMethod
-	Operation 	 *openapi3.Operation
+	Operation       *openapi3.Operation
 }
 
 // APIDataflowEdge represents an edge in the dataflow graph of the internal APIs.
-// 
+//
 // The edge represents the dataflow between two nodes.
 // The data pass from SourceData to TargetData, both of which are parameters of the API.
 // For example, `placeOrder` of CheckoutService passes `userInfo` to `emptyCart` of CartService.
 type APIDataflowEdge struct {
-	Source *APIDataflowNode
-	Target *APIDataflowNode
+	Source     *APIDataflowNode
+	Target     *APIDataflowNode
 	SourceData *openapi3.Parameter
 	TargetData *openapi3.Parameter
 }
@@ -37,7 +36,6 @@ func NewAPIDataflowGraph() *APIDataflowGraph {
 		Edges: edges,
 	}
 }
-
 
 // AddEdge adds an edge to the dataflow graph.
 //
@@ -106,12 +104,12 @@ func (g *APIDataflowGraph) parseServiceOperationPair(
 	for _, sourceInParam := range sourceInParameters {
 		for _, targetInParam := range targetInParameters {
 			// TODO: better algorithm for matching parameters
-			if sourceInParam.Name == targetInParam.Name {		
+			if sourceInParam.Name == targetInParam.Name {
 				sourceNode := &APIDataflowNode{
 					ServiceName: sourceService,
 					SimpleAPIMethod: &SimpleAPIMethod{
 						Endpoint: sourcePath,
-						Method: sourceMethod,
+						Method:   sourceMethod,
 					},
 					Operation: sourceOperation,
 				}
@@ -119,7 +117,7 @@ func (g *APIDataflowGraph) parseServiceOperationPair(
 					ServiceName: targetService,
 					SimpleAPIMethod: &SimpleAPIMethod{
 						Endpoint: targetPath,
-						Method: targetMethod,
+						Method:   targetMethod,
 					},
 					Operation: targetOperation,
 				}
@@ -132,8 +130,8 @@ func (g *APIDataflowGraph) parseServiceOperationPair(
 // AddEdge adds an edge to the dataflow graph.
 func (g *APIDataflowGraph) AddEdge(source, target *APIDataflowNode, sourceData, targetData *openapi3.Parameter) {
 	edge := &APIDataflowEdge{
-		Source: source,
-		Target: target,
+		Source:     source,
+		Target:     target,
 		SourceData: sourceData,
 		TargetData: targetData,
 	}

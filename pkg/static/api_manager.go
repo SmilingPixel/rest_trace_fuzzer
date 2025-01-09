@@ -1,8 +1,9 @@
-package apimanager
+package static
 
 import "github.com/getkin/kin-openapi/openapi3"
 
-// APIManager represents an API manager that manages the API definition and its dependencies.
+// APIManager represents an API manager that manages the API definition, 
+// dependency graph, dataflow graph and other static information of the API.
 type APIManager struct {
 	// The OpenAPI definition of the API.
 	APIDefinition *openapi3.T

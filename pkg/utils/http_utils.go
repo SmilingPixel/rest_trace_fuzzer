@@ -8,7 +8,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-
+// HTTPClient is an HTTP client.
+// It has a base URL and a client based on Hertz.
 type HTTPClient struct {
 	BaseURL string
 	Client *client.Client

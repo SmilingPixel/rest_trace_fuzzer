@@ -1,8 +1,9 @@
 package fuzzer
 
 import (
-	"resttracefuzzer/pkg/apimanager"
+	"resttracefuzzer/internal/config"
 	"resttracefuzzer/pkg/casemanager"
+	"resttracefuzzer/pkg/static"
 	"resttracefuzzer/pkg/utils"
 	"time"
 
@@ -12,7 +13,7 @@ import (
 // BasicFuzzer is a basic fuzzer, which is a simple implementation of the Fuzzer interface.
 type BasicFuzzer struct {
 	// APIManager is the API manager.
-	APIManager *apimanager.APIManager
+	APIManager *static.APIManager
 
 	// CaseManager is the case manager.
 	CaseManager *casemanager.CaseManager
@@ -22,29 +23,23 @@ type BasicFuzzer struct {
 
 	// HTTPClient is the HTTP client.
 	HTTPClient *utils.HTTPClient
-
 }
-
 
 // NewBasicFuzzer creates a new BasicFuzzer.
 func NewBasicFuzzer(
-	config *FuzzerConfig,
-	APIManager *apimanager.APIManager,
+	APIManager *static.APIManager,
 	caseManager *casemanager.CaseManager,
 ) *BasicFuzzer {
 	httpClient := &utils.HTTPClient{
-		BaseURL: config.BaseURL,
+		BaseURL: config.GlobalConfig.ServerBaseURL,
 	}
 	return &BasicFuzzer{
-		APIManager: APIManager,
+		APIManager:  APIManager,
 		CaseManager: caseManager,
-		Budget: config.Budget,
-		HTTPClient: httpClient,
+		Budget:      config.GlobalConfig.FuzzerBudget,
+		HTTPClient:  httpClient,
 	}
 }
-
-
-
 
 // Start starts the fuzzer.
 func (f *BasicFuzzer) Start() error {
@@ -80,7 +75,6 @@ func (f *BasicFuzzer) Start() error {
 	return nil
 }
 
-
 func (f *BasicFuzzer) ExecuteTestcase(testcase *casemanager.Testcase) error {
 	for _, operationCase := range testcase.OperationCases {
 		operation := operationCase.Operation
@@ -95,4 +89,3 @@ func (f *BasicFuzzer) ExecuteTestcase(testcase *casemanager.Testcase) error {
 	}
 	return nil
 }
-

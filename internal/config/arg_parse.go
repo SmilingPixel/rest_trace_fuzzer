@@ -2,8 +2,6 @@ package config
 
 import (
 	"flag"
-	// "fmt"
-	// "os"
 
 	"github.com/bytedance/sonic"
 	"github.com/rs/zerolog/log"
