@@ -1,5 +1,7 @@
 package config
 
+import "time"
+
 var GlobalConfig *RuntimeConfig
 
 type RuntimeConfig struct {
@@ -12,6 +14,13 @@ type RuntimeConfig struct {
 	// Type of the dependency file
 	// Currently only support 'Restler'
 	DependencyFileType string
+
+
+	// Budget is the budget of the fuzzer, which is the maximum time the fuzzer can run, in milliseconds.
+	FuzzerBudget time.Duration
+
+	// BaseURL is the base URL of the API.
+	ServerBaseURL string
 }
 
 func InitConfig() {
