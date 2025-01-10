@@ -1,9 +1,13 @@
 package feedback
 
-import "time"
+import (
+	"time"
 
-// SimplifiedJaegerTrace represents a simplified version of a Jaeger trace.
-type SimplifiedJaegerTrace struct {
+	"github.com/rs/zerolog/log"
+)
+
+// SimplifiedJaegerTraceSpan represents a simplified version of a Jaeger trace.
+type SimplifiedJaegerTraceSpan struct {
     TraceID       string            `json:"traceId"`       // Unique identifier for the trace
     SpanID        string            `json:"spanId"`        // Unique identifier for the span
     ParentID      string            `json:"parentId"`      // Unique identifier for the parent span
@@ -29,11 +33,27 @@ type LogEntry struct {
     Fields    []interface{}   `json:"fields"`    // Fields associated with the log entry
 }
 
+// CallInfo represents the information of a call between two services.
+type CallInfo struct {
+    // SourceService is the name of the source service.
+    SourceService string
+    // TargetService is the name of the target service.
+    TargetService string
+    // SourceMethod is the name of the source method.
+    SourceMethod string
+    // TargetMethod is the name of the target method.
+    TargetMethod string
+}
+
 type SpanKindType string
 
-
+// TraceManager manages traces.
 type TraceManager struct {
+    // maps trace IDs to spans
+    TraceIDMap map[string][]*SimplifiedJaegerTraceSpan
 
+    // maps span IDs to spans
+    SpanIDMap map[string]*SimplifiedJaegerTraceSpan
 }
 
 // NewTraceManager creates a new TraceManager.
@@ -42,20 +62,47 @@ func NewTraceManager() *TraceManager {
 }
 
 // QueryTraces pulls traces from the trace source(e.g., Jaeger).
-func (m *TraceManager) PullTraces() ([]*SimplifiedJaegerTrace, error) {
+func (m *TraceManager) PullTraces() ([]*SimplifiedJaegerTraceSpan, error) {
     // TODO: Implement this method @xunzhou24
     return nil, nil
 }
 
-// Process processes the given traces.
-func (m *TraceManager) ProcessTraces(traces []*SimplifiedJaegerTrace) error {
+// Process processes the given spans.
+func (m *TraceManager) ProcessTraces(spans []*SimplifiedJaegerTraceSpan) error {
     // Map trace IDs to spans
-    traceMap := make(map[string][]*SimplifiedJaegerTrace)
-    for _, trace := range traces {
-        traceMap[trace.TraceID] = append(traceMap[trace.TraceID], trace)
+    for _, span := range spans {
+        m.TraceIDMap[span.TraceID] = append(m.TraceIDMap[span.TraceID], span)
+        m.SpanIDMap[span.SpanID] = span
     }
-    // TODO: Implement this method @xunzhou24
     return nil
+}
+
+// GetCallInfos returns the call information (list) between services.
+func (m *TraceManager) GetCallInfos() ([]*CallInfo, error) {
+    res := make([]*CallInfo, 0)
+    for _, span := range m.SpanIDMap {
+        parentID := span.ParentID
+        if parentID == "" || parentID == span.SpanID {
+            continue
+        }
+        parentSpan, ok := m.SpanIDMap[parentID]
+        if !ok {
+            log.Error().Msgf("[TraceManager.getCallInfos] Parent span not found: %s", parentID)
+            continue
+        }
+        // TODO: extract call info from spans @xunzhou24
+        sourceServiceName := "sourceServiceName"
+        targetServiceName := "targetServiceName"
+        sourceMethodName := "sourceMethodName"
+        targetMethodName := "targetMethodName"
+        res = append(res, &CallInfo{
+            SourceService: sourceServiceName,
+            TargetService: targetServiceName,
+            SourceMethod:  sourceMethodName,
+            TargetMethod:  targetMethodName,
+        })
+    }
+    return res, nil
 }
 
 
