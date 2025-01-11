@@ -6,6 +6,12 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// SimplifiedJaegerTrace represents a simplified version of a Jaeger trace.
+type SimplifiedJaegerTrace struct {
+    TraceID string
+    SpanMap map[string]*SimplifiedJaegerTraceSpan
+}
+
 // SimplifiedJaegerTraceSpan represents a simplified version of a Jaeger trace.
 type SimplifiedJaegerTraceSpan struct {
     TraceID       string            `json:"traceId"`       // Unique identifier for the trace
@@ -19,6 +25,7 @@ type SimplifiedJaegerTraceSpan struct {
     Tags          []interface{}     `json:"tags"`          // Tags associated with the span
     Process       Process           `json:"process"`       // Process information
     Logs          []LogEntry        `json:"logs"`          // Log entries associated with the span
+    ChildrenIDs   []string                                 // Children spans' IDs
 }
 
 // Process represents the process information in a Jaeger trace.
@@ -49,11 +56,7 @@ type SpanKindType string
 
 // TraceManager manages traces.
 type TraceManager struct {
-    // maps trace IDs to spans
-    TraceIDMap map[string][]*SimplifiedJaegerTraceSpan
-
-    // maps span IDs to spans
-    SpanIDMap map[string]*SimplifiedJaegerTraceSpan
+   Traces    []*SimplifiedJaegerTrace
 }
 
 // NewTraceManager creates a new TraceManager.
@@ -61,46 +64,34 @@ func NewTraceManager() *TraceManager {
     return &TraceManager{}
 }
 
-// QueryTraces pulls traces from the trace source(e.g., Jaeger).
-func (m *TraceManager) PullTraces() ([]*SimplifiedJaegerTraceSpan, error) {
+// QueryTraces pulls traces from the trace source(e.g., Jaeger), and update local data.
+func (m *TraceManager) PullTraces() error {
     // TODO: Implement this method @xunzhou24
-    return nil, nil
-}
-
-// Process processes the given spans.
-func (m *TraceManager) ProcessTraces(spans []*SimplifiedJaegerTraceSpan) error {
-    // Map trace IDs to spans
-    for _, span := range spans {
-        m.TraceIDMap[span.TraceID] = append(m.TraceIDMap[span.TraceID], span)
-        m.SpanIDMap[span.SpanID] = span
-    }
     return nil
 }
 
 // GetCallInfos returns the call information (list) between services.
-func (m *TraceManager) GetCallInfos() ([]*CallInfo, error) {
+func (m *TraceManager) GetCallInfos(trace *SimplifiedJaegerTrace) ([]*CallInfo, error) {
     res := make([]*CallInfo, 0)
-    for _, span := range m.SpanIDMap {
-        parentID := span.ParentID
-        if parentID == "" || parentID == span.SpanID {
-            continue
+    for _, span := range trace.SpanMap {
+        for _, ref := range span.References {
+            refMap, ok := ref.(map[string]string)
+            if !ok {
+                log.Warn().Msg("Invalid reference type")
+                continue
+            }
+            if refMap["refType"] == "CHILD_OF" {
+                parentSpanID := refMap["spanID"] // TODO: check here @xunzhou24
+                parentSpan := trace.SpanMap[parentSpanID]
+                callInfo := &CallInfo{
+                    SourceService: parentSpan.Process.ServiceName,
+                    TargetService: span.Process.ServiceName,
+                    SourceMethod:  parentSpan.OperationName,
+                    TargetMethod:  span.OperationName,
+                }
+                res = append(res, callInfo)
+            }
         }
-        parentSpan, ok := m.SpanIDMap[parentID]
-        if !ok {
-            log.Error().Msgf("[TraceManager.getCallInfos] Parent span not found: %s", parentID)
-            continue
-        }
-        // TODO: extract call info from spans @xunzhou24
-        sourceServiceName := "sourceServiceName"
-        targetServiceName := "targetServiceName"
-        sourceMethodName := "sourceMethodName"
-        targetMethodName := "targetMethodName"
-        res = append(res, &CallInfo{
-            SourceService: sourceServiceName,
-            TargetService: targetServiceName,
-            SourceMethod:  sourceMethodName,
-            TargetMethod:  targetMethodName,
-        })
     }
     return res, nil
 }

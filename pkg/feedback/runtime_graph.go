@@ -23,3 +23,9 @@ func NewRuntimeGraph() *RuntimeGraph {
 		Edges: edges,
 	}
 }
+
+// UpdateFromCallInfos updates the runtime graph from the call information.
+func (g *RuntimeGraph) UpdateFromCallInfos(callInfos []*CallInfo) error {
+	// TODO: Implement this method. @xunzhou24
+	return nil
+}
