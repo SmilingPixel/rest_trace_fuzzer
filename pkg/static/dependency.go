@@ -1,4 +1,4 @@
-package apimanager
+package static
 
 // APIDependencyGraph represents the dependencies between different APIs.
 // It is a map from an API method to a list of API methods that it depends on.

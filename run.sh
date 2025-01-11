@@ -18,10 +18,17 @@ OAS_FILE="../openapi/otel_demo_swagger.json"
 RESTLER_DEPENDENCY_FILE="../restler_bin/restler/Compile/dependencies.json"
 # 3. Dependency file type
 DEPENDENCY_FILE_TYPE="Restler"
+# 4. Fuzzer type
+FUZZER_TYPE="Basic"
+# 5. Fuzzing budget
+FUZZING_BUDGET="30s"
+# 6. Server base URL
+SERVER_BASE_URL="http://www.example.com"
 
 # Run the binary
 echo "Running the binary..."
 $OUTPUT_DIR/$BINARY_NAME \
     --openapi-spec $OAS_FILE \
-    --dependency-file $RESTLER_DEPENDENCY_FILE \
-    --dependency-file-type $DEPENDENCY_FILE_TYPE
+    --fuzzer-type $FUZZER_TYPE \
+    --fuzzer-budget $FUZZING_BUDGET \
+    --server-base-url $SERVER_BASE_URL

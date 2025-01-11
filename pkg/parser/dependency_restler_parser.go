@@ -2,7 +2,7 @@ package parser
 
 import (
 	"os"
-	"resttracefuzzer/pkg/apimanager"
+	"resttracefuzzer/pkg/static"
 
 	"github.com/bytedance/sonic"
 	"github.com/rs/zerolog/log"
@@ -19,22 +19,22 @@ func NewAPIDependencyRestlerParser() *APIDependencyRestlerParser {
 }
 
 // ParseFromPath parses API dependencies from a given path.
-func (p *APIDependencyRestlerParser) ParseFromPath(path string) (*apimanager.APIDependencyGraph, error) {
+func (p *APIDependencyRestlerParser) ParseFromPath(path string) (*static.APIDependencyGraph, error) {
 	data, err := os.ReadFile(path)
-    if err != nil {
-        log.Info().Msgf("[ParseFromPath] Error reading file: %v", err)
-        return nil, err
-    }
+	if err != nil {
+		log.Info().Msgf("[ParseFromPath] Error reading file: %v", err)
+		return nil, err
+	}
 
 	type ProducerConsumerDetail []map[string]string
 	type ParamInMap map[string]ProducerConsumerDetail
 	type MethodMap map[string]ParamInMap
 	type PathMap map[string]MethodMap
-    var jsonMap PathMap
-    if err := sonic.Unmarshal(data, &jsonMap); err != nil {
-        log.Info().Msgf("[ParseFromPath] Error parsing JSON: %v", err)
-        return nil, err
-    }
+	var jsonMap PathMap
+	if err := sonic.Unmarshal(data, &jsonMap); err != nil {
+		log.Info().Msgf("[ParseFromPath] Error parsing JSON: %v", err)
+		return nil, err
+	}
 
 	// jsonMap: path -> method -> paramIn -> producer_consumer_details
 	// Example JSON format:
@@ -62,7 +62,7 @@ func (p *APIDependencyRestlerParser) ParseFromPath(path string) (*apimanager.API
 	//   ...
 	// }
 
-	dependencyGraph := apimanager.NewAPIDependencyGraph()
+	dependencyGraph := static.NewAPIDependencyGraph()
 	for path, methods := range jsonMap {
 		for method, paramInMap := range methods {
 			for _, producerConsumerDetails := range paramInMap {
@@ -70,11 +70,11 @@ func (p *APIDependencyRestlerParser) ParseFromPath(path string) (*apimanager.API
 					if producerConsumerDetail["producer_endpoint"] == "" {
 						continue
 					}
-					consumer := apimanager.SimpleAPIMethod{
+					consumer := static.SimpleAPIMethod{
 						Endpoint: path,
 						Method:   method,
 					}
-					producer := apimanager.SimpleAPIMethod{
+					producer := static.SimpleAPIMethod{
 						Endpoint: producerConsumerDetail["producer_endpoint"],
 						Method:   producerConsumerDetail["producer_method"],
 					}

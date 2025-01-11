@@ -1,11 +1,9 @@
 package parser
 
-import (
-	"resttracefuzzer/pkg/apimanager"
+import "resttracefuzzer/pkg/static"
 
-	// "github.com/bytedance/sonic"
-)
+// "github.com/bytedance/sonic"
 
 type APIDependencyParser interface {
-	ParseFromPath(path string) (*apimanager.APIDependencyGraph, error)
+	ParseFromPath(path string) (*static.APIDependencyGraph, error)
 }

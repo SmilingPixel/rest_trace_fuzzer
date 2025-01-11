@@ -1,4 +1,4 @@
-[WIP] 技术方案 trace_rest_test
+# [WIP] 技术方案 trace_rest_test
 
 
 
@@ -11,6 +11,8 @@ Repository: [GitHub - SmilingPixel/rest_trace_fuzzer](https://github.com/Smiling
 # 2. 总体架构
 
 ![You can download the raw file, and edit using draw.io](architecture.svg)
+
+The architecture diagram is powered by [draw.io](https://app.diagrams.net/).
 
 总体分为3个模块
 
@@ -67,11 +69,12 @@ Edge， a -> b 表示 a 依赖于 b，即 a 的执行需要 b 的执行结果
 | target           | Operation  | 表示依赖的目标 Operation             |
 | source_resource  | [TODO: 待定] | 表示源 Operation 依赖的资源（例如某个参数） |
 
-Graph，包含一组 Edge，表示整个系统的依赖关系。fuzzer 中包含两个 Graph，一个是整个系统的 Graph，一个是 service 之间的 Graph。
+Graph，包含一组 Edge，表示整个系统的依赖关系。
 
 
 ### 3.2.2. ODG 解析
 
+#### 3.2.2.1. 参考
 参考 [SeUniVr/RestTestGen](https://github.com/SeUniVr/RestTestGen)，原论文:
 ```bibtex
 @article{corradini2022nominalerror,
@@ -99,12 +102,19 @@ if (outputParameter.getNormalizedName().equals(inputParameter.getNormalizedName(
 }
 ```
 
+#### 3.2.2.2. 实现差异
+
+由于是内部 API 调用的依赖，因此更加侧重于“**资源流向**”的依赖关系，例如：
+- CheckoutService 的 placeOrder 调用了 PaymentService 的 charge
+- placeOrder 输入参数和 charge 输出参数中，都有 currency 字段
+- 我们认为，这一信息，表示该数据从 CheckoutService 流向 PaymentService
+- 因此，我们在 ODG 中，应该有一条边，表示 placeOrder 依赖于 charge
+
 主要依赖于两条规则：
 1. 如果两个参数的 normalized name 相同，那么认为这两个参数有依赖关系
-2. 两个操作之间存在“**资源创建**”的依赖关系
+2. 两个操作之间存在“**资源流向**”的依赖关系
 
 ## 3.3. Resource Pool
-
 
 
 [TODO: 待定]
@@ -113,7 +123,7 @@ if (outputParameter.getNormalizedName().equals(inputParameter.getNormalizedName(
 ## 3.4. Seed Queue
 
 总体思路：
-- 从 ODG 中找到入度为 0 的节点，作为种子节点
+- ~~从 ODG 中找到入度为 0 的节点，作为种子节点~~
 - 从种子节点开始，根据 ODG 的依赖关系，构建测试序列
 - 将测试序列中的节点加入 Seed Queue （类似于 DFS 的思路）
 - 优先级:
@@ -147,7 +157,7 @@ if (outputParameter.getNormalizedName().equals(inputParameter.getNormalizedName(
 
 # 4. 子任务排期
 
-- [ ] 初步的技术方案设计，包括整体架构和模块设计
+- [x] 初步的技术方案设计，包括整体架构和模块设计
 - [ ] OpenAPI 解析模块的实现
 - [ ] RestTestGen 的 ODG 解析模块的移植
 - [ ] TODO
