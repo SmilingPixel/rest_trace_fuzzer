@@ -2,6 +2,7 @@ package casemanager
 
 import (
 	"fmt"
+	"resttracefuzzer/pkg/static"
 
 	"github.com/rs/zerolog/log"
 )
@@ -10,15 +11,21 @@ import (
 type CaseManager struct {
 	// Testcases is a list of test cases.
 	Testcases []*Testcase
+
+	// The API manager.
+	APIManager *static.APIManager
 }
 
 
 // NewCaseManager creates a new CaseManager.
-func NewCaseManager() *CaseManager {
+func NewCaseManager(APIManager *static.APIManager) *CaseManager {
 	testcases := make([]*Testcase, 0)
-	return &CaseManager{
+	m := &CaseManager{
+		APIManager: APIManager,
 		Testcases: testcases,
 	}
+	m.initTestcasesFromDoc()
+	return m
 }
 
 
@@ -38,4 +45,21 @@ func (m *CaseManager) Pop() (*Testcase, error) {
 // Push adds a test case to the case manager.
 func (m *CaseManager) Push(testcase *Testcase) {
 	m.Testcases = append(m.Testcases, testcase)
+}
+
+// Init initializes the case queue.
+func (m *CaseManager) initTestcasesFromDoc() error {
+	// TODO: Implement this method. @xunzhou24
+	// At the beginning, each testcase is a simple request to each API.
+	for method, operation := range m.APIManager.APIMap {
+		operationCase := OperationCase{
+			Operation: operation,
+			APIMethod: method,
+		}
+		testcase := &Testcase{
+			OperationCases: []*OperationCase{&operationCase},
+		}
+		m.Push(testcase)
+	}
+	return nil
 }

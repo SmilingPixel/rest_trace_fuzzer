@@ -73,6 +73,10 @@ func (m *TraceManager) PullTraces() error {
 // GetCallInfos returns the call information (list) between services.
 func (m *TraceManager) GetCallInfos(trace *SimplifiedJaegerTrace) ([]*CallInfo, error) {
     res := make([]*CallInfo, 0)
+    if trace == nil || len(trace.SpanMap) == 0 {
+        log.Warn().Msg("No trace available")
+        return res, nil
+    }
     for _, span := range trace.SpanMap {
         for _, ref := range span.References {
             refMap, ok := ref.(map[string]string)

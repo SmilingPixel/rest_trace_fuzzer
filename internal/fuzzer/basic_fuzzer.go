@@ -42,9 +42,9 @@ func NewBasicFuzzer(
 	responseChecker *feedback.ResponseChecker,
 	traceManager *feedback.TraceManager,
 ) *BasicFuzzer {
-	httpClient := &utils.HTTPClient{
-		BaseURL: config.GlobalConfig.ServerBaseURL,
-	}
+	httpClient := utils.NewHTTPClient(
+		config.GlobalConfig.ServerBaseURL,
+	)
 	return &BasicFuzzer{
 		APIManager:  APIManager,
 		CaseManager: caseManager,

@@ -3,7 +3,6 @@ package feedback
 import (
 	"resttracefuzzer/pkg/static"
 
-	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/rs/zerolog/log"
 )
 
@@ -16,7 +15,7 @@ type ResponseChecker struct {
 
 // NewResponseChecker creates a new ResponseChecker.
 // An OpenAPI document is required to initialize the ResponseChecker.
-func NewResponseChecker(doc openapi3.T) *ResponseChecker {
+func NewResponseChecker(APIManager *static.APIManager) *ResponseChecker {
 	counter := make(map[static.SimpleAPIMethod]map[int]int)
 	// TODO: initialize the counter with the status code in the OpenAPI document.
 	return &ResponseChecker{

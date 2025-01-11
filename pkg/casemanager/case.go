@@ -8,7 +8,7 @@ import (
 
 // An OperationCase is a pair of an API method and an operation.
 type OperationCase struct {
-	APIMethod *static.SimpleAPIMethod
+	APIMethod static.SimpleAPIMethod
 	Operation *openapi3.Operation
 }
 
