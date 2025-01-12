@@ -51,6 +51,8 @@ func main() {
 	}
 	apiManager.InitFromSystemDoc(doc)
 
+	// Parse doc of internal services
+
 	// Initialize case manager and response checker
 	caseManager := casemanager.NewCaseManager(apiManager)
 	responseChecker := feedback.NewResponseChecker(apiManager)
