@@ -99,13 +99,13 @@ func (f *BasicFuzzer) ExecuteTestcase(testcase *casemanager.Testcase) error {
 			Endpoint: path,
 			Method:   method,
 		}
-		log.Info().Msgf("[BasicFuzzer.ExecuteTestcase] Execute operation: %s %s", method, path)
+		log.Debug().Msgf("[BasicFuzzer.ExecuteTestcase] Execute operation: %s %s", method, path)
 		statusCode, respBody, err := f.HTTPClient.PerformRequest(path, method)
 		if err != nil {
 			log.Error().Msg("[BasicFuzzer.ExecuteTestcase] Failed to perform request")
 			return err
 		}
-		log.Info().Msgf("[BasicFuzzer.ExecuteTestcase] Response status code: %d, body: %s", statusCode, string(respBody))
+		log.Debug().Msgf("[BasicFuzzer.ExecuteTestcase] Response status code: %d, body: %s", statusCode, string(respBody))
 
 		// Check the response.
 		err = f.ResponseChecker.CheckResponse(simpleAPIMethod, statusCode)
