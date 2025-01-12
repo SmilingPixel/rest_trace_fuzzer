@@ -24,8 +24,8 @@ FUZZER_TYPE="Basic"
 FUZZING_BUDGET="30s"
 # 6. Server base URL
 SERVER_BASE_URL="http://www.example.com"
-# 7. Internal service OpenAPI files
-read -r INTERNAL_SERVICE_OAS_FILES <<< "'$(cat ../openapi/otel_demo/service2oas.json)'"
+# 7. Internal service OpenAPI map file
+INTERNAL_SERVICE_OAS_MAP_FILE="../openapi/otel_demo/service2oas.json"
 
 echo "INTERNAL_SERVICE_OAS_FILES: $INTERNAL_SERVICE_OAS_FILES"
 
@@ -36,4 +36,4 @@ $OUTPUT_DIR/$BINARY_NAME \
     --fuzzer-type $FUZZER_TYPE \
     --fuzzer-budget $FUZZING_BUDGET \
     --server-base-url $SERVER_BASE_URL \
-    --internal-service-openapi-spec $INTERNAL_SERVICE_OAS_FILES
+    --internal-service-openapi-spec-map $INTERNAL_SERVICE_OAS_MAP_FILE

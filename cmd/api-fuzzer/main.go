@@ -24,7 +24,7 @@ func main() {
 
 	// Override log level if specified in the command line arguments
 	logLevels := map[string]zerolog.Level{
-		"": 	 zerolog.InfoLevel,
+		"":      zerolog.InfoLevel,
 		"info":  zerolog.InfoLevel,
 		"debug": zerolog.DebugLevel,
 		"warn":  zerolog.WarnLevel,
@@ -44,7 +44,7 @@ func main() {
 
 	// read OpenAPI spec and parse it
 	apiParser := parser.NewOpenAPIParser()
-	doc, err := apiParser.ParseFromPath(config.GlobalConfig.OpenAPISpecPath)
+	doc, err := apiParser.ParseSystemDocFromPath(config.GlobalConfig.OpenAPISpecPath)
 	if err != nil {
 		log.Error().Msgf("[main] Failed to parse OpenAPI spec: %v", err)
 		return
@@ -52,6 +52,12 @@ func main() {
 	apiManager.InitFromSystemDoc(doc)
 
 	// Parse doc of internal services
+	serviceDocs, err := apiParser.ParseServiceDocFromMapPath(config.GlobalConfig.InternalServiceOpenAPIMapPath)
+	if err != nil {
+		log.Error().Msgf("[main] Failed to parse internal service OpenAPI spec: %v", err)
+		return
+	}
+	apiManager.InitFromServiceDocs(serviceDocs)
 
 	// Initialize case manager and response checker
 	caseManager := casemanager.NewCaseManager(apiManager)
