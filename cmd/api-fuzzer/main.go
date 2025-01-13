@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"resttracefuzzer/internal/config"
 	"resttracefuzzer/internal/fuzzer"
 	"resttracefuzzer/pkg/casemanager"
@@ -12,11 +13,31 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+
+const HELLO = `
+ x                                                
+ x                                                
+ x            x                x     x            
+ x           xx                x     x            
+ x           x                 x    xx            
+xx           x                x     x             
+x           xx     xxxxxx     x    xx             
+x   xxxxxxxxx     xx    x     x    x      xxxxx   
+x           x    xx   xx     xx    x     xx   xxx 
+x          xx    xxxxxx      x     x     x      xx
+x          x     x           x     x     x       x
+x          x      xx         x     x     x      xx
+x          x       xxxxxxx   xx    xx    xxx   xx 
+ x         x                               xxxxx  
+
+`
+
+
 func main() {
 
 	// Initialize logger with default log level (Info)
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
-	log.Info().Msg("Hello, World!")
+	fmt.Print(HELLO)
 
 	// Parse command line arguments and environment variables
 	config.InitConfig()
