@@ -45,6 +45,7 @@ func NewBasicFuzzer(
 	httpClient := utils.NewHTTPClient(
 		config.GlobalConfig.ServerBaseURL,
 	)
+	runtimeGraph := feedback.NewRuntimeGraph()
 	return &BasicFuzzer{
 		APIManager:  APIManager,
 		CaseManager: caseManager,
@@ -52,6 +53,7 @@ func NewBasicFuzzer(
 		TraceManager: traceManager,
 		Budget:      config.GlobalConfig.FuzzerBudget,
 		HTTPClient:  httpClient,
+		RunTimeGraph: runtimeGraph,
 	}
 }
 
@@ -133,4 +135,9 @@ func (f *BasicFuzzer) ExecuteTestcase(testcase *casemanager.Testcase) error {
 		log.Info().Msg("[BasicFuzzer.ExecuteTestcase] Operation executed successfully")
 	}
 	return nil
+}
+
+// GetRuntimeGraph gets the runtime graph.
+func (f *BasicFuzzer) GetRuntimeGraph() *feedback.RuntimeGraph {
+	return f.RunTimeGraph
 }

@@ -138,6 +138,13 @@ func main() {
 		log.Error().Msgf("[main] Failed to generate system report: %v", err)
 		return
 	}
+	internalServiceReporter := report.NewInternalServiceReporter()
+	internalServiceReportPath := fmt.Sprintf("%s/internal_service_report_%s.json", config.GlobalConfig.OutputDir, t.Format(time.RFC3339))
+	err = internalServiceReporter.GenerateInternalServiceReport(mainFuzzer.GetRuntimeGraph(), internalServiceReportPath)
+	if err != nil {
+		log.Error().Msgf("[main] Failed to generate internal service report: %v", err)
+		return
+	}
 
 	log.Info().Msg("[main] Fuzzing completed")
 }
