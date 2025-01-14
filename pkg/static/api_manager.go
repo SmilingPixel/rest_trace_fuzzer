@@ -11,10 +11,11 @@ type APIManager struct {
 	// The OpenAPI definition of the API.
 	APIDoc *openapi3.T
 
+	// The map from the simple API method to the OpenAPI operation.
+	APIMap map[SimpleAPIMethod]*openapi3.Operation
+
 	// Internal APIs of the services in the system, a map from service name to OpenAPI definition.
 	InternalServiceAPIDocs map[string]*openapi3.T
-
-	APIMap map[SimpleAPIMethod]*openapi3.Operation
 
 	// The dependency graph of the API.
 	APIDependencyGraph *APIDependencyGraph

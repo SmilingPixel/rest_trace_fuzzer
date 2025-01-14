@@ -7,7 +7,9 @@ import (
 	"resttracefuzzer/pkg/casemanager"
 	"resttracefuzzer/pkg/feedback"
 	"resttracefuzzer/pkg/parser"
+	"resttracefuzzer/pkg/report"
 	"resttracefuzzer/pkg/static"
+	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -124,7 +126,18 @@ func main() {
 	}
 
 	// generate result report
+	// Reports are named using current timestamp, in RFC3339 format,
+	// with prefix "system_report_", "internal_service_report_", etc.
+	// The reports are saved in the output directory
 	// TODO @xunzhou24
+	t := time.Now()
+	systemReporter := report.NewSystemReporter(apiManager)
+	systemReportPath := fmt.Sprintf("%s/system_report_%s.json", config.GlobalConfig.OutputDir, t.Format(time.RFC3339))
+	err = systemReporter.GenerateSystemReport(responseChecker, systemReportPath)
+	if err != nil {
+		log.Error().Msgf("[main] Failed to generate system report: %v", err)
+		return
+	}
 
 	log.Info().Msg("[main] Fuzzing completed")
 }

@@ -11,15 +11,19 @@ type ResponseChecker struct {
 	// StatusHitCount is the hit count of the status code.
 	// It maps the status code to the hit count.
 	StatusHitCount map[static.SimpleAPIMethod]map[int]int
+
+	// ResponseChecker requires an APIManager to initialize.
+	APIManager *static.APIManager
 }
 
 // NewResponseChecker creates a new ResponseChecker.
 // An OpenAPI document is required to initialize the ResponseChecker.
 func NewResponseChecker(APIManager *static.APIManager) *ResponseChecker {
 	counter := make(map[static.SimpleAPIMethod]map[int]int)
-	// TODO: initialize the counter with the status code in the OpenAPI document.
+	// TODO: initialize the counter with the status code in the OpenAPI document. @xunzhou24
 	return &ResponseChecker{
 		StatusHitCount: counter,
+		APIManager:     APIManager,
 	}
 }
 

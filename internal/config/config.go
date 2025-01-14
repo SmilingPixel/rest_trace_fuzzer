@@ -29,6 +29,9 @@ type RuntimeConfig struct {
 
 	// log level
 	LogLevel string
+
+	// Output directory, e.g., ./output
+	OutputDir string
 }
 
 func InitConfig() {

@@ -23,6 +23,7 @@ func ParseCmdArgs() {
 	// flag.StringVar(&GlobalConfig.DependencyFileType, "dependency-file-type", "", "Type of the dependency file. Currently only support 'Restler'")
 	flag.DurationVar(&GlobalConfig.FuzzerBudget, "fuzzer-budget", 30, "The maximum time the fuzzer can run, in seconds")
 	flag.StringVar(&GlobalConfig.LogLevel, "log-level", "info", "Log level: debug, info, warn, error, fatal, panic")
+	flag.StringVar(&GlobalConfig.OutputDir, "output-dir", "./output", "Output directory, e.g., ./output")
 
 	
 	flag.Parse()
