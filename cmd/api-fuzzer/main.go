@@ -75,12 +75,12 @@ func main() {
 	apiManager.InitFromSystemDoc(doc)
 
 	// Parse doc of internal services
-	serviceDocs, err := apiParser.ParseServiceDocFromMapPath(config.GlobalConfig.InternalServiceOpenAPIMapPath)
+	serviceDoc, err := apiParser.ParseServiceDocFromPath(config.GlobalConfig.InternalServiceOpenAPIPath)
 	if err != nil {
 		log.Error().Msgf("[main] Failed to parse internal service OpenAPI spec: %v", err)
 		return
 	}
-	apiManager.InitFromServiceDocs(serviceDocs)
+	apiManager.InitFromServiceDoc(serviceDoc)
 
 	// Initialize case manager and response checker
 	caseManager := casemanager.NewCaseManager(apiManager)

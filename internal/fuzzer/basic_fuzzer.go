@@ -97,9 +97,11 @@ func (f *BasicFuzzer) ExecuteTestcase(testcase *casemanager.Testcase) error {
 		// operation := operationCase.Operation
 		path := operationCase.APIMethod.Endpoint
 		method := operationCase.APIMethod.Method
+		// By default, we only support HTTP method.
 		simpleAPIMethod := static.SimpleAPIMethod{
 			Endpoint: path,
 			Method:   method,
+			Type:     static.SimpleAPIMethodTypeHTTP,
 		}
 		log.Debug().Msgf("[BasicFuzzer.ExecuteTestcase] Execute operation: %s %s", method, path)
 		statusCode, respBody, err := f.HTTPClient.PerformRequest(path, method)

@@ -14,8 +14,11 @@ type APIManager struct {
 	// The map from the simple API method to the OpenAPI operation.
 	APIMap map[SimpleAPIMethod]*openapi3.Operation
 
-	// Internal APIs of the services in the system, a map from service name to OpenAPI definition.
-	InternalServiceAPIDocs map[string]*openapi3.T
+	// Internal APIs of the services in the system.
+	InternalServiceAPIDoc *openapi3.T
+
+	// The map from the service name to the map from the method name to the OpenAPI operation.
+	InternalServiceAPIMap map[string]map[string]*openapi3.Operation
 
 	// The dependency graph of the API.
 	APIDependencyGraph *APIDependencyGraph
@@ -36,13 +39,15 @@ func (m *APIManager) InitFromSystemDoc(doc *openapi3.T) {
 	m.APIMap = make(map[SimpleAPIMethod]*openapi3.Operation)
 	for path, pathItem := range doc.Paths.Map() {
 		for method, operation := range pathItem.Operations() {
-			m.APIMap[SimpleAPIMethod{Method: method, Endpoint: path}] = operation
+			// By default, the type of the API is HTTP.
+			m.APIMap[SimpleAPIMethod{Method: method, Endpoint: path, Type: SimpleAPIMethodTypeHTTP}] = operation
 		}
 	}
 }
 
-// InitFromServiceDocs initializes the API manager from a map of service names to OpenAPI documents.
-func (m *APIManager) InitFromServiceDocs(docs map[string]*openapi3.T) {
-	m.InternalServiceAPIDocs = docs
+// InitFromServiceDocs initializes the API manager from the OpenAPI document of the services.
+func (m *APIManager) InitFromServiceDoc(doc *openapi3.T) {
+	m.InternalServiceAPIDoc = doc
+	m.InternalServiceAPIMap = make(map[string]map[string]*openapi3.Operation)
 	// TODO: Implement dependency graph and dataflow graph initialization @xunzhou24
 }

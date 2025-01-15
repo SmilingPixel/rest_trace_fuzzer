@@ -39,50 +39,32 @@ func NewAPIDataflowGraph() *APIDataflowGraph {
 
 // AddEdge adds an edge to the dataflow graph.
 //
-// `serviceDocs` is a map from service name to the OpenAPI3 document of the service.
-func (g *APIDataflowGraph) ParseFromServiceDocument(serviceDocs map[string]*openapi3.T) {
-	for sourceService, sourceDoc := range serviceDocs {
-		for targetService, targetDoc := range serviceDocs {
+// `serviceDocMap` is a map from the service name to the map from the method name to the OpenAPI operation.
+func (g *APIDataflowGraph) ParseFromServiceDocument(serviceDocMap map[string]map[string]*openapi3.Operation) {
+	for sourceService, sourceMethodMap := range serviceDocMap {
+		for targetService, targetMethodMap := range serviceDocMap {
 			if sourceService == targetService {
 				continue
 			}
-			g.parseServiceDocPair(sourceService, sourceDoc, targetService, targetDoc)
+			for sourceMethod, sourceOperation := range sourceMethodMap {
+				for targetMethod, targetOperation := range targetMethodMap {
+					g.parseServiceOperationPair(
+						sourceService, sourceMethod, sourceOperation,
+						targetService, targetMethod, targetOperation,
+					)
+				}
+			}
 		}
 	}
 }
 
-// parseServiceDocPair parses the dataflow between two services.
-func (g *APIDataflowGraph) parseServiceDocPair(sourceService string, sourceDoc *openapi3.T, targetService string, targetDoc *openapi3.T) {
-	for _, sourcePath := range sourceDoc.Paths.InMatchingOrder() {
-		sourcePathItem := sourceDoc.Paths.Find(sourcePath)
-		for _, targetPath := range targetDoc.Paths.InMatchingOrder() {
-			targetPathItem := targetDoc.Paths.Find(targetPath)
-			g.parseServicePathPair(sourceService, sourcePath, sourcePathItem, targetService, targetPath, targetPathItem)
-		}
-
-	}
-}
-
-// parseServicePathPair parses the dataflow between two paths.
-func (g *APIDataflowGraph) parseServicePathPair(sourceService string, sourcePath string, sourcePathItem *openapi3.PathItem, targetService string, targetPath string, targetPathItem *openapi3.PathItem) {
-	for sourceMethod, sourceOperation := range sourcePathItem.Operations() {
-		for targetMethod, targetOperation := range targetPathItem.Operations() {
-			g.parseServiceOperationPair(
-				sourceService, sourcePath, sourceMethod, sourceOperation,
-				targetService, targetPath, targetMethod, targetOperation,
-			)
-		}
-	}
-}
 
 // parseServiceOperationPair parses the dataflow between two operations.
 func (g *APIDataflowGraph) parseServiceOperationPair(
 	sourceService string,
-	sourcePath string,
 	sourceMethod string,
 	sourceOperation *openapi3.Operation,
 	targetService string,
-	targetPath string,
 	targetMethod string,
 	targetOperation *openapi3.Operation,
 ) {
@@ -108,16 +90,16 @@ func (g *APIDataflowGraph) parseServiceOperationPair(
 				sourceNode := &APIDataflowNode{
 					ServiceName: sourceService,
 					SimpleAPIMethod: &SimpleAPIMethod{
-						Endpoint: sourcePath,
 						Method:   sourceMethod,
+						Type:    SimpleAPIMethodTypeGRPC,
 					},
 					Operation: sourceOperation,
 				}
 				targetNode := &APIDataflowNode{
 					ServiceName: targetService,
 					SimpleAPIMethod: &SimpleAPIMethod{
-						Endpoint: targetPath,
 						Method:   targetMethod,
+						Type:    SimpleAPIMethodTypeGRPC,
 					},
 					Operation: targetOperation,
 				}

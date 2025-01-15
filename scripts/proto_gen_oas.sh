@@ -3,7 +3,7 @@
 # By default, the output directory is the current directory, the output file is `openapi.yaml`
 
 protoc \
-    demo.proto \
+    demo_annotated.proto \
     -I . \
     -I=./include \
     --openapi_out=.

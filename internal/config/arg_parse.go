@@ -11,7 +11,7 @@ func ParseCmdArgs() {
 	// Required arguments
 	flag.StringVar(&GlobalConfig.OpenAPISpecPath, "openapi-spec", "", "Path to the OpenAPI spec file")
 	flag.StringVar(&GlobalConfig.ServerBaseURL, "server-base-url", "https://www.example.com", "Base URL of the API, e.g., https://www.example.com")
-	flag.StringVar(&GlobalConfig.InternalServiceOpenAPIMapPath, "internal-service-openapi-spec-map", "", "JSON file of service name and path to the OpenAPI spec files in the format {\"service_name\":\"oas_spec_file\"}")
+	flag.StringVar(&GlobalConfig.InternalServiceOpenAPIPath, "internal-service-openapi-spec", "", "Path to internal service openapi spec file, json format")
 
 
 	// Deprecated, used to parse dependency files from Restler
