@@ -8,7 +8,7 @@ import (
 // APIDataflowNode represents a node in the dataflow graph of the internal APIs.
 type APIDataflowNode struct {
 	ServiceName     string
-	SimpleAPIMethod *SimpleAPIMethod
+	SimpleAPIMethod SimpleAPIMethod
 	Operation       *openapi3.Operation
 }
 
@@ -40,7 +40,7 @@ func NewAPIDataflowGraph() *APIDataflowGraph {
 // AddEdge adds an edge to the dataflow graph.
 //
 // `serviceDocMap` is a map from the service name to the map from the method name to the OpenAPI operation.
-func (g *APIDataflowGraph) ParseFromServiceDocument(serviceDocMap map[string]map[string]*openapi3.Operation) {
+func (g *APIDataflowGraph) ParseFromServiceDocument(serviceDocMap map[string]map[SimpleAPIMethod]*openapi3.Operation) {
 	for sourceService, sourceMethodMap := range serviceDocMap {
 		for targetService, targetMethodMap := range serviceDocMap {
 			if sourceService == targetService {
@@ -62,10 +62,10 @@ func (g *APIDataflowGraph) ParseFromServiceDocument(serviceDocMap map[string]map
 // parseServiceOperationPair parses the dataflow between two operations.
 func (g *APIDataflowGraph) parseServiceOperationPair(
 	sourceService string,
-	sourceMethod string,
+	sourceMethod SimpleAPIMethod,
 	sourceOperation *openapi3.Operation,
 	targetService string,
-	targetMethod string,
+	targetMethod SimpleAPIMethod,
 	targetOperation *openapi3.Operation,
 ) {
 	sourceInParameters := make([]*openapi3.Parameter, 0)
@@ -89,18 +89,12 @@ func (g *APIDataflowGraph) parseServiceOperationPair(
 			if sourceInParam.Name == targetInParam.Name {
 				sourceNode := &APIDataflowNode{
 					ServiceName: sourceService,
-					SimpleAPIMethod: &SimpleAPIMethod{
-						Method:   sourceMethod,
-						Type:    SimpleAPIMethodTypeGRPC,
-					},
+					SimpleAPIMethod: sourceMethod,
 					Operation: sourceOperation,
 				}
 				targetNode := &APIDataflowNode{
 					ServiceName: targetService,
-					SimpleAPIMethod: &SimpleAPIMethod{
-						Method:   targetMethod,
-						Type:    SimpleAPIMethodTypeGRPC,
-					},
+					SimpleAPIMethod: targetMethod,
 					Operation: targetOperation,
 				}
 				g.AddEdge(sourceNode, targetNode, sourceInParam, targetInParam)
