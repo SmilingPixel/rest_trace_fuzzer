@@ -25,11 +25,9 @@ FUZZING_BUDGET="30s"
 # 6. Server base URL
 SERVER_BASE_URL="http://www.example.com"
 # 7. Internal service OpenAPI map file
-INTERNAL_SERVICE_OAS_MAP_FILE="../openapi/otel_demo/service2oas.json"
+INTERNAL_SERVICE_OAS_FILE="../openapi/otel_demo/internal_service_oas.yaml"
 # 8. Output directory
 OUTPUT_DIR="./output"
-
-echo "INTERNAL_SERVICE_OAS_FILES: $INTERNAL_SERVICE_OAS_FILES"
 
 # Run the binary
 echo "Running the binary..."
@@ -38,5 +36,5 @@ $OUTPUT_DIR/$BINARY_NAME \
     --fuzzer-type $FUZZER_TYPE \
     --fuzzer-budget $FUZZING_BUDGET \
     --server-base-url $SERVER_BASE_URL \
-    --internal-service-openapi-spec-map $INTERNAL_SERVICE_OAS_MAP_FILE \
+    --internal-service-openapi-spec $INTERNAL_SERVICE_OAS_FILE \
     --output-dir $OUTPUT_DIR
