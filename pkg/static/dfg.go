@@ -1,6 +1,7 @@
 package static
 
 import (
+	"github.com/bytedance/sonic"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/rs/zerolog/log"
 )
@@ -55,6 +56,14 @@ func (g *APIDataflowGraph) ParseFromServiceDocument(serviceDocMap map[string]map
 				}
 			}
 		}
+	}
+
+	// log parsed dataflow graph, for debugging
+	dfgJson, err := sonic.MarshalString(g)
+	if err != nil {
+		log.Error().Err(err).Msg("[APIDataflowGraph.ParseFromServiceDocument] Failed to marshal dataflow graph")
+	} else {
+		log.Debug().Msgf("[APIDataflowGraph.ParseFromServiceDocument] Dataflow graph: %s", dfgJson)
 	}
 }
 

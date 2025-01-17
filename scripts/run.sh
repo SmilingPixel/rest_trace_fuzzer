@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # Set the output directory and binary name
-OUTPUT_DIR="bin"
+BIN_OUTPUT_DIR="bin"
 BINARY_NAME="api-fuzzer"
 
 # Ensure the binary exists
-if [ ! -f "$OUTPUT_DIR/$BINARY_NAME" ]; then
+if [ ! -f "$BIN_OUTPUT_DIR/$BINARY_NAME" ]; then
     echo "Error: Binary not found. Please build the project first."
     exit 1
 fi
@@ -31,7 +31,7 @@ OUTPUT_DIR="./output"
 
 # Run the binary
 echo "Running the binary..."
-$OUTPUT_DIR/$BINARY_NAME \
+$BIN_OUTPUT_DIR/$BINARY_NAME \
     --openapi-spec $OAS_FILE \
     --fuzzer-type $FUZZER_TYPE \
     --fuzzer-budget $FUZZING_BUDGET \

@@ -73,4 +73,8 @@ func (m *APIManager) InitFromServiceDoc(doc *openapi3.T) {
 			m.InternalServiceAPIMap[serviceName][simpleMethod] = operation
 		}
 	}
+
+	// Generate the dataflow graph of the internal APIs.
+	m.APIDataflowGraph = NewAPIDataflowGraph()
+	m.APIDataflowGraph.ParseFromServiceDocument(m.InternalServiceAPIMap)
 }
