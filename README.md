@@ -8,6 +8,7 @@ This project is a tool designed to test a microservice system. The most novel pa
 - [Features](#features)
 - [Architecture](#architecture)
 - [Installation](#installation)
+- [Prepration](#prepration)
 - [Usage](#usage)
 - [Configuration](#configuration)
 - [License](#license)
@@ -38,6 +39,13 @@ To install the tool, follow these steps:
     go mod tidy
     ```
 
+## Prepration
+
+1. Prepare the OpenAPI specification file for the system under test. The tool supports OpenAPI 3 by default.
+2. Prepare a protobuf file for all RPC which internal services use.
+  - We use [protoc-gen-openapi](https://github.com/google/gnostic/tree/main/cmd/protoc-gen-openapi) to convert protobuf to openapi.
+  - You should annotate the proto file, and you can refer to this [issue](https://github.com/google/gnostic/issues/412).
+
 ## Usage
 
 To use the tool, follow these steps:
@@ -65,5 +73,4 @@ The tool can be configured using command-line arguments and environment variable
 
 ## License
 
-This project is licensed under the GNU License. See the LICENSE file for more details.
-
+This project is licensed under the GPL-3.0 License - see the [LICENSE](LICENSE) file for details.
