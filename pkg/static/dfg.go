@@ -82,7 +82,23 @@ func (g *APIDataflowGraph) parseServiceOperationPair(
 	targetInProperties := make([]SimpleAPIProperty, 0)
 
 	// Parameter
-	// TODO: @xunzhou24
+	sourceParameters := sourceOperation.Parameters
+	for _, sourceParamRef := range sourceParameters {
+		sourceParam := sourceParamRef.Value
+		simpleAPIProperty := SimpleAPIProperty{
+			Name: sourceParam.Name,
+		}
+		sourceInProperties = append(sourceInProperties, simpleAPIProperty)
+	}
+
+	targetParameters := targetOperation.Parameters
+	for _, targetParamRef := range targetParameters {
+		targetParam := targetParamRef.Value
+		simpleAPIProperty := SimpleAPIProperty{
+			Name: targetParam.Name,
+		}
+		targetInProperties = append(targetInProperties, simpleAPIProperty)
+	}
 
 	// Request body
 	flattenedSourceRequestBody, err := utils.FlattenSchema(sourceOperation.RequestBody.Value.Content.Get("application/json").Schema)
@@ -95,6 +111,9 @@ func (g *APIDataflowGraph) parseServiceOperationPair(
 		}
 		sourceInProperties = append(sourceInProperties, simpleAPIProperty)
 	}
+
+	// Response body
+	// TODO: implement it @xunzhou24
 
 	flattenedTargetRequestBody, err := utils.FlattenSchema(targetOperation.RequestBody.Value.Content.Get("application/json").Schema)
 	if err != nil {
@@ -110,7 +129,7 @@ func (g *APIDataflowGraph) parseServiceOperationPair(
 	for _, sourceProp := range sourceInProperties {
 		for _, targetProp := range targetInProperties {
 			// TODO: better algorithm for matching parameters @xunzhou24
-			if sourceProp.Name == targetProp.Name {
+			if utils.MatchVariableNames(sourceProp.Name, targetProp.Name) {
 				sourceNode := &APIDataflowNode{
 					ServiceName:     sourceService,
 					SimpleAPIMethod: sourceMethod,
