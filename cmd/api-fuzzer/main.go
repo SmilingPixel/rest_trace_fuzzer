@@ -15,7 +15,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-
 const HELLO = `
  x                                                
  x                                                
@@ -33,7 +32,6 @@ x          x       xxxxxxx   xx    xx    xxx   xx
  x         x                               xxxxx  
 
 `
-
 
 func main() {
 
@@ -69,7 +67,7 @@ func main() {
 	apiParser := parser.NewOpenAPIParser()
 	doc, err := apiParser.ParseSystemDocFromPath(config.GlobalConfig.OpenAPISpecPath)
 	if err != nil {
-		log.Error().Msgf("[main] Failed to parse OpenAPI spec: %v", err)
+		log.Error().Err(err).Msgf("[main] Failed to parse OpenAPI spec: %v", err)
 		return
 	}
 	apiManager.InitFromSystemDoc(doc)
@@ -77,7 +75,7 @@ func main() {
 	// Parse doc of internal services
 	serviceDoc, err := apiParser.ParseServiceDocFromPath(config.GlobalConfig.InternalServiceOpenAPIPath)
 	if err != nil {
-		log.Error().Msgf("[main] Failed to parse internal service OpenAPI spec: %v", err)
+		log.Error().Err(err).Msgf("[main] Failed to parse internal service OpenAPI spec: %v", err)
 		return
 	}
 	apiManager.InitFromServiceDoc(serviceDoc)
@@ -95,12 +93,12 @@ func main() {
 		if config.GlobalConfig.DependencyFileType == "Restler" {
 			dependencyFileParser = parser.NewAPIDependencyRestlerParser()
 		} else {
-			log.Error().Msgf("[main] Unsupported dependency file type: %s", config.GlobalConfig.DependencyFileType)
+			log.Error().Err(err).Msgf("[main] Unsupported dependency file type: %s", config.GlobalConfig.DependencyFileType)
 			return
 		}
 		dependecyGraph, err := dependencyFileParser.ParseFromPath(config.GlobalConfig.DependencyFilePath)
 		if err != nil {
-			log.Error().Msgf("Failed to parse dependency file: %v", err)
+			log.Error().Err(err).Msgf("Failed to parse dependency file: %v", err)
 			return
 		}
 		apiManager.APIDependencyGraph = dependecyGraph
@@ -116,12 +114,12 @@ func main() {
 			feedback.NewTraceManager(),
 		)
 	} else {
-		log.Error().Msgf("[main] Unsupported fuzzer type: %s", config.GlobalConfig.FuzzerType)
+		log.Error().Err(err).Msgf("[main] Unsupported fuzzer type: %s", config.GlobalConfig.FuzzerType)
 		return
 	}
 	err = mainFuzzer.Start()
 	if err != nil {
-		log.Error().Msgf("[main] Fuzzer failed: %v", err)
+		log.Error().Err(err).Msgf("[main] Fuzzer failed: %v", err)
 		return
 	}
 
@@ -135,14 +133,14 @@ func main() {
 	systemReportPath := fmt.Sprintf("%s/system_report_%s.json", config.GlobalConfig.OutputDir, t.Format(time.RFC3339))
 	err = systemReporter.GenerateSystemReport(responseChecker, systemReportPath)
 	if err != nil {
-		log.Error().Msgf("[main] Failed to generate system report: %v", err)
+		log.Error().Err(err).Msgf("[main] Failed to generate system report: %v", err)
 		return
 	}
 	internalServiceReporter := report.NewInternalServiceReporter()
 	internalServiceReportPath := fmt.Sprintf("%s/internal_service_report_%s.json", config.GlobalConfig.OutputDir, t.Format(time.RFC3339))
 	err = internalServiceReporter.GenerateInternalServiceReport(mainFuzzer.GetRuntimeGraph(), internalServiceReportPath)
 	if err != nil {
-		log.Error().Msgf("[main] Failed to generate internal service report: %v", err)
+		log.Error().Err(err).Msgf("[main] Failed to generate internal service report: %v", err)
 		return
 	}
 

@@ -28,24 +28,22 @@ func (r *InternalServiceReporter) GenerateInternalServiceReport(runtimeGraph *fe
 	}
 	// Calculate the coverage of the edges.
 	edgeCoverage := float64(coveredEdges) / float64(len(runtimeGraph.Edges))
-	
+
 	// Generate the report and marshal it to JSON.
 	report := InternalServiceTestReport{
 		EdgeCoverage: edgeCoverage,
 	}
 	reportJSON, err := sonic.Marshal(report)
 	if err != nil {
-		log.Error().Msgf("[InternalServiceReporter.GenerateInternalServiceReport] Failed to marshal the internal service report: %v", err)
+		log.Error().Err(err).Msgf("[InternalServiceReporter.GenerateInternalServiceReport] Failed to marshal the internal service report: %v", err)
 		return err
 	}
 
 	// Write the report to a file.
 	err = os.WriteFile(outputPath, reportJSON, 0644)
 	if err != nil {
-		log.Error().Msgf("[InternalServiceReporter.GenerateInternalServiceReport] Failed to write the internal service report to file: %v", err)
+		log.Error().Err(err).Msgf("[InternalServiceReporter.GenerateInternalServiceReport] Failed to write the internal service report to file: %v", err)
 		return err
 	}
 	return nil
 }
-
-

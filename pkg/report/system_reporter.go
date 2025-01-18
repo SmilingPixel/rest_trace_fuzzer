@@ -32,7 +32,7 @@ func (r *SystemReporter) GenerateSystemReport(responseChecker *feedback.Response
 		log.Error().Msg("[SystemReporter.GenerateSystemReport] The response checker is nil.")
 		return fmt.Errorf("responseChecker is nil")
 	}
-	
+
 	systemTestReport := SystemTestReport{}
 
 	// TODO: Find reponse status codes that are not defined in the OpenAPI document. @xunzhou24
@@ -61,15 +61,15 @@ func (r *SystemReporter) GenerateSystemReport(responseChecker *feedback.Response
 	// marshal the report to a JSON file.
 	reportBytes, err := sonic.Marshal(systemTestReport)
 	if err != nil {
-		log.Error().Msgf("[SystemReporter.GenerateSystemReport] Failed to marshal the system test report: %v", err)
+		log.Error().Err(err).Msgf("[SystemReporter.GenerateSystemReport] Failed to marshal the system test report: %v", err)
 	}
 
 	// Write the JSON string to the output file.
-    err = os.WriteFile(outputPath, reportBytes, 0644)
-    if err != nil {
-        log.Error().Msgf("[SystemReporter.GenerateSystemReport] Failed to write the system test report to file: %v", err)
-        return err
-    }
+	err = os.WriteFile(outputPath, reportBytes, 0644)
+	if err != nil {
+		log.Error().Err(err).Msgf("[SystemReporter.GenerateSystemReport] Failed to write the system test report to file: %v", err)
+		return err
+	}
 	log.Info().Msgf("[SystemReporter.GenerateSystemReport] System test report has been written to %s", outputPath)
 	return nil
 }

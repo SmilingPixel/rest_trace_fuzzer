@@ -12,7 +12,7 @@ import (
 // It has a base URL and a client based on Hertz.
 type HTTPClient struct {
 	BaseURL string
-	Client *client.Client
+	Client  *client.Client
 }
 
 // NewHTTPClient creates a new HTTPClient.
@@ -22,7 +22,7 @@ func NewHTTPClient(baseURL string) *HTTPClient {
 		panic(err)
 	}
 	return &HTTPClient{
-		Client: c,
+		Client:  c,
 		BaseURL: baseURL,
 	}
 }
@@ -37,16 +37,14 @@ func (c *HTTPClient) PerformRequest(path string, method string) (int, []byte, er
 	req.SetMethod(method)
 	err := c.Client.Do(context.Background(), req, resp)
 	if err != nil {
-		log.Error().Msgf("[HTTPClient.PerformRequest] Failed to perform request: %v", err)
+		log.Error().Err(err).Msgf("[HTTPClient.PerformRequest] Failed to perform request: %v", err)
 		return 0, nil, err
 	}
 	bodyBytes, err := resp.BodyE()
 	if err != nil {
-		log.Error().Msgf("[HTTPClient.PerformRequest] Failed to get response body: %v", err)
+		log.Error().Err(err).Msgf("[HTTPClient.PerformRequest] Failed to get response body: %v", err)
 		return 0, nil, err
 	}
 	statusCode := resp.StatusCode()
 	return statusCode, bodyBytes, nil
 }
-
-
