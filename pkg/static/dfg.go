@@ -1,6 +1,8 @@
 package static
 
 import (
+	"resttracefuzzer/pkg/utils"
+
 	"github.com/bytedance/sonic"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/rs/zerolog/log"
@@ -10,7 +12,6 @@ import (
 type APIDataflowNode struct {
 	ServiceName     string
 	SimpleAPIMethod SimpleAPIMethod
-	Operation       *openapi3.Operation
 }
 
 // APIDataflowEdge represents an edge in the dataflow graph of the internal APIs.
@@ -19,10 +20,10 @@ type APIDataflowNode struct {
 // The data pass from SourceData to TargetData, both of which are parameters of the API.
 // For example, `placeOrder` of CheckoutService passes `userInfo` to `emptyCart` of CartService.
 type APIDataflowEdge struct {
-	Source     *APIDataflowNode
-	Target     *APIDataflowNode
-	SourceData *openapi3.Parameter
-	TargetData *openapi3.Parameter
+	Source         *APIDataflowNode
+	Target         *APIDataflowNode
+	SourceProperty SimpleAPIProperty
+	TargetProperty SimpleAPIProperty
 }
 
 // APIDataflowGraph represents the dataflow graph of the internal APIs.
@@ -67,7 +68,6 @@ func (g *APIDataflowGraph) ParseFromServiceDocument(serviceDocMap map[string]map
 	}
 }
 
-
 // parseServiceOperationPair parses the dataflow between two operations.
 func (g *APIDataflowGraph) parseServiceOperationPair(
 	sourceService string,
@@ -77,48 +77,61 @@ func (g *APIDataflowGraph) parseServiceOperationPair(
 	targetMethod SimpleAPIMethod,
 	targetOperation *openapi3.Operation,
 ) {
-	sourceInParameters := make([]*openapi3.Parameter, 0)
-	// sourceOutParameters := make([]*openapi3.Parameter, 0)
-	targetInParameters := make([]*openapi3.Parameter, 0)
-	// targetOutParameters := make([]*openapi3.Parameter, 0)
-	for _, sourceParamRef := range sourceOperation.Parameters {
-		if sourceParam := sourceParamRef.Value; sourceParam != nil {
-			sourceInParameters = append(sourceInParameters, sourceParam)
-		}
+	// Retrive all properties from parameters, request and response bodies
+	sourceInProperties := make([]SimpleAPIProperty, 0)
+	targetInProperties := make([]SimpleAPIProperty, 0)
+
+	// Parameter
+	// TODO: @xunzhou24
+
+	// Request body
+	flattenedSourceRequestBody, err := utils.FlattenSchema(sourceOperation.RequestBody.Value.Content.Get("application/json").Schema)
+	if err != nil {
+		log.Error().Err(err).Msg("[parseServiceOperationPair] Failed to flatten source request body")
 	}
-	for _, targetParamRef := range targetOperation.Parameters {
-		if targetParam := targetParamRef.Value; targetParam != nil {
-			targetInParameters = append(targetInParameters, targetParam)
+	for schemaName := range flattenedSourceRequestBody {
+		simpleAPIProperty := SimpleAPIProperty{
+			Name: schemaName,
 		}
+		sourceInProperties = append(sourceInProperties, simpleAPIProperty)
 	}
 
-	for _, sourceInParam := range sourceInParameters {
-		for _, targetInParam := range targetInParameters {
-			// TODO: better algorithm for matching parameters
-			if sourceInParam.Name == targetInParam.Name {
+	flattenedTargetRequestBody, err := utils.FlattenSchema(targetOperation.RequestBody.Value.Content.Get("application/json").Schema)
+	if err != nil {
+		log.Error().Err(err).Msg("[parseServiceOperationPair] Failed to flatten target request body")
+	}
+	for schemaName := range flattenedTargetRequestBody {
+		simpleAPIProperty := SimpleAPIProperty{
+			Name: schemaName,
+		}
+		targetInProperties = append(targetInProperties, simpleAPIProperty)
+	}
+
+	for _, sourceProp := range sourceInProperties {
+		for _, targetProp := range targetInProperties {
+			// TODO: better algorithm for matching parameters @xunzhou24
+			if sourceProp.Name == targetProp.Name {
 				sourceNode := &APIDataflowNode{
-					ServiceName: sourceService,
+					ServiceName:     sourceService,
 					SimpleAPIMethod: sourceMethod,
-					Operation: sourceOperation,
 				}
 				targetNode := &APIDataflowNode{
-					ServiceName: targetService,
+					ServiceName:     targetService,
 					SimpleAPIMethod: targetMethod,
-					Operation: targetOperation,
 				}
-				g.AddEdge(sourceNode, targetNode, sourceInParam, targetInParam)
+				g.AddEdge(sourceNode, targetNode, sourceProp, targetProp)
 			}
 		}
 	}
 }
 
 // AddEdge adds an edge to the dataflow graph.
-func (g *APIDataflowGraph) AddEdge(source, target *APIDataflowNode, sourceData, targetData *openapi3.Parameter) {
+func (g *APIDataflowGraph) AddEdge(source, target *APIDataflowNode, sourceProp, targetProp SimpleAPIProperty) {
 	edge := &APIDataflowEdge{
-		Source:     source,
-		Target:     target,
-		SourceData: sourceData,
-		TargetData: targetData,
+		Source:         source,
+		Target:         target,
+		SourceProperty: sourceProp,
+		TargetProperty: targetProp,
 	}
 	log.Info().Msgf("[AddEdge] Adding edge: %v -> %v", source, target)
 	g.Edges = append(g.Edges, edge)
