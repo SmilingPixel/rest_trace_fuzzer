@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"resttracefuzzer/internal/config"
 	"resttracefuzzer/internal/fuzzer"
 	"resttracefuzzer/pkg/casemanager"
@@ -130,6 +131,12 @@ func main() {
 	// TODO @xunzhou24
 	t := time.Now()
 	systemReporter := report.NewSystemReporter(apiManager)
+	// Create the output directory if it does not exist.
+	err = os.MkdirAll(config.GlobalConfig.OutputDir, os.ModePerm)
+	if err != nil {
+		log.Error().Err(err).Msgf("[main] Failed to create the output directory: %v", err)
+		return
+	}
 	systemReportPath := fmt.Sprintf("%s/system_report_%s.json", config.GlobalConfig.OutputDir, t.Format(time.RFC3339))
 	err = systemReporter.GenerateSystemReport(responseChecker, systemReportPath)
 	if err != nil {

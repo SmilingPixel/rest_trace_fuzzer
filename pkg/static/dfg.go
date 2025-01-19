@@ -101,30 +101,34 @@ func (g *APIDataflowGraph) parseServiceOperationPair(
 	}
 
 	// Request body
-	flattenedSourceRequestBody, err := utils.FlattenSchema(sourceOperation.RequestBody.Value.Content.Get("application/json").Schema)
-	if err != nil {
-		log.Error().Err(err).Msg("[parseServiceOperationPair] Failed to flatten source request body")
-	}
-	for schemaName := range flattenedSourceRequestBody {
-		simpleAPIProperty := SimpleAPIProperty{
-			Name: schemaName,
+	if sourceOperation.RequestBody != nil {
+		flattenedSourceRequestBody, err := utils.FlattenSchema(sourceOperation.RequestBody.Value.Content.Get("application/json").Schema)
+		if err != nil {
+			log.Error().Err(err).Msg("[parseServiceOperationPair] Failed to flatten source request body")
 		}
-		sourceInProperties = append(sourceInProperties, simpleAPIProperty)
+		for schemaName := range flattenedSourceRequestBody {
+			simpleAPIProperty := SimpleAPIProperty{
+				Name: schemaName,
+			}
+			sourceInProperties = append(sourceInProperties, simpleAPIProperty)
+		}
+	}
+
+	if targetOperation.RequestBody != nil {
+		flattenedTargetRequestBody, err := utils.FlattenSchema(targetOperation.RequestBody.Value.Content.Get("application/json").Schema)
+		if err != nil {
+			log.Error().Err(err).Msg("[parseServiceOperationPair] Failed to flatten target request body")
+		}
+		for schemaName := range flattenedTargetRequestBody {
+			simpleAPIProperty := SimpleAPIProperty{
+				Name: schemaName,
+			}
+			targetInProperties = append(targetInProperties, simpleAPIProperty)
+		}
 	}
 
 	// Response body
 	// TODO: implement it @xunzhou24
-
-	flattenedTargetRequestBody, err := utils.FlattenSchema(targetOperation.RequestBody.Value.Content.Get("application/json").Schema)
-	if err != nil {
-		log.Error().Err(err).Msg("[parseServiceOperationPair] Failed to flatten target request body")
-	}
-	for schemaName := range flattenedTargetRequestBody {
-		simpleAPIProperty := SimpleAPIProperty{
-			Name: schemaName,
-		}
-		targetInProperties = append(targetInProperties, simpleAPIProperty)
-	}
 
 	for _, sourceProp := range sourceInProperties {
 		for _, targetProp := range targetInProperties {

@@ -2,6 +2,19 @@ package static
 
 type SimpleAPIMethodType string
 
+func (t SimpleAPIMethodType) String() string {
+	return string(t)
+}
+
+func (t SimpleAPIMethodType) MarshalJSON() ([]byte, error) {
+	return []byte(t.String()), nil
+}
+
+func (t *SimpleAPIMethodType) UnmarshalJSON(data []byte) error {
+	*t = SimpleAPIMethodType(data)
+	return nil
+}
+
 const (
 	// SimpleAPIMethodTypeHTTP represents an HTTP API method.
 	SimpleAPIMethodTypeHTTP SimpleAPIMethodType = "HTTP"
@@ -17,9 +30,9 @@ const (
 //
 // You should use the struct by value, not by pointer.
 type SimpleAPIMethod struct {
-	Endpoint string
-	Method   string
-	Type     SimpleAPIMethodType
+	Endpoint string `json:"endpoint"`
+	Method   string `json:"method"`
+	Type     SimpleAPIMethodType `json:"type"`
 }
 
 // SimpleAPIProperty represents a property of an API.
