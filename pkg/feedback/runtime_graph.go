@@ -16,8 +16,16 @@ type RuntimeGraph struct {
 }
 
 // NewRuntimeGraph creates a new RuntimeGraph.
-func NewRuntimeGraph() *RuntimeGraph {
+// It initializes the edges from the static API dataflow graph.
+func NewRuntimeGraph(APIDataflowGraph *static.APIDataflowGraph) *RuntimeGraph {
 	edges := make([]*RuntimeEdge, 0)
+	for _, edge := range APIDataflowGraph.Edges {
+		edges = append(edges, &RuntimeEdge{
+			Source:   edge.Source,
+			Target:   edge.Target,
+			HitCount: 0,
+		})
+	}
 	return &RuntimeGraph{
 		Edges: edges,
 	}

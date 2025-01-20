@@ -41,11 +41,11 @@ func NewBasicFuzzer(
 	caseManager *casemanager.CaseManager,
 	responseChecker *feedback.ResponseChecker,
 	traceManager *feedback.TraceManager,
+	runtimeGraph *feedback.RuntimeGraph,
 ) *BasicFuzzer {
 	httpClient := utils.NewHTTPClient(
 		config.GlobalConfig.ServerBaseURL,
 	)
-	runtimeGraph := feedback.NewRuntimeGraph()
 	return &BasicFuzzer{
 		APIManager:      APIManager,
 		CaseManager:     caseManager,

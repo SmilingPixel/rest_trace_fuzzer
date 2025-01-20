@@ -2,6 +2,7 @@ package report
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"resttracefuzzer/pkg/feedback"
 	"resttracefuzzer/pkg/static"
@@ -56,7 +57,10 @@ func (r *SystemReporter) GenerateSystemReport(responseChecker *feedback.Response
 
 	// Calculate the coverage of the status codes.
 	systemTestReport.StatusCoverage = float64(totalHitStatusCount) / float64(totalStatusCount)
-	systemTestReport.StatusHitCount = statusHitCount
+	if math.IsInf(systemTestReport.StatusCoverage, 0) || math.IsNaN(systemTestReport.StatusCoverage) {
+		return fmt.Errorf("invalid status coverage: %f", systemTestReport.StatusCoverage)
+	}
+	systemTestReport.SetStatusHitCountReport(statusHitCount)
 
 	// marshal the report to a JSON file.
 	reportBytes, err := sonic.Marshal(systemTestReport)

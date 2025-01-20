@@ -84,6 +84,7 @@ func main() {
 	// Initialize case manager and response checker
 	caseManager := casemanager.NewCaseManager(apiManager)
 	responseChecker := feedback.NewResponseChecker(apiManager)
+	runTimeGraph := feedback.NewRuntimeGraph(apiManager.APIDataflowGraph)
 
 	// Read API dependency files
 	// You can generate the dependency files by running Restler
@@ -113,6 +114,7 @@ func main() {
 			caseManager,
 			responseChecker,
 			feedback.NewTraceManager(),
+			runTimeGraph,
 		)
 	} else {
 		log.Error().Err(err).Msgf("[main] Unsupported fuzzer type: %s", config.GlobalConfig.FuzzerType)
