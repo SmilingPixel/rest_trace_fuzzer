@@ -33,10 +33,10 @@ type SystemTestReport struct {
 func (r *SystemTestReport) SetStatusHitCountReport(statusHitCount map[static.SimpleAPIMethod]map[int]int) {
 	r.StatusHitCount = statusHitCount
 	r.StatusHitCountReport = make([]StatusHitCountReport, 0)
-	for apiMethod, statusCount := range statusHitCount {
+	for APIMethod, statusCount := range statusHitCount {
 		for status, hitCount := range statusCount {
 			r.StatusHitCountReport = append(r.StatusHitCountReport, StatusHitCountReport{
-				APIMethod: apiMethod,
+				APIMethod: APIMethod,
 				Status:    status,
 				HitCount:  hitCount,
 			})

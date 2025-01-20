@@ -62,29 +62,29 @@ func main() {
 		return
 	}
 
-	apiManager := static.NewAPIManager()
+	APIManager := static.NewAPIManager()
 
 	// read OpenAPI spec and parse it
-	apiParser := parser.NewOpenAPIParser()
-	doc, err := apiParser.ParseSystemDocFromPath(config.GlobalConfig.OpenAPISpecPath)
+	APIParser := parser.NewOpenAPIParser()
+	doc, err := APIParser.ParseSystemDocFromPath(config.GlobalConfig.OpenAPISpecPath)
 	if err != nil {
 		log.Error().Err(err).Msgf("[main] Failed to parse OpenAPI spec: %v", err)
 		return
 	}
-	apiManager.InitFromSystemDoc(doc)
+	APIManager.InitFromSystemDoc(doc)
 
 	// Parse doc of internal services
-	serviceDoc, err := apiParser.ParseServiceDocFromPath(config.GlobalConfig.InternalServiceOpenAPIPath)
+	serviceDoc, err := APIParser.ParseServiceDocFromPath(config.GlobalConfig.InternalServiceOpenAPIPath)
 	if err != nil {
 		log.Error().Err(err).Msgf("[main] Failed to parse internal service OpenAPI spec: %v", err)
 		return
 	}
-	apiManager.InitFromServiceDoc(serviceDoc)
+	APIManager.InitFromServiceDoc(serviceDoc)
 
 	// Initialize case manager and response checker
-	caseManager := casemanager.NewCaseManager(apiManager)
-	responseChecker := feedback.NewResponseChecker(apiManager)
-	runTimeGraph := feedback.NewRuntimeGraph(apiManager.APIDataflowGraph)
+	caseManager := casemanager.NewCaseManager(APIManager)
+	responseChecker := feedback.NewResponseChecker(APIManager)
+	runTimeGraph := feedback.NewRuntimeGraph(APIManager.APIDataflowGraph)
 
 	// Read API dependency files
 	// You can generate the dependency files by running Restler
@@ -103,14 +103,14 @@ func main() {
 			log.Error().Err(err).Msgf("Failed to parse dependency file: %v", err)
 			return
 		}
-		apiManager.APIDependencyGraph = dependecyGraph
+		APIManager.APIDependencyGraph = dependecyGraph
 	}
 
 	// start fuzzing loop
 	var mainFuzzer fuzzer.Fuzzer
 	if config.GlobalConfig.FuzzerType == "Basic" {
 		mainFuzzer = fuzzer.NewBasicFuzzer(
-			apiManager,
+			APIManager,
 			caseManager,
 			responseChecker,
 			feedback.NewTraceManager(),
@@ -132,7 +132,7 @@ func main() {
 	// The reports are saved in the output directory
 	// TODO @xunzhou24
 	t := time.Now()
-	systemReporter := report.NewSystemReporter(apiManager)
+	systemReporter := report.NewSystemReporter(APIManager)
 	// Create the output directory if it does not exist.
 	err = os.MkdirAll(config.GlobalConfig.OutputDir, os.ModePerm)
 	if err != nil {

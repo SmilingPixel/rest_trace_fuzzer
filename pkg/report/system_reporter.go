@@ -20,9 +20,9 @@ type SystemReporter struct {
 }
 
 // NewSystemReporter creates a new SystemReporter.
-func NewSystemReporter(apiManager *static.APIManager) *SystemReporter {
+func NewSystemReporter(APIManager *static.APIManager) *SystemReporter {
 	return &SystemReporter{
-		APIManager: apiManager,
+		APIManager: APIManager,
 	}
 }
 
