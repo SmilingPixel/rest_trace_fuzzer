@@ -5,6 +5,7 @@ import (
 )
 
 // OpenAPIParser is an OpenAPI parser that parses OpenAPI spec files.
+// It uses the getkin/kin-openapi library.
 type OpenAPIParser struct {
 	loader *openapi3.Loader
 }

@@ -18,6 +18,7 @@ func NewInternalServiceReporter() *InternalServiceReporter {
 }
 
 // GenerateInternalServiceReport generates the internal service report.
+// The report includes the edge coverage.
 func (r *InternalServiceReporter) GenerateInternalServiceReport(runtimeGraph *feedback.RuntimeGraph, outputPath string) error {
 	// At present, we only report the edge coverage.
 	coveredEdges := 0

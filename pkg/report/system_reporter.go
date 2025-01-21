@@ -27,7 +27,7 @@ func NewSystemReporter(APIManager *static.APIManager) *SystemReporter {
 }
 
 // GenerateSystemReport generates the system-level report.
-// The report includes the coverage of the Endpoints.
+// The report includes the coverage of the Endpoints and Status Codes.
 func (r *SystemReporter) GenerateSystemReport(responseChecker *feedback.ResponseChecker, outputPath string) error {
 	if responseChecker == nil {
 		log.Error().Msg("[SystemReporter.GenerateSystemReport] The response checker is nil.")

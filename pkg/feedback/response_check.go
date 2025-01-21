@@ -6,7 +6,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-
+// ResponseChecker checks the response status code.
 type ResponseChecker struct {
 	// StatusHitCount is the hit count of the status code.
 	// It maps the status code to the hit count.
