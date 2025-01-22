@@ -1,10 +1,11 @@
-package parser;
+package parser
 
 import (
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
 // OpenAPIParser is an OpenAPI parser that parses OpenAPI spec files.
+// It uses the getkin/kin-openapi library.
 type OpenAPIParser struct {
 	loader *openapi3.Loader
 }
@@ -21,8 +22,14 @@ func (p *OpenAPIParser) init() {
 	p.loader = openapi3.NewLoader()
 }
 
-// ParseFromPath parses an OpenAPI spec file from the given path.
+// ParseSystemDocFromPath parses an OpenAPI spec file from the given path.
 // It returns the OpenAPI spec and an error if any.
-func (p *OpenAPIParser) ParseFromPath(path string) (*openapi3.T, error) {
+func (p *OpenAPIParser) ParseSystemDocFromPath(path string) (*openapi3.T, error) {
+	return p.loader.LoadFromFile(path)
+}
+
+// ParseServiceDocFromMapPath parses OpenAPI spec file from the given path.
+// It returns a map of service names to OpenAPI specs and an error if any.
+func (p *OpenAPIParser) ParseServiceDocFromPath(path string) (*openapi3.T, error) {
 	return p.loader.LoadFromFile(path)
 }

@@ -22,7 +22,8 @@ The architecture diagram is powered by [draw.io](https://app.diagrams.net/).
 | Module      | Description                                      | Note                                                                 |
 |-------------|--------------------------------------------------|----------------------------------------------------------------------|
 | OpenAPI Parser | 解析 OpenAPI 文件，生成接口定义                      | 输入：一批 OpenAPI 文件，包括 1. 每个 service 的接口定义（包括 HTTP 和 gRPC） 2. 整个系统对外暴露的接口定义 输出：解析完成的接口，数据结构设计见后面章节 |
-| ODG Parser  | 解析 OpenAPI，生成 ODG (Operation Dependency Graph) | 输入：解析完成的 OpenAPI 输出：ODG，包括 1. 整个系统对外暴露的接口之间的依赖关系 2. 每个 service 内部的接口之间的依赖关系（即对于图中的任何一条边，其两端的节点必须属于不同的 service） |
+| ODG Parser  | 解析系统外部暴露 OpenAPI，生成 ODG (Operation Dependency Graph) | 输入：解析完成的 OpenAPI 输出：ODG，包括 1. 整个系统对外暴露的接口之间的依赖关系 2. 每个 service 内部的接口之间的依赖关系（即对于图中的任何一条边，其两端的节点必须属于不同的 service） |
+| DFG Parser  | 内部服务 API，生成 DFG (Data Flow Graph)            | 输入：解析完成的 OpenAPI 输出：DFG，包括 1. 每个 service 内部的接口之间的数据流传递关系（即对于图中的任何一条边，其两端的节点必须属于不同的 service） |
 
 ## 2.2. 数据持久化模块
 
@@ -31,6 +32,8 @@ The architecture diagram is powered by [draw.io](https://app.diagrams.net/).
 |----------------|--------------------------------------------------|----------------------------------------------------------------------|
 | Interfaces DB  | 存储解析完成的接口定义                              | 数据结构：见后面章节                                                   |
 | ODG DB         | 存储 ODG                                           | 数据结构：见后面章节                                                   |
+| DFG DB         | 存储 DFG                                           | 数据结构：见后面章节                                                   |
+| Runtime Info Graph         | 存储程序运行时的 DFG 调用和覆盖状态                                          | 数据结构：见后面章节                                                   |
 | Resource Pool  | 存储资源池，目前主要用于存储测试过程中创建的资源       | TODO: 预计参考 foREST 的设计，但这里需要为每个服务都做对应的区分         |
 | Seed Queue     | 存储种子测试用例，优先级队列                         |                                                                      |
 
@@ -39,10 +42,11 @@ The architecture diagram is powered by [draw.io](https://app.diagrams.net/).
 
 | Module               | Description                                      | Note                                                                 |
 |----------------------|--------------------------------------------------|----------------------------------------------------------------------|
-| Operation Scheduler  | 根据 ODG，调度接口的执行顺序                        | 输入：数据持久化模块中的数据 输出：本次预计执行的接口或者接口序列         |
+| Operation Scheduler  | 根据 ODG, DFG, Runtime Info Graph 等，调度接口的执行顺序                        | 输入：数据持久化模块中的数据 输出：本次预计执行的接口或者接口序列         |
 | Operation Instantiator | 根据接口定义，实例化接口                           | 输入：接口定义，资源池数据 输出：接口请求实例                           |
 | Test Driver          | 执行接口请求，记录执行结果，处理反馈，更新数据持久化模块中的数据 |                                                                      |
-| Trace Analyzer       | 查询相关的 trace 数据，生成预处理反馈，引导测试        |                                                                      |
+| Response Checker       | 收集系统响应，存储测试结果        |                                                                      |
+| Trace Analyser (**TODO: 在图里画出来 @xunzhou24**)       | 收集 Trace，同步更新 RuntimeInfo Graph 的状态        |                                                                      |
 
 
 # 3. 具体实现方案
@@ -56,11 +60,13 @@ The architecture diagram is powered by [draw.io](https://app.diagrams.net/).
 2. 每个 service 的接口定义，存储为一个 map，key 为 service name [TODO: 这里需要确认一下]
 
 
-## 3.2. ODG 解析
+## 3.2. ODG, DFG 解析
 
-### 3.2.1. ODG 数据结构
+### 3.2.1. 数据结构
 
-Operation 定义粒度: (service, path, method)，例如```(pet_service, /api/v1/pet/{id}, GET)```
+#### 3.2.1.1. ODG
+
+Operation 定义粒度: (path, method)，例如`(/api/v1/pet/{id}, GET)`
 
 Edge， a -> b 表示 a 依赖于 b，即 a 的执行需要 b 的执行结果
 | Field            | Type       | Description                         |
@@ -69,7 +75,20 @@ Edge， a -> b 表示 a 依赖于 b，即 a 的执行需要 b 的执行结果
 | target           | Operation  | 表示依赖的目标 Operation             |
 | source_resource  | [TODO: 待定] | 表示源 Operation 依赖的资源（例如某个参数） |
 
-Graph，包含一组 Edge，表示整个系统的依赖关系。
+Graph，包含一组 Edge，表示整个系统外部API之间的依赖关系。
+
+#### 3.2.1.2. DFG
+
+Operation 定义粒度: (service, path, method)，例如`(pet_service, /api/v1/pet/{id}, GET)`
+
+Edge， a -> b 表示存在数据流从 a 到 b
+| Field            | Type       | Description                         |
+|------------------|------------|-------------------------------------|
+| source           | Operation  | 表示源 Operation               |
+| target           | Operation  | 表示目标 Operation             |
+| source_resource  | [TODO: 待定] | 表示存在流动的资源（例如某个参数） |
+
+Graph，包含一组 Edge，表示整个系统内部API之间的数据流传递关系。
 
 
 ### 3.2.2. ODG 解析
@@ -102,9 +121,15 @@ if (outputParameter.getNormalizedName().equals(inputParameter.getNormalizedName(
 }
 ```
 
-#### 3.2.2.2. 实现差异
+### 3.2.3. DFG 解析
 
-由于是内部 API 调用的依赖，因此更加侧重于“**资源流向**”的依赖关系，例如：
+- 类似于 ODG 解析，目前设计主要依赖于资源名称的解析
+- 更加侧重于“**数据流向**”的依赖关系，因此解析的资源对，要么同时来自于两个 Operation 的输入参数，要么同时来自于两个 Operation 的输出参数
+
+
+#### 3.2.4. 实现差异
+
+对于DFG，由于是内部 API 调用的依赖，因此更加侧重于“**资源流向**”的依赖关系，例如：
 - CheckoutService 的 placeOrder 调用了 PaymentService 的 charge
 - placeOrder 输入参数和 charge 输出参数中，都有 currency 字段
 - 我们认为，这一信息，表示该数据从 CheckoutService 流向 PaymentService
@@ -155,10 +180,24 @@ if (outputParameter.getNormalizedName().equals(inputParameter.getNormalizedName(
 3. 更新 ODG，补充缺失的依赖关系，修改错误的依赖关系 [TODO: 具体实现待定]
 
 
+### 3.7. Runtime Info Graph
+
+- 记录程序运行时的 DFG 调用和覆盖状态
+- 基于 DFG，目前用于记录 DFG 上的调用次数，用于后续的覆盖率统计和测试用例优先级计算
+
+Edge， a -> b 表示存在数据流从 a 到 b，同时携带了调用次数信息
+| Field            | Type       | Description                         |
+|------------------|------------|-------------------------------------|
+| source           | Operation  | 表示源 Operation               |
+| target           | Operation  | 表示目标 Operation             |
+| source_resource  | [TODO: 待定] | 表示存在流动的资源（例如某个参数） |
+| hit_count       | int        | 表示调用次数                       |
+
+
 # 4. 子任务排期
 
 - [x] 初步的技术方案设计，包括整体架构和模块设计
-- [ ] OpenAPI 解析模块的实现
+- [x] OpenAPI 解析模块的实现
 - [ ] RestTestGen 的 ODG 解析模块的移植
 - [ ] TODO
 

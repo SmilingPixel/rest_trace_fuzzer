@@ -41,17 +41,19 @@ func NewBasicFuzzer(
 	caseManager *casemanager.CaseManager,
 	responseChecker *feedback.ResponseChecker,
 	traceManager *feedback.TraceManager,
+	runtimeGraph *feedback.RuntimeGraph,
 ) *BasicFuzzer {
 	httpClient := utils.NewHTTPClient(
 		config.GlobalConfig.ServerBaseURL,
 	)
 	return &BasicFuzzer{
-		APIManager:  APIManager,
-		CaseManager: caseManager,
+		APIManager:      APIManager,
+		CaseManager:     caseManager,
 		ResponseChecker: responseChecker,
-		TraceManager: traceManager,
-		Budget:      config.GlobalConfig.FuzzerBudget,
-		HTTPClient:  httpClient,
+		TraceManager:    traceManager,
+		Budget:          config.GlobalConfig.FuzzerBudget,
+		HTTPClient:      httpClient,
+		RunTimeGraph:    runtimeGraph,
 	}
 }
 
@@ -73,13 +75,13 @@ func (f *BasicFuzzer) Start() error {
 	for time.Since(startTime) <= f.Budget {
 		testCase, err := f.CaseManager.Pop()
 		if err != nil {
-			log.Error().Msg("[BasicFuzzer.Start] Failed to pop a test case")
+			log.Error().Err(err).Msg("[BasicFuzzer.Start] Failed to pop a test case")
 			break
 		}
 
 		err = f.ExecuteTestcase(testCase)
 		if err != nil {
-			log.Error().Msg("[BasicFuzzer.Start] Failed to execute the test case")
+			log.Error().Err(err).Msg("[BasicFuzzer.Start] Failed to execute the test case")
 			break
 		}
 
@@ -95,42 +97,49 @@ func (f *BasicFuzzer) ExecuteTestcase(testcase *casemanager.Testcase) error {
 		// operation := operationCase.Operation
 		path := operationCase.APIMethod.Endpoint
 		method := operationCase.APIMethod.Method
+		// By default, we only support HTTP method.
 		simpleAPIMethod := static.SimpleAPIMethod{
 			Endpoint: path,
 			Method:   method,
+			Type:     static.SimpleAPIMethodTypeHTTP,
 		}
-		log.Info().Msgf("[BasicFuzzer.ExecuteTestcase] Execute operation: %s %s", method, path)
+		log.Debug().Msgf("[BasicFuzzer.ExecuteTestcase] Execute operation: %s %s", method, path)
 		statusCode, respBody, err := f.HTTPClient.PerformRequest(path, method)
 		if err != nil {
-			log.Error().Msg("[BasicFuzzer.ExecuteTestcase] Failed to perform request")
+			log.Error().Err(err).Msg("[BasicFuzzer.ExecuteTestcase] Failed to perform request")
 			return err
 		}
-		log.Info().Msgf("[BasicFuzzer.ExecuteTestcase] Response status code: %d, body: %s", statusCode, string(respBody))
+		log.Debug().Msgf("[BasicFuzzer.ExecuteTestcase] Response status code: %d, body: %s", statusCode, string(respBody))
 
 		// Check the response.
 		err = f.ResponseChecker.CheckResponse(simpleAPIMethod, statusCode)
 		if err != nil {
-			log.Error().Msg("[BasicFuzzer.ExecuteTestcase] Failed to check response")
+			log.Error().Err(err).Msg("[BasicFuzzer.ExecuteTestcase] Failed to check response")
 			return err
 		}
 
 		// fetch traces from the service, parse them, and update local runtime graph.
 		err = f.TraceManager.PullTraces()
 		if err != nil {
-			log.Error().Msg("[BasicFuzzer.ExecuteTestcase] Failed to pull traces")
+			log.Error().Err(err).Msg("[BasicFuzzer.ExecuteTestcase] Failed to pull traces")
 			return err
 		}
 		callInfoList, err := f.TraceManager.GetCallInfos(nil) // TODO: pass the trace @xunzhou24
 		if err != nil {
-			log.Error().Msg("[BasicFuzzer.ExecuteTestcase] Failed to get call infos")
+			log.Error().Err(err).Msg("[BasicFuzzer.ExecuteTestcase] Failed to get call infos")
 			return err
 		}
 		err = f.RunTimeGraph.UpdateFromCallInfos(callInfoList)
 		if err != nil {
-			log.Error().Msg("[BasicFuzzer.ExecuteTestcase] Failed to update runtime graph")
+			log.Error().Err(err).Msg("[BasicFuzzer.ExecuteTestcase] Failed to update runtime graph")
 			return err
 		}
 		log.Info().Msg("[BasicFuzzer.ExecuteTestcase] Operation executed successfully")
 	}
 	return nil
+}
+
+// GetRuntimeGraph gets the runtime graph.
+func (f *BasicFuzzer) GetRuntimeGraph() *feedback.RuntimeGraph {
+	return f.RunTimeGraph
 }

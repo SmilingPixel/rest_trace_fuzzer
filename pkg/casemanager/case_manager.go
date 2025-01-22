@@ -16,18 +16,16 @@ type CaseManager struct {
 	APIManager *static.APIManager
 }
 
-
 // NewCaseManager creates a new CaseManager.
 func NewCaseManager(APIManager *static.APIManager) *CaseManager {
 	testcases := make([]*Testcase, 0)
 	m := &CaseManager{
 		APIManager: APIManager,
-		Testcases: testcases,
+		Testcases:  testcases,
 	}
 	m.initTestcasesFromDoc()
 	return m
 }
-
 
 // Pop pops a test case of highest priority from the case manager.
 func (m *CaseManager) Pop() (*Testcase, error) {
