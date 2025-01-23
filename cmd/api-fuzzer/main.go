@@ -9,6 +9,7 @@ import (
 	"resttracefuzzer/pkg/feedback"
 	"resttracefuzzer/pkg/parser"
 	"resttracefuzzer/pkg/report"
+	"resttracefuzzer/pkg/resource"
 	"resttracefuzzer/pkg/static"
 	"time"
 
@@ -81,8 +82,9 @@ func main() {
 	}
 	APIManager.InitFromServiceDoc(serviceDoc)
 
-	// Initialize case manager and response checker
-	caseManager := casemanager.NewCaseManager(APIManager)
+	// Initialize necessary components
+	resourceManager := resource.NewResourceManager()
+	caseManager := casemanager.NewCaseManager(APIManager, resourceManager)
 	responseChecker := feedback.NewResponseChecker(APIManager)
 	runTimeGraph := feedback.NewRuntimeGraph(APIManager.APIDataflowGraph)
 

@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"strings"
 
 	"github.com/cloudwego/hertz/pkg/app/client"
 	"github.com/cloudwego/hertz/pkg/protocol"
@@ -29,10 +30,19 @@ func NewHTTPClient(baseURL string) *HTTPClient {
 
 // PerformRequest performs an HTTP request.
 // It returns the status code, the response body, and an error.
-// TODO: support parameters, headers, and body.
-func (c *HTTPClient) PerformRequest(path string, method string) (int, []byte, error) {
+// TODO: support authentication. @xunzhou24
+func (c *HTTPClient) PerformRequest(path, method string, headers map[string]string, params map[string]string, body []byte) (int, []byte, error) {
 	req, resp := protocol.AcquireRequest(), protocol.AcquireResponse()
 	req.SetRequestURI(c.BaseURL)
+	req.SetHeaders(headers)
+	if len(params) > 0 {
+		queryParams := make([]string, 0)
+		for k, v := range params {
+			queryParams = append(queryParams, k+"="+v)
+		}
+		req.SetQueryString(strings.Join(queryParams, "&"))
+	}
+	req.SetBody(body)
 
 	req.SetMethod(method)
 	err := c.Client.Do(context.Background(), req, resp)

@@ -8,6 +8,7 @@ import (
 	"resttracefuzzer/pkg/utils"
 	"time"
 
+	"github.com/bytedance/sonic"
 	"github.com/rs/zerolog/log"
 )
 
@@ -65,23 +66,23 @@ func (f *BasicFuzzer) Start() error {
 	log.Info().Msgf("[BasicFuzzer.Start] Fuzzer started at %v", startTime)
 
 	// loop:
-	// 1. Pop a test case from the case manager.
-	// 2. For each operation in the test case:
+	// 1. Pop a test scenario from the case manager.
+	// 2. For each operation in the test scenario:
 	//   a. Instantiate the operation.
 	//   b. Make a request to the API.
 	//   c. Process the response.
 	// 3. Analyse the result, generate a report, and update the case manager.
 	// 4. Go to step 1.
 	for time.Since(startTime) <= f.Budget {
-		testCase, err := f.CaseManager.Pop()
+		testScenario, err := f.CaseManager.Pop()
 		if err != nil {
-			log.Error().Err(err).Msg("[BasicFuzzer.Start] Failed to pop a test case")
+			log.Error().Err(err).Msg("[BasicFuzzer.Start] Failed to pop a test scenario")
 			break
 		}
 
-		err = f.ExecuteTestcase(testCase)
+		err = f.ExecuteTestScenario(testScenario)
 		if err != nil {
-			log.Error().Err(err).Msg("[BasicFuzzer.Start] Failed to execute the test case")
+			log.Error().Err(err).Msg("[BasicFuzzer.Start] Failed to execute the test scenario")
 			break
 		}
 
@@ -92,31 +93,23 @@ func (f *BasicFuzzer) Start() error {
 	return nil
 }
 
-func (f *BasicFuzzer) ExecuteTestcase(testcase *casemanager.Testcase) error {
-	for _, operationCase := range testcase.OperationCases {
-		// operation := operationCase.Operation
-		path := operationCase.APIMethod.Endpoint
-		method := operationCase.APIMethod.Method
-		// By default, we only support HTTP method.
-		simpleAPIMethod := static.SimpleAPIMethod{
-			Endpoint: path,
-			Method:   method,
-			Type:     static.SimpleAPIMethodTypeHTTP,
-		}
-		log.Debug().Msgf("[BasicFuzzer.ExecuteTestcase] Execute operation: %s %s", method, path)
-		statusCode, respBody, err := f.HTTPClient.PerformRequest(path, method)
+func (f *BasicFuzzer) ExecuteTestScenario(testScenario *casemanager.TestScenario) error {
+	for _, operationCase := range testScenario.OperationCases {
+		// TODO: pass body and params @xunzhou24
+		err := f.ExecuteCaseOperation(operationCase)
 		if err != nil {
-			log.Error().Err(err).Msg("[BasicFuzzer.ExecuteTestcase] Failed to perform request")
-			return err
+			log.Error().Err(err).Msg("[BasicFuzzer.ExecuteTestcase] Failed to execute operation")
 		}
-		log.Debug().Msgf("[BasicFuzzer.ExecuteTestcase] Response status code: %d, body: %s", statusCode, string(respBody))
+		statusCode := operationCase.ResponseStatusCode
 
 		// Check the response.
-		err = f.ResponseChecker.CheckResponse(simpleAPIMethod, statusCode)
+		err = f.ResponseChecker.CheckResponse(operationCase.APIMethod, statusCode)
 		if err != nil {
 			log.Error().Err(err).Msg("[BasicFuzzer.ExecuteTestcase] Failed to check response")
 			return err
 		}
+
+		// TODO: parse and validate the response body @xunzhou24
 
 		// fetch traces from the service, parse them, and update local runtime graph.
 		err = f.TraceManager.PullTraces()
@@ -136,6 +129,31 @@ func (f *BasicFuzzer) ExecuteTestcase(testcase *casemanager.Testcase) error {
 		}
 		log.Info().Msg("[BasicFuzzer.ExecuteTestcase] Operation executed successfully")
 	}
+	return nil
+}
+
+// ExecuteCaseOperation executes a case operation from a test case.
+// This method makes HTTP call, and fills the response in the operation case.
+func (f *BasicFuzzer) ExecuteCaseOperation(operationCase *casemanager.OperationCase) error {
+	// operation := operationCase.Operation
+	path := operationCase.APIMethod.Endpoint
+	method := operationCase.APIMethod.Method
+	log.Debug().Msgf("[BasicFuzzer.ExecuteCaseOperation] Execute operation: %s %s", method, path)
+	statusCode, respBodyBytes, err := f.HTTPClient.PerformRequest(path, method, nil, nil, nil)
+	if err != nil {
+		// A failed request will not stop the fuzzing process.
+		log.Error().Err(err).Msg("[BasicFuzzer.ExecuteCaseOperation] Failed to perform request")
+	}
+	respBody := make(map[string]interface{})
+	err = sonic.Unmarshal(respBodyBytes, &respBody)
+	if err != nil {
+		// A broken response body will not stop the fuzzing process.
+		log.Error().Err(err).Msg("[BasicFuzzer.ExecuteCaseOperation] Failed to unmarshal response body")
+	}
+	// Fill the response in the operation case.
+	operationCase.ResponseStatusCode = statusCode
+	operationCase.ResponseBody = respBody
+	log.Debug().Msgf("[BasicFuzzer.ExecuteTestcase] Response status code: %d, body: %s", statusCode, string(respBodyBytes))
 	return nil
 }
 

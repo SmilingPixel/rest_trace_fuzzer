@@ -24,8 +24,8 @@ func NewResourceManager() *ResourceManager {
     }
 }
 
-// GetRandomResourceByType gets a random resource by the property type.
-func (m *ResourceManager) GetRandomResourceByType(propertyType static.SimpleAPIPropertyType) *Resource {
+// GetSingleResourceByType gets a resource from pool by the property type.
+func (m *ResourceManager) GetSingleResourceByType(propertyType static.SimpleAPIPropertyType) *Resource {
     resources := m.ResourcePool[propertyType]
     if len(resources) == 0 {
         log.Warn().Msgf("[ResourceManager.GetRandomResourceByType]No resource of type %s", propertyType)
