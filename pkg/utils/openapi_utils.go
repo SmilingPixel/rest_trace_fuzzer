@@ -48,6 +48,8 @@ func FlattenSchema(schema *openapi3.SchemaRef) (map[string]*openapi3.SchemaRef, 
 // It returns a json object.
 //
 // For primitive types, the method fills a default value.
+//
+// Deprecated: Use [resttracefuzzer/pkg/casemanager.PopulateCaseOperation] instead.
 func GenerateJsonTemplateFromSchema(schema *openapi3.SchemaRef) (map[string]interface{}, error) {
     if schema == nil || schema.Value == nil {
 		return nil, fmt.Errorf("schema is nil")
@@ -74,15 +76,17 @@ func GenerateJsonTemplateFromSchema(schema *openapi3.SchemaRef) (map[string]inte
 		
 		default:
 			// primitive types
-			result[propName] = generateDefaultValueForPrimitiveSchemaType(propSchema.Value.Type)
+			result[propName] = GenerateDefaultValueForPrimitiveSchemaType(propSchema.Value.Type)
 		}
 	}
 
 	return result, nil
 }
 
-// generateDefaultValueForPrimitiveSchemaType generates a placeholder value for a primitive schema type.
-func generateDefaultValueForPrimitiveSchemaType(schemaType *openapi3.Types) interface{} {
+// GenerateDefaultValueForPrimitiveSchemaType generates a placeholder value for a primitive schema type.
+//
+// TODO: deprecate it when strategy-based generation is implemented. @xunzhou24
+func GenerateDefaultValueForPrimitiveSchemaType(schemaType *openapi3.Types) interface{} {
     switch {
     case schemaType.Includes("string"):
         return "string"
