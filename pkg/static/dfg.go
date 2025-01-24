@@ -10,8 +10,8 @@ import (
 
 // APIDataflowNode represents a node in the dataflow graph of the internal APIs.
 type APIDataflowNode struct {
-	ServiceName     string
-	SimpleAPIMethod SimpleAPIMethod
+	ServiceName     string `json:"service_name"`
+	SimpleAPIMethod SimpleAPIMethod `json:"simple_api_method"`
 }
 
 // APIDataflowEdge represents an edge in the dataflow graph of the internal APIs.
@@ -20,15 +20,15 @@ type APIDataflowNode struct {
 // The data pass from SourceData to TargetData, both of which are parameters of the API.
 // For example, `placeOrder` of CheckoutService passes `userInfo` to `emptyCart` of CartService.
 type APIDataflowEdge struct {
-	Source         *APIDataflowNode
-	Target         *APIDataflowNode
-	SourceProperty SimpleAPIProperty
-	TargetProperty SimpleAPIProperty
+	Source         *APIDataflowNode `json:"source"`
+	Target         *APIDataflowNode `json:"target"`
+	SourceProperty SimpleAPIProperty `json:"source_property"`
+	TargetProperty SimpleAPIProperty `json:"target_property"`
 }
 
 // APIDataflowGraph represents the dataflow graph of the internal APIs.
 type APIDataflowGraph struct {
-	Edges []*APIDataflowEdge
+	Edges []*APIDataflowEdge `json:"edges"`
 }
 
 // NewAPIDataflowGraph creates a new APIDataflowGraph.
@@ -60,9 +60,9 @@ func (g *APIDataflowGraph) ParseFromServiceDocument(serviceDocMap map[string]map
 	}
 
 	// log parsed dataflow graph, for debugging
-	dfgJson, err := sonic.MarshalString(g)
+	dfgJson, err := sonic.MarshalString(g.Edges[0].Source.SimpleAPIMethod.Type)
 	if err != nil {
-		log.Error().Err(err).Msg("[APIDataflowGraph.ParseFromServiceDocument] Failed to marshal dataflow graph")
+		log.Err(err).Msg("[APIDataflowGraph.ParseFromServiceDocument] Failed to marshal dataflow graph")
 	} else {
 		log.Debug().Msgf("[APIDataflowGraph.ParseFromServiceDocument] Dataflow graph: %s", dfgJson)
 	}

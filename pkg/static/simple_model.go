@@ -1,5 +1,7 @@
 package static
 
+import "github.com/bytedance/sonic"
+
 // SimpleAPIMethodType represents the type of an API method.
 type SimpleAPIMethodType string
 
@@ -8,7 +10,7 @@ func (t SimpleAPIMethodType) String() string {
 }
 
 func (t SimpleAPIMethodType) MarshalJSON() ([]byte, error) {
-	return []byte(t.String()), nil
+	return sonic.Marshal(t.String())
 }
 
 func (t *SimpleAPIMethodType) UnmarshalJSON(data []byte) error {
@@ -24,7 +26,7 @@ func (t SimpleAPIPropertyType) String() string {
 }
 
 func (t SimpleAPIPropertyType) MarshalJSON() ([]byte, error) {
-	return []byte(t.String()), nil
+	return sonic.Marshal(t.String())
 }
 
 func (t *SimpleAPIPropertyType) UnmarshalJSON(data []byte) error {
