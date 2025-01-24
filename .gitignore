@@ -1,4 +1,5 @@
 bin/
+output/
 
 # Go workspace file
 go.work
