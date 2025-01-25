@@ -4,6 +4,7 @@ import (
 	"resttracefuzzer/internal/config"
 	"resttracefuzzer/pkg/casemanager"
 	"resttracefuzzer/pkg/feedback"
+	"resttracefuzzer/pkg/feedback/trace"
 	"resttracefuzzer/pkg/static"
 	"resttracefuzzer/pkg/utils"
 	"time"
@@ -24,7 +25,7 @@ type BasicFuzzer struct {
 	ResponseChecker *feedback.ResponseChecker
 
 	// TraceManager manages traces.
-	TraceManager *feedback.TraceManager
+	TraceManager *trace.TraceManager
 
 	// RuntimeGraph is the runtime graph, including coverage information.
 	RunTimeGraph *feedback.RuntimeGraph
@@ -44,7 +45,7 @@ func NewBasicFuzzer(
 	APIManager *static.APIManager,
 	caseManager *casemanager.CaseManager,
 	responseChecker *feedback.ResponseChecker,
-	traceManager *feedback.TraceManager,
+	traceManager *trace.TraceManager,
 	runtimeGraph *feedback.RuntimeGraph,
 ) *BasicFuzzer {
 	httpClient := utils.NewHTTPClient(
@@ -137,7 +138,6 @@ func (f *BasicFuzzer) ExecuteTestScenario(testScenario *casemanager.TestScenario
 		log.Info().Msg("[BasicFuzzer.ExecuteTestcase] Operation executed successfully")
 	}
 
-	// TODO: get 'interesting' from analysers, and decide whether to update the case manager. @xunzhou24
 	hasAchieveNewCoverage := f.FuzzingSnapshot.Update(
 		f.RunTimeGraph.GetEdgeCoverage(),
 		f.ResponseChecker.GetCoveredStatusCodeCount(),

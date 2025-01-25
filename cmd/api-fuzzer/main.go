@@ -7,6 +7,7 @@ import (
 	"resttracefuzzer/internal/fuzzer"
 	"resttracefuzzer/pkg/casemanager"
 	"resttracefuzzer/pkg/feedback"
+	"resttracefuzzer/pkg/feedback/trace"
 	"resttracefuzzer/pkg/parser"
 	"resttracefuzzer/pkg/report"
 	"resttracefuzzer/pkg/resource"
@@ -115,7 +116,7 @@ func main() {
 			APIManager,
 			caseManager,
 			responseChecker,
-			feedback.NewTraceManager(),
+			trace.NewTraceManager(),
 			runTimeGraph,
 		)
 	} else {

@@ -133,6 +133,7 @@ func (m *CaseManager) extendScenarioIfExecSuccess(existingScenario *TestScenario
 
 	// copy the existing scenario
 	newScenario := existingScenario.Copy()
+	newScenario.Reset()
 	// TODO: append a new operation to the scenario @xunzhou24
     return newScenario, nil
 }

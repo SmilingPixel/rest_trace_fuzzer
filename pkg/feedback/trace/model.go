@@ -1,9 +1,9 @@
-package feedback
+package trace
 
 import (
 	"time"
 
-	"github.com/rs/zerolog/log"
+	"github.com/bytedance/sonic"
 )
 
 // SimplifiedJaegerTrace represents a simplified version of a Jaeger trace.
@@ -52,50 +52,19 @@ type CallInfo struct {
 	TargetMethodTraceName string
 }
 
+// SpanKindType represents the type of a span.
 type SpanKindType string
 
-// TraceManager manages traces.
-type TraceManager struct {
-	Traces []*SimplifiedJaegerTrace
+func (s SpanKindType) String() string {
+	return string(s)
 }
 
-// NewTraceManager creates a new TraceManager.
-func NewTraceManager() *TraceManager {
-	return &TraceManager{}
+func (s SpanKindType)  MarshalJSON() ([]byte, error) {
+	return sonic.Marshal(string(s))
 }
 
-// QueryTraces pulls traces from the trace source(e.g., Jaeger), and update local data.
-func (m *TraceManager) PullTraces() error {
-	// TODO: Implement this method @xunzhou24
+func (s *SpanKindType) UnmarshalJSON(data []byte) error {
+	*s = SpanKindType(string(data))
 	return nil
 }
 
-// GetCallInfos returns the call information (list) between services.
-func (m *TraceManager) GetCallInfos(trace *SimplifiedJaegerTrace) ([]*CallInfo, error) {
-	res := make([]*CallInfo, 0)
-	if trace == nil || len(trace.SpanMap) == 0 {
-		log.Warn().Msg("No trace available")
-		return res, nil
-	}
-	for _, span := range trace.SpanMap {
-		for _, ref := range span.References {
-			refMap, ok := ref.(map[string]string)
-			if !ok {
-				log.Warn().Msg("Invalid reference type")
-				continue
-			}
-			if refMap["refType"] == "CHILD_OF" {
-				parentSpanID := refMap["spanID"] // TODO: check here @xunzhou24
-				parentSpan := trace.SpanMap[parentSpanID]
-				callInfo := &CallInfo{
-					SourceService:         parentSpan.Process.ServiceName,
-					TargetService:         span.Process.ServiceName,
-					SourceMethodTraceName: parentSpan.OperationName,
-					TargetMethodTraceName: span.OperationName,
-				}
-				res = append(res, callInfo)
-			}
-		}
-	}
-	return res, nil
-}
