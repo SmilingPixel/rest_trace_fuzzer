@@ -10,7 +10,7 @@ import (
 
 // APIDataflowNode represents a node in the dataflow graph of the internal APIs.
 type APIDataflowNode struct {
-	ServiceName     string `json:"service_name"`
+	ServiceName     string          `json:"service_name"`
 	SimpleAPIMethod SimpleAPIMethod `json:"simple_api_method"`
 }
 
@@ -20,8 +20,8 @@ type APIDataflowNode struct {
 // The data pass from SourceData to TargetData, both of which are parameters of the API.
 // For example, `placeOrder` of CheckoutService passes `userInfo` to `emptyCart` of CartService.
 type APIDataflowEdge struct {
-	Source         *APIDataflowNode `json:"source"`
-	Target         *APIDataflowNode `json:"target"`
+	Source         *APIDataflowNode  `json:"source"`
+	Target         *APIDataflowNode  `json:"target"`
 	SourceProperty SimpleAPIProperty `json:"source_property"`
 	TargetProperty SimpleAPIProperty `json:"target_property"`
 }
@@ -104,7 +104,7 @@ func (g *APIDataflowGraph) parseServiceOperationPair(
 	if sourceOperation.RequestBody != nil {
 		flattenedSourceRequestBody, err := utils.FlattenSchema(sourceOperation.RequestBody.Value.Content.Get("application/json").Schema)
 		if err != nil {
-			log.Error().Err(err).Msg("[parseServiceOperationPair] Failed to flatten source request body")
+			log.Err(err).Msg("[parseServiceOperationPair] Failed to flatten source request body")
 		}
 		for schemaName := range flattenedSourceRequestBody {
 			simpleAPIProperty := SimpleAPIProperty{
@@ -117,7 +117,7 @@ func (g *APIDataflowGraph) parseServiceOperationPair(
 	if targetOperation.RequestBody != nil {
 		flattenedTargetRequestBody, err := utils.FlattenSchema(targetOperation.RequestBody.Value.Content.Get("application/json").Schema)
 		if err != nil {
-			log.Error().Err(err).Msg("[parseServiceOperationPair] Failed to flatten target request body")
+			log.Err(err).Msg("[parseServiceOperationPair] Failed to flatten target request body")
 		}
 		for schemaName := range flattenedTargetRequestBody {
 			simpleAPIProperty := SimpleAPIProperty{

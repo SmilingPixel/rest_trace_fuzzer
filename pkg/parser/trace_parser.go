@@ -27,14 +27,14 @@ func NewJaegerTraceParser() *JaegerTraceParser {
 func (p *JaegerTraceParser) ParseFromPath(filePath string) ([]*feedback.SimplifiedJaegerTraceSpan, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
-		log.Error().Err(err).Msgf("[JaegerTraceParser.ParseFromPath]Failed to open file: %s", filePath)
+		log.Err(err).Msgf("[JaegerTraceParser.ParseFromPath]Failed to open file: %s", filePath)
 		return nil, err
 	}
 	defer file.Close()
 
 	bytes, err := io.ReadAll(file)
 	if err != nil {
-		log.Error().Err(err).Msgf("[JaegerTraceParser.ParseFromPath]Failed to read file: %s", filePath)
+		log.Err(err).Msgf("[JaegerTraceParser.ParseFromPath]Failed to read file: %s", filePath)
 		return nil, err
 	}
 
@@ -42,7 +42,7 @@ func (p *JaegerTraceParser) ParseFromPath(filePath string) ([]*feedback.Simplifi
 		Spans []*feedback.SimplifiedJaegerTraceSpan `json:"spans"`
 	}
 	if err := sonic.Unmarshal(bytes, &result); err != nil {
-		log.Error().Err(err).Msgf("[JaegerTraceParser.ParseFromPath]Failed to unmarshal file: %s", filePath)
+		log.Err(err).Msgf("[JaegerTraceParser.ParseFromPath]Failed to unmarshal file: %s", filePath)
 		return nil, err
 	}
 

@@ -8,7 +8,6 @@ type StatusHitCountReport struct {
 	HitCount  int                    `json:"hitCount"`
 }
 
-
 // SystemTestReport is the report of the system-level test.
 type SystemTestReport struct {
 
@@ -26,7 +25,6 @@ type SystemTestReport struct {
 	// It is generated from statusHitCount.
 	// You should set statusHitCount using SetStatusHitCountReport.
 	StatusHitCountReport []StatusHitCountReport `json:"statusHitCountReport"`
-
 }
 
 // SetStatusHitCountReport sets the status hit count report.
@@ -49,6 +47,4 @@ type InternalServiceTestReport struct {
 
 	// EdgeCoverage is the coverage of the edge.
 	EdgeCoverage float64 `json:"edgeCoverage"`
-
 }
-

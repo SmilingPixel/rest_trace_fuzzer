@@ -10,5 +10,3 @@ type Fuzzer interface {
 	// GetRuntimeGraph gets the runtime graph.
 	GetRuntimeGraph() *feedback.RuntimeGraph
 }
-
-

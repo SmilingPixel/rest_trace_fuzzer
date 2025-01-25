@@ -76,13 +76,13 @@ func (f *BasicFuzzer) Start() error {
 	for time.Since(startTime) <= f.Budget {
 		testScenario, err := f.CaseManager.Pop()
 		if err != nil {
-			log.Error().Err(err).Msg("[BasicFuzzer.Start] Failed to pop a test scenario")
+			log.Err(err).Msg("[BasicFuzzer.Start] Failed to pop a test scenario")
 			break
 		}
 
 		err = f.ExecuteTestScenario(testScenario)
 		if err != nil {
-			log.Error().Err(err).Msg("[BasicFuzzer.Start] Failed to execute the test scenario")
+			log.Err(err).Msg("[BasicFuzzer.Start] Failed to execute the test scenario")
 			break
 		}
 
@@ -93,19 +93,22 @@ func (f *BasicFuzzer) Start() error {
 	return nil
 }
 
+// ExecuteTestScenario executes a test scenario (a sequence of operation cases).
+// This method makes HTTP calls, checks the response, and updates the runtime graph.
+// If the analysers conclude that the test scenario is interesting, the case manager will be updated (e.g., add the test scenario back to queue).
 func (f *BasicFuzzer) ExecuteTestScenario(testScenario *casemanager.TestScenario) error {
 	for _, operationCase := range testScenario.OperationCases {
 		// TODO: pass body and params @xunzhou24
 		err := f.ExecuteCaseOperation(operationCase)
 		if err != nil {
-			log.Error().Err(err).Msg("[BasicFuzzer.ExecuteTestcase] Failed to execute operation")
+			log.Err(err).Msg("[BasicFuzzer.ExecuteTestcase] Failed to execute operation")
 		}
 		statusCode := operationCase.ResponseStatusCode
 
 		// Check the response.
 		err = f.ResponseChecker.CheckResponse(operationCase.APIMethod, statusCode)
 		if err != nil {
-			log.Error().Err(err).Msg("[BasicFuzzer.ExecuteTestcase] Failed to check response")
+			log.Err(err).Msg("[BasicFuzzer.ExecuteTestcase] Failed to check response")
 			return err
 		}
 
@@ -114,20 +117,23 @@ func (f *BasicFuzzer) ExecuteTestScenario(testScenario *casemanager.TestScenario
 		// fetch traces from the service, parse them, and update local runtime graph.
 		err = f.TraceManager.PullTraces()
 		if err != nil {
-			log.Error().Err(err).Msg("[BasicFuzzer.ExecuteTestcase] Failed to pull traces")
+			log.Err(err).Msg("[BasicFuzzer.ExecuteTestcase] Failed to pull traces")
 			return err
 		}
 		callInfoList, err := f.TraceManager.GetCallInfos(nil) // TODO: pass the trace @xunzhou24
 		if err != nil {
-			log.Error().Err(err).Msg("[BasicFuzzer.ExecuteTestcase] Failed to get call infos")
+			log.Err(err).Msg("[BasicFuzzer.ExecuteTestcase] Failed to get call infos")
 			return err
 		}
 		err = f.RunTimeGraph.UpdateFromCallInfos(callInfoList)
 		if err != nil {
-			log.Error().Err(err).Msg("[BasicFuzzer.ExecuteTestcase] Failed to update runtime graph")
+			log.Err(err).Msg("[BasicFuzzer.ExecuteTestcase] Failed to update runtime graph")
 			return err
 		}
 		log.Info().Msg("[BasicFuzzer.ExecuteTestcase] Operation executed successfully")
+
+		// TODO: get 'interesting' from analysers, and decide whether to update the case manager. @xunzhou24
+
 	}
 	return nil
 }
@@ -135,20 +141,19 @@ func (f *BasicFuzzer) ExecuteTestScenario(testScenario *casemanager.TestScenario
 // ExecuteCaseOperation executes a case operation from a test case.
 // This method makes HTTP call, and fills the response in the operation case.
 func (f *BasicFuzzer) ExecuteCaseOperation(operationCase *casemanager.OperationCase) error {
-	// operation := operationCase.Operation
 	path := operationCase.APIMethod.Endpoint
 	method := operationCase.APIMethod.Method
 	log.Debug().Msgf("[BasicFuzzer.ExecuteCaseOperation] Execute operation: %s %s", method, path)
 	statusCode, respBodyBytes, err := f.HTTPClient.PerformRequest(path, method, nil, nil, nil)
 	if err != nil {
 		// A failed request will not stop the fuzzing process.
-		log.Error().Err(err).Msg("[BasicFuzzer.ExecuteCaseOperation] Failed to perform request")
+		log.Err(err).Msg("[BasicFuzzer.ExecuteCaseOperation] Failed to perform request")
 	}
 	respBody := make(map[string]interface{})
 	err = sonic.Unmarshal(respBodyBytes, &respBody)
 	if err != nil {
 		// A broken response body will not stop the fuzzing process.
-		log.Error().Err(err).Msg("[BasicFuzzer.ExecuteCaseOperation] Failed to unmarshal response body")
+		log.Err(err).Msg("[BasicFuzzer.ExecuteCaseOperation] Failed to unmarshal response body")
 	}
 	// Fill the response in the operation case.
 	operationCase.ResponseStatusCode = statusCode

@@ -60,13 +60,13 @@ const (
 
 // SimpleAPIMethod represents an API method on a specific endpoint.
 //
-//	- If the API is an HTTP API, the method is the HTTP method, such as GET, POST, PUT, DELETE, and Endpoint is the URL path.
-//	- If the API is a gRPC API, the method is the gRPC method name.
+//   - If the API is an HTTP API, the method is the HTTP method, such as GET, POST, PUT, DELETE, and Endpoint is the URL path.
+//   - If the API is a gRPC API, the method is the gRPC method name.
 //
 // You should use the struct by value, not by pointer.
 type SimpleAPIMethod struct {
-	Endpoint string `json:"endpoint"`
-	Method   string `json:"method"`
+	Endpoint string              `json:"endpoint"`
+	Method   string              `json:"method"`
 	Type     SimpleAPIMethodType `json:"type"`
 }
 
@@ -77,8 +77,8 @@ type SimpleAPIMethod struct {
 // TODO: fill type field when creating @xunzhou24
 type SimpleAPIProperty struct {
 	// Name is the name of the property.
-	Name        string
+	Name string
 
 	// Type is the type of the property.
-	Type 	    SimpleAPIPropertyType
+	Type SimpleAPIPropertyType
 }

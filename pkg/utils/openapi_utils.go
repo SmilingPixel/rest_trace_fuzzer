@@ -27,7 +27,7 @@ func FlattenSchema(schema *openapi3.SchemaRef) (map[string]*openapi3.SchemaRef, 
 		for _, s := range que {
 			props := s.Value.Properties
 			for propName, propScheme := range props {
-				log.Info().Msgf("[flattenSchema] start to process property %s", propName)
+				// log.Debug().Msgf("[flattenSchema] start to process property %s", propName)
 				if propScheme.Value.Type.Includes("object") {
 					newQue = append(newQue, propScheme)
 					schemas[propName] = propScheme
@@ -51,7 +51,7 @@ func FlattenSchema(schema *openapi3.SchemaRef) (map[string]*openapi3.SchemaRef, 
 //
 // Deprecated: Use [resttracefuzzer/pkg/casemanager.PopulateCaseOperation] instead.
 func GenerateJsonTemplateFromSchema(schema *openapi3.SchemaRef) (map[string]interface{}, error) {
-    if schema == nil || schema.Value == nil {
+	if schema == nil || schema.Value == nil {
 		return nil, fmt.Errorf("schema is nil")
 	}
 
@@ -65,7 +65,7 @@ func GenerateJsonTemplateFromSchema(schema *openapi3.SchemaRef) (map[string]inte
 				return nil, err
 			}
 			result[propName] = subResult
-		
+
 		case propSchema.Value.Type.Includes("array"):
 			subResult, err := GenerateJsonTemplateFromSchema(propSchema.Value.Items)
 			if err != nil {
@@ -73,7 +73,7 @@ func GenerateJsonTemplateFromSchema(schema *openapi3.SchemaRef) (map[string]inte
 			}
 			// TODO: control the array size @xunzhou24
 			result[propName] = []interface{}{subResult}
-		
+
 		default:
 			// primitive types
 			result[propName] = GenerateDefaultValueForPrimitiveSchemaType(propSchema.Value.Type)
@@ -87,14 +87,14 @@ func GenerateJsonTemplateFromSchema(schema *openapi3.SchemaRef) (map[string]inte
 //
 // TODO: deprecate it when strategy-based generation is implemented. @xunzhou24
 func GenerateDefaultValueForPrimitiveSchemaType(schemaType *openapi3.Types) interface{} {
-    switch {
-    case schemaType.Includes("string"):
-        return "string"
-    case schemaType.Includes("number"):
-        return 1
-    case schemaType.Includes("boolean"):
-        return true
-    default:
-        return nil
-    }
+	switch {
+	case schemaType.Includes("string"):
+		return "string"
+	case schemaType.Includes("number"):
+		return 1
+	case schemaType.Includes("boolean"):
+		return true
+	default:
+		return nil
+	}
 }

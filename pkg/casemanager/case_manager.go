@@ -29,7 +29,7 @@ func NewCaseManager(APIManager *static.APIManager, resourceManager *resource.Res
 	m := &CaseManager{
 		APIManager:      APIManager,
 		ResourceManager: resourceManager,
-		TestScenarios:       testScenarios,
+		TestScenarios:   testScenarios,
 	}
 	m.initTestcasesFromDoc()
 	return m
@@ -143,15 +143,12 @@ func (m *CaseManager) generateRequestParamsFromSchema(params []*openapi3.Paramet
 	return result, nil
 }
 
-
-
-
 // generateObjectFromSchema generates a json object from a schema.
 // It returns a json object, and error if any.
 //
 // TODO: Implement strategies
 func (m *CaseManager) generateObjectFromSchema(schema *openapi3.SchemaRef) (map[string]interface{}, error) {
-    if schema == nil || schema.Value == nil {
+	if schema == nil || schema.Value == nil {
 		return nil, fmt.Errorf("schema is nil")
 	}
 
@@ -165,7 +162,7 @@ func (m *CaseManager) generateObjectFromSchema(schema *openapi3.SchemaRef) (map[
 				return nil, err
 			}
 			result[propName] = subResult
-		
+
 		case propSchema.Value.Type.Includes("array"):
 			subResult, err := m.generateObjectFromSchema(propSchema.Value.Items)
 			if err != nil {
@@ -173,7 +170,7 @@ func (m *CaseManager) generateObjectFromSchema(schema *openapi3.SchemaRef) (map[
 			}
 			// TODO: control the array size @xunzhou24
 			result[propName] = []interface{}{subResult}
-		
+
 		default:
 			// primitive types
 			result[propName] = utils.GenerateDefaultValueForPrimitiveSchemaType(propSchema.Value.Type)

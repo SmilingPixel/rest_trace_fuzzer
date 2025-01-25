@@ -47,12 +47,12 @@ func (c *HTTPClient) PerformRequest(path, method string, headers map[string]stri
 	req.SetMethod(method)
 	err := c.Client.Do(context.Background(), req, resp)
 	if err != nil {
-		log.Error().Err(err).Msgf("[HTTPClient.PerformRequest] Failed to perform request: %v", err)
+		log.Err(err).Msgf("[HTTPClient.PerformRequest] Failed to perform request: %v", err)
 		return 0, nil, err
 	}
 	bodyBytes, err := resp.BodyE()
 	if err != nil {
-		log.Error().Err(err).Msgf("[HTTPClient.PerformRequest] Failed to get response body: %v", err)
+		log.Err(err).Msgf("[HTTPClient.PerformRequest] Failed to get response body: %v", err)
 		return 0, nil, err
 	}
 	statusCode := resp.StatusCode()

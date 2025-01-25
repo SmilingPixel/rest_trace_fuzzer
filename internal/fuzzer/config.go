@@ -10,5 +10,4 @@ type FuzzerConfig struct {
 
 	// BaseURL is the base URL of the API.
 	BaseURL string
-
 }
