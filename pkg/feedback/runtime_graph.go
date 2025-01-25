@@ -56,3 +56,14 @@ func (g *RuntimeGraph) UpdateFromCallInfos(callInfos []*CallInfo) error {
 	}
 	return nil
 }
+
+// GetEdgeCoverage returns the edge coverage of the runtime graph.
+func (g *RuntimeGraph) GetEdgeCoverage() float64 {
+	coveredEdges := 0
+	for _, edge := range g.Edges {
+		if edge.HitCount > 0 {
+			coveredEdges++
+		}
+	}
+	return float64(coveredEdges) / float64(len(g.Edges))
+}

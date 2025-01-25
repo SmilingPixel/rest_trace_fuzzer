@@ -34,6 +34,9 @@ type BasicFuzzer struct {
 
 	// HTTPClient is the HTTP client.
 	HTTPClient *utils.HTTPClient
+
+	// FuzzingSnapshot is the snapshot of the fuzzing process.
+	FuzzingSnapshot *FuzzingSnapshot
 }
 
 // NewBasicFuzzer creates a new BasicFuzzer.
@@ -47,6 +50,7 @@ func NewBasicFuzzer(
 	httpClient := utils.NewHTTPClient(
 		config.GlobalConfig.ServerBaseURL,
 	)
+	fuzzingSnapshot := NewFuzzingSnapshot()
 	return &BasicFuzzer{
 		APIManager:      APIManager,
 		CaseManager:     caseManager,
@@ -55,6 +59,7 @@ func NewBasicFuzzer(
 		Budget:          config.GlobalConfig.FuzzerBudget,
 		HTTPClient:      httpClient,
 		RunTimeGraph:    runtimeGraph,
+		FuzzingSnapshot: fuzzingSnapshot,
 	}
 }
 
@@ -98,7 +103,6 @@ func (f *BasicFuzzer) Start() error {
 // If the analysers conclude that the test scenario is interesting, the case manager will be updated (e.g., add the test scenario back to queue).
 func (f *BasicFuzzer) ExecuteTestScenario(testScenario *casemanager.TestScenario) error {
 	for _, operationCase := range testScenario.OperationCases {
-		// TODO: pass body and params @xunzhou24
 		err := f.ExecuteCaseOperation(operationCase)
 		if err != nil {
 			log.Err(err).Msg("[BasicFuzzer.ExecuteTestcase] Failed to execute operation")
@@ -131,10 +135,23 @@ func (f *BasicFuzzer) ExecuteTestScenario(testScenario *casemanager.TestScenario
 			return err
 		}
 		log.Info().Msg("[BasicFuzzer.ExecuteTestcase] Operation executed successfully")
-
-		// TODO: get 'interesting' from analysers, and decide whether to update the case manager. @xunzhou24
-
 	}
+
+	// TODO: get 'interesting' from analysers, and decide whether to update the case manager. @xunzhou24
+	hasAchieveNewCoverage := f.FuzzingSnapshot.Update(
+		f.RunTimeGraph.GetEdgeCoverage(),
+		f.ResponseChecker.GetCoveredStatusCodeCount(),
+	)
+	log.Info().Msgf("[BasicFuzzer.ExecuteTestcase] Finish execute current test scenario, Edge coverage: %f, covered status code count: %d, hasAchieveNewCoverage: %v", f.RunTimeGraph.GetEdgeCoverage(), f.ResponseChecker.GetCoveredStatusCodeCount(), hasAchieveNewCoverage)
+	
+	// Pass the scenario and the result back to the case manager,
+	// and decide whether to put the scenario back to the queue and to generate a new one.
+	err := f.CaseManager.EvaluateScenarioAndTryUpdate(hasAchieveNewCoverage, testScenario)
+	if err != nil {
+		log.Err(err).Msg("[BasicFuzzer.ExecuteTestcase] Failed to evaluate scenario and try update")
+		return err
+	}
+	
 	return nil
 }
 

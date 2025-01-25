@@ -11,6 +11,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+const (
+	// MaxExecutedTimes is the default maximum executed times of a test scenario.
+	MaxExecutedTimes = 3
+)
+
 // CaseManager manages the test cases.
 type CaseManager struct {
 	// TestScenarios is a list of test scenarios.
@@ -92,6 +97,46 @@ func (m *CaseManager) Push(testcase *TestScenario) {
 	m.TestScenarios = append(m.TestScenarios, testcase)
 }
 
+// EvaluateScenarioAndTryUpdate evaluates the given metrics for the given test scenario that has been executed,
+// determines whether to put the scenario back to the queue, and processes the scenario to generate a new one if needed.
+// It returns an error if any.
+func (m *CaseManager) EvaluateScenarioAndTryUpdate(hasAchieveNewCoverage bool, executedScenario *TestScenario) error {
+	// Update the executed times
+	executedScenario.ExecutedTimes++
+
+	// Put the scenario back to the queue if it has achieved new coverage or has not been executed for enough times
+    if hasAchieveNewCoverage || executedScenario.ExecutedTimes < MaxExecutedTimes {
+        // Put the scenario back to the queue
+        m.Push(executedScenario)
+    }
+
+    // Process the scenario to generate a new one
+    newScenario, err := m.extendScenarioIfExecSuccess(executedScenario)
+    if err != nil {
+        log.Err(err).Msg("[CaseManager.evaluateScenarioAndTryUpdate] Failed to process scenario")
+        return err
+    }
+	if newScenario != nil {
+		m.Push(newScenario)
+	}
+
+    return nil
+}
+
+// extendScenarioIfExecSuccess processes a test scenario to extend it, if needed, and if all proceeding operations are executed successfully.
+func (m *CaseManager) extendScenarioIfExecSuccess(existingScenario *TestScenario) (*TestScenario, error) {
+    // This might involve modifying request parameters, headers, body, etc.
+	if !existingScenario.IsExecutedSuccessfully() {
+		log.Warn().Msg("[CaseManager.extendScenarioIfExecSuccess] The existing scenario is not executed successfully")
+		return nil, nil
+	}
+
+	// copy the existing scenario
+	newScenario := existingScenario.Copy()
+	// TODO: append a new operation to the scenario @xunzhou24
+    return newScenario, nil
+}
+
 // Init initializes the case queue.
 func (m *CaseManager) initTestcasesFromDoc() error {
 	// TODO: Implement this method. @xunzhou24
@@ -101,9 +146,7 @@ func (m *CaseManager) initTestcasesFromDoc() error {
 			Operation: operation,
 			APIMethod: method,
 		}
-		testcase := &TestScenario{
-			OperationCases: []*OperationCase{&operationCase},
-		}
+		testcase := NewTestScenario([]*OperationCase{ &operationCase })
 		m.Push(testcase)
 	}
 	return nil
