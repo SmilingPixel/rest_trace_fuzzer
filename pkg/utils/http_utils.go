@@ -58,3 +58,8 @@ func (c *HTTPClient) PerformRequest(path, method string, headers map[string]stri
 	statusCode := resp.StatusCode()
 	return statusCode, bodyBytes, nil
 }
+
+// PerformGet performs an HTTP GET request.
+func (c *HTTPClient) PerformGet(path string, headers map[string]string, params map[string]string) (int, []byte, error) {
+	return c.PerformRequest(path, "GET", headers, params, nil)
+}

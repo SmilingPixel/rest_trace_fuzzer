@@ -64,7 +64,70 @@ func (p *JaegerTraceFetcher) FetchFromPath(filePath string) ([]*SimplifiedJaeger
 }
 
 // FetchFromRemote fetches Jaeger traces from remote source.
+// It returns a list of traces, or an error if failed.
 func (p *JaegerTraceFetcher) FetchFromRemote() ([]*SimplifiedJaegerTrace, error) {
-	// TODO: Implement this method @xunzhou24
-	return nil, nil
+	serviceNames, err := p.fetchAllServicesFromRemote()
+	if err != nil {
+		log.Err(err).Msg("[JaegerTraceFetcher.FetchFromRemote] Failed to fetch services")
+		return nil, err
+	}
+	if len(serviceNames) == 0 {
+		log.Warn().Msg("[JaegerTraceFetcher.FetchFromRemote] No services found")
+		return nil, nil
+	}
+	traces := make([]*SimplifiedJaegerTrace, 0)
+	for _, serviceName := range serviceNames {
+		serviceTraces, err := p.fetchServiceTracesFromRemote(serviceName)
+		if err != nil {
+			log.Err(err).Msg("[JaegerTraceFetcher.FetchFromRemote] Failed to fetch traces")
+			return nil, err
+		}
+		traces = append(traces, serviceTraces...)
+	}
+	return traces, nil
+}
+
+// fetchAllServicesFromRemote fetches all services from remote source.
+// It returns a list of service names, or an error if failed.
+func (p *JaegerTraceFetcher) fetchAllServicesFromRemote() ([]string, error) {
+	headers := map[string]string{}
+	params := map[string]string{}
+	statusCode, respBytes, err := p.FetcherClient.PerformGet("/api/services", headers, params)
+	if err != nil {
+		log.Err(err).Msgf("[JaegerTraceFetcher.FetchAllServicesFromRemote] Failed to fetch services: %v", err)
+		return nil, err
+	}
+	if statusCode < 200 || statusCode >= 300 {
+		log.Err(err).Msgf("[JaegerTraceFetcher.FetchAllServicesFromRemote] Failed to fetch services: %d", statusCode)
+		return nil, err
+	}
+	var serviceNames []string
+	if err := sonic.Unmarshal(respBytes, &serviceNames); err != nil {
+		log.Err(err).Msgf("[JaegerTraceFetcher.FetchAllServicesFromRemote] Failed to unmarshal services: %v", err)
+		return nil, err
+	}
+	return serviceNames, nil
+}
+
+// fetchServiceTracesFromRemote fetches traces of a service from remote source.
+// It returns a list of traces, or an error if failed.
+func (p *JaegerTraceFetcher) fetchServiceTracesFromRemote(serviceName string) ([]*SimplifiedJaegerTrace, error) {
+	url := "/api/traces" + "?limit=2000service=" + serviceName
+	headers := map[string]string{}
+	params := map[string]string{}
+	statusCode, respBytes, err := p.FetcherClient.PerformGet(url, headers, params)
+	if err != nil {
+		log.Err(err).Msgf("[JaegerTraceFetcher.FetchServiceTracesFromRemote] Failed to fetch traces: %v", err)
+		return nil, err
+	}
+	if statusCode < 200 || statusCode >= 300 {
+		log.Err(err).Msgf("[JaegerTraceFetcher.FetchServiceTracesFromRemote] Failed to fetch traces: %d", statusCode)
+		return nil, err
+	}
+	var traces []*SimplifiedJaegerTrace
+	if err := sonic.Unmarshal(respBytes, &traces); err != nil {
+		log.Err(err).Msgf("[JaegerTraceFetcher.FetchServiceTracesFromRemote] Failed to unmarshal traces: %v", err)
+		return nil, err
+	}
+	return traces, nil
 }
