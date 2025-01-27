@@ -1,6 +1,5 @@
 package trace
 
-
 // TraceDB represents a database for traces.
 // Structs that implement this interface should be able to store and retrieve traces.
 // By default, we store Jaeger-style traces.
@@ -11,11 +10,13 @@ type TraceDB interface {
 	// If any trace of target ID does not exist, length of the result will be less than the length of the input.
 	SelectByIDs(ids []string) ([]*SimplifiedJaegerTrace, error)
 
-	// Upsert inserts or updates traces.
+	// BatchUpsert inserts or updates traces.
 	// If the trace already exists, it will be updated.
-	Upsert(traces []*SimplifiedJaegerTrace) error
-}
+	BatchUpsert(traces []*SimplifiedJaegerTrace) error
 
+	// BatchInsertAndReturn inserts traces and returns the inserted traces.
+	BatchInsertAndReturn(traces []*SimplifiedJaegerTrace) ([]*SimplifiedJaegerTrace, error)
+}
 
 // InMemoryTraceDB is an in-memory implementation of TraceDB.
 type InMemoryTraceDB struct {
@@ -45,8 +46,8 @@ func (db *InMemoryTraceDB) SelectByIDs(ids []string) ([]*SimplifiedJaegerTrace, 
 	return res, nil
 }
 
-// Upsert inserts or updates traces.
-func (db *InMemoryTraceDB) Upsert(traces []*SimplifiedJaegerTrace) error {
+// BatchUpsert inserts or updates traces.
+func (db *InMemoryTraceDB) BatchUpsert(traces []*SimplifiedJaegerTrace) error {
 	for _, trace := range traces {
 		queriedTrace, err := db.SelectByIDs([]string{trace.TraceID})
 		if err != nil {
@@ -67,3 +68,19 @@ func (db *InMemoryTraceDB) Upsert(traces []*SimplifiedJaegerTrace) error {
 	return nil
 }
 
+// BatchInsertAndReturn inserts traces and returns the inserted traces.
+func (db *InMemoryTraceDB) BatchInsertAndReturn(traces []*SimplifiedJaegerTrace) ([]*SimplifiedJaegerTrace, error) {
+	newlyInsertedTraces := make([]*SimplifiedJaegerTrace, 0)
+	for _, trace := range traces {
+		exist, err := db.SelectByIDs([]string{trace.TraceID})
+		if err != nil {
+			return nil, err
+		}
+		if len(exist) > 0 {
+			continue
+		}
+		db.Traces = append(db.Traces, trace)
+		newlyInsertedTraces = append(newlyInsertedTraces, trace)
+	}
+	return newlyInsertedTraces, nil
+}

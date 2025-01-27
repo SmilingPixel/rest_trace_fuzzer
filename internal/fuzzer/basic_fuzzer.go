@@ -106,52 +106,52 @@ func (f *BasicFuzzer) ExecuteTestScenario(testScenario *casemanager.TestScenario
 	for _, operationCase := range testScenario.OperationCases {
 		err := f.ExecuteCaseOperation(operationCase)
 		if err != nil {
-			log.Err(err).Msg("[BasicFuzzer.ExecuteTestcase] Failed to execute operation")
+			log.Err(err).Msg("[BasicFuzzer.ExecuteTestScenario] Failed to execute operation")
 		}
 		statusCode := operationCase.ResponseStatusCode
 
 		// Check the response.
 		err = f.ResponseChecker.CheckResponse(operationCase.APIMethod, statusCode)
 		if err != nil {
-			log.Err(err).Msg("[BasicFuzzer.ExecuteTestcase] Failed to check response")
+			log.Err(err).Msg("[BasicFuzzer.ExecuteTestScenario] Failed to check response")
 			return err
 		}
 
 		// TODO: parse and validate the response body @xunzhou24
 
 		// fetch traces from the service, parse them, and update local runtime graph.
-		err = f.TraceManager.PullTraces()
+		newTraces, err := f.TraceManager.PullTracesAndReturn()
 		if err != nil {
-			log.Err(err).Msg("[BasicFuzzer.ExecuteTestcase] Failed to pull traces")
+			log.Err(err).Msg("[BasicFuzzer.ExecuteTestScenario] Failed to pull traces")
 			return err
 		}
-		callInfoList, err := f.TraceManager.GetCallInfos(nil) // TODO: pass the trace @xunzhou24
+		callInfoList, err := f.TraceManager.ConvertTraces2CallInfos(newTraces)
 		if err != nil {
-			log.Err(err).Msg("[BasicFuzzer.ExecuteTestcase] Failed to get call infos")
+			log.Err(err).Msg("[BasicFuzzer.ExecuteTestScenario] Failed to get call infos")
 			return err
 		}
 		err = f.RunTimeGraph.UpdateFromCallInfos(callInfoList)
 		if err != nil {
-			log.Err(err).Msg("[BasicFuzzer.ExecuteTestcase] Failed to update runtime graph")
+			log.Err(err).Msg("[BasicFuzzer.ExecuteTestScenario] Failed to update runtime graph")
 			return err
 		}
-		log.Info().Msg("[BasicFuzzer.ExecuteTestcase] Operation executed successfully")
+		log.Info().Msg("[BasicFuzzer.ExecuteTestScenario] Operation executed successfully")
 	}
 
 	hasAchieveNewCoverage := f.FuzzingSnapshot.Update(
 		f.RunTimeGraph.GetEdgeCoverage(),
 		f.ResponseChecker.GetCoveredStatusCodeCount(),
 	)
-	log.Info().Msgf("[BasicFuzzer.ExecuteTestcase] Finish execute current test scenario, Edge coverage: %f, covered status code count: %d, hasAchieveNewCoverage: %v", f.RunTimeGraph.GetEdgeCoverage(), f.ResponseChecker.GetCoveredStatusCodeCount(), hasAchieveNewCoverage)
-	
+	log.Info().Msgf("[BasicFuzzer.ExecuteTestScenario] Finish execute current test scenario, Edge coverage: %f, covered status code count: %d, hasAchieveNewCoverage: %v", f.RunTimeGraph.GetEdgeCoverage(), f.ResponseChecker.GetCoveredStatusCodeCount(), hasAchieveNewCoverage)
+
 	// Pass the scenario and the result back to the case manager,
 	// and decide whether to put the scenario back to the queue and to generate a new one.
 	err := f.CaseManager.EvaluateScenarioAndTryUpdate(hasAchieveNewCoverage, testScenario)
 	if err != nil {
-		log.Err(err).Msg("[BasicFuzzer.ExecuteTestcase] Failed to evaluate scenario and try update")
+		log.Err(err).Msg("[BasicFuzzer.ExecuteTestScenario] Failed to evaluate scenario and try update")
 		return err
 	}
-	
+
 	return nil
 }
 
@@ -175,7 +175,7 @@ func (f *BasicFuzzer) ExecuteCaseOperation(operationCase *casemanager.OperationC
 	// Fill the response in the operation case.
 	operationCase.ResponseStatusCode = statusCode
 	operationCase.ResponseBody = respBody
-	log.Debug().Msgf("[BasicFuzzer.ExecuteTestcase] Response status code: %d, body: %s", statusCode, string(respBodyBytes))
+	log.Debug().Msgf("[BasicFuzzer.ExecuteTestScenario] Response status code: %d, body: %s", statusCode, string(respBodyBytes))
 	return nil
 }
 
