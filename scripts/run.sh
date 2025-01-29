@@ -28,6 +28,10 @@ SERVER_BASE_URL="http://www.example.com"
 INTERNAL_SERVICE_OAS_FILE="../openapi/otel_demo/internal_service_oas.yaml"
 # 8. Output directory
 OUTPUT_DIR="./output"
+# 9. The trace backend URL
+TRACE_BACKEND_URL="http://localhost:4317"
+# 10. The trace backend type
+TRACE_BACKEND_TYPE="Jaeger"
 
 # Run the binary
 echo "Running the binary..."
@@ -37,4 +41,6 @@ $BIN_OUTPUT_DIR/$BINARY_NAME \
     --fuzzer-budget $FUZZING_BUDGET \
     --server-base-url $SERVER_BASE_URL \
     --internal-service-openapi-spec $INTERNAL_SERVICE_OAS_FILE \
-    --output-dir $OUTPUT_DIR
+    --output-dir $OUTPUT_DIR \
+    --trace-backend-url $TRACE_BACKEND_URL \
+    --trace-backend-type $TRACE_BACKEND_TYPE
