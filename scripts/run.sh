@@ -12,35 +12,10 @@ fi
 
 
 # Arguments
-# 1. The input OpenAPI file
-OAS_FILE="../openapi/otel_demo/system_swagger.json"
-# 2. The RESTler dependency file
-RESTLER_DEPENDENCY_FILE="../restler_bin/restler/Compile/dependencies.json"
-# 3. Dependency file type
-DEPENDENCY_FILE_TYPE="Restler"
-# 4. Fuzzer type
-FUZZER_TYPE="Basic"
-# 5. Fuzzing budget
-FUZZING_BUDGET="30s"
-# 6. Server base URL
-SERVER_BASE_URL="http://www.example.com"
-# 7. Internal service OpenAPI map file
-INTERNAL_SERVICE_OAS_FILE="../openapi/otel_demo/internal_service_oas.yaml"
-# 8. Output directory
-OUTPUT_DIR="./output"
-# 9. The trace backend URL
-TRACE_BACKEND_URL="http://localhost:4317"
-# 10. The trace backend type
-TRACE_BACKEND_TYPE="Jaeger"
+# The configuration file
+CONFIG_FILE="./config/config.json"
 
 # Run the binary
 echo "Running the binary..."
 $BIN_OUTPUT_DIR/$BINARY_NAME \
-    --openapi-spec $OAS_FILE \
-    --fuzzer-type $FUZZER_TYPE \
-    --fuzzer-budget $FUZZING_BUDGET \
-    --server-base-url $SERVER_BASE_URL \
-    --internal-service-openapi-spec $INTERNAL_SERVICE_OAS_FILE \
-    --output-dir $OUTPUT_DIR \
-    --trace-backend-url $TRACE_BACKEND_URL \
-    --trace-backend-type $TRACE_BACKEND_TYPE
+    --config-file $CONFIG_FILE

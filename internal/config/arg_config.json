@@ -1,5 +1,13 @@
 [
     {
+        "arg_name": "config-file",
+        "config_name": "config_file_path",
+        "description": "Path to the config file. If a argument is provided in both the config file and command line, the config file argument will be used",
+        "type": "string",
+        "required": false,
+        "default": ""
+    },
+    {
         "arg_name": "openapi-spec",
         "config_name": "openapi_spec_path",
         "description": "Path to the OpenAPI spec file",

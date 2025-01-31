@@ -1,0 +1,12 @@
+{
+    "config_file_path": "",
+    "openapi_spec_path": "../openapi/otel_demo/system_swagger.json",
+    "server_base_url": "http://www.example.com",
+    "internal_service_openapi_path": "../openapi/otel_demo/internal_service_oas.yaml",
+    "trace_backend_url": "http://localhost:4317",
+    "trace_backend_type": "Jaeger",
+    "fuzzer_type": "Basic",
+    "fuzzer_budget": 30,
+    "log_level": "info",
+    "output_dir": "./output"
+  }
