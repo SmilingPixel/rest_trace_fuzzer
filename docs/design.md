@@ -34,19 +34,19 @@ The architecture diagram is powered by [draw.io](https://app.diagrams.net/).
 | ODG DB         | 存储 ODG                                           | 数据结构：见后面章节                                                   |
 | DFG DB         | 存储 DFG                                           | 数据结构：见后面章节                                                   |
 | Runtime Info Graph         | 存储程序运行时的 DFG 调用和覆盖状态                                          | 数据结构：见后面章节                                                   |
-| Resource Pool  | 存储资源池，目前主要用于存储测试过程中创建的资源       | TODO: 预计参考 foREST 的设计，但这里需要为每个服务都做对应的区分         |
-| Seed Queue     | 存储种子测试用例，优先级队列                         |                                                                      |
+| Resource Pool  | 存储资源池，目前主要用于存储测试过程中创建的资源       | TODO: 预计参考 foREST 的设计         |
+| Testcase Queue     | 存储测试用例，优先级队列，依据覆盖率提升等指标计算优先级                         |                                                                      |
 
 
 ## 2.3. 测试执行模块
 
 | Module               | Description                                      | Note                                                                 |
 |----------------------|--------------------------------------------------|----------------------------------------------------------------------|
-| Operation Scheduler  | 根据 ODG, DFG, Runtime Info Graph 等，调度接口的执行顺序                        | 输入：数据持久化模块中的数据 输出：本次预计执行的接口或者接口序列         |
-| Operation Instantiator | 根据接口定义，实例化接口                           | 输入：接口定义，资源池数据 输出：接口请求实例                           |
+| Testcase Scheduler  | 根据 ODG, DFG, Runtime Info Graph 等，调度接口的执行顺序                        | 输入：数据持久化模块中的数据 输出：本次预计执行的接口序列         |
+| Operation Population | 根据接口定义，填充参数，实例化接口                           | 输入：接口定义，资源池数据 输出：接口请求实例                           |
 | Test Driver          | 执行接口请求，记录执行结果，处理反馈，更新数据持久化模块中的数据 |                                                                      |
 | Response Checker       | 收集系统响应，存储测试结果        |                                                                      |
-| Trace Analyser (**TODO: 在图里画出来 @xunzhou24**)       | 收集 Trace，同步更新 RuntimeInfo Graph 的状态        |                                                                      |
+| Trace Analyser       | 收集 Trace，同步更新 RuntimeInfo Graph 的状态        |                                                                      |
 
 
 # 3. 具体实现方案
@@ -145,15 +145,15 @@ if (outputParameter.getNormalizedName().equals(inputParameter.getNormalizedName(
 [TODO: 待定]
 
 
-## 3.4. Seed Queue
+## 3.4. Testcase Queue
 
 总体思路：
 - ~~从 ODG 中找到入度为 0 的节点，作为种子节点~~
 - 从种子节点开始，根据 ODG 的依赖关系，构建测试序列
-- 将测试序列中的节点加入 Seed Queue （类似于 DFS 的思路）
+- 将测试序列中的节点加入 Testcase Queue （类似于 DFS 的思路）
 - 优先级:
-  - 提高内部 ODG 覆盖率的种子具有更高的优先级
-  - 提高系统外部接口覆盖率（Path, Status Code）的种子具有更高的优先级
+  - 提高内部 ODG 覆盖率的测试用例具有更高的优先级
+  - 提高系统外部接口覆盖率（Path, Status Code）的测试用例具有更高的优先级
   - ...
 
 [TODO: 具体细节待定]
@@ -171,12 +171,13 @@ if (outputParameter.getNormalizedName().equals(inputParameter.getNormalizedName(
 ### 3.6.1. Trace 搜集
 
 - OpenTelemetry Demo 中，使用 Jaeger 提供的 API 进行 trace 搜集
+- 参考这个 [issue](https://github.com/orgs/jaegertracing/discussions/2876)
 
 
 ### 3.6.2. Trace 分析
 
 1. 记录覆盖的调用边和调用次数，更新 ODG 实例
-2. 统计覆盖率更新，上报给 Resource Pool
+2. 统计覆盖率更新，上报给 Runtime Info Graph
 3. 更新 ODG，补充缺失的依赖关系，修改错误的依赖关系 [TODO: 具体实现待定]
 
 

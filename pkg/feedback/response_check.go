@@ -39,3 +39,13 @@ func (rc *ResponseChecker) CheckResponse(method static.SimpleAPIMethod, statusCo
 	rc.StatusHitCount[method][statusCode]++
 	return nil
 }
+
+// GetCoveredStatusCodeCount returns the covered status codes.
+func (rc *ResponseChecker) GetCoveredStatusCodeCount() int {
+	count := 0
+	for _, statusMap := range rc.StatusHitCount {
+		count += len(statusMap)
+	}
+	return count
+}
+

@@ -7,8 +7,10 @@ import (
 	"resttracefuzzer/internal/fuzzer"
 	"resttracefuzzer/pkg/casemanager"
 	"resttracefuzzer/pkg/feedback"
+	"resttracefuzzer/pkg/feedback/trace"
 	"resttracefuzzer/pkg/parser"
 	"resttracefuzzer/pkg/report"
+	"resttracefuzzer/pkg/resource"
 	"resttracefuzzer/pkg/static"
 	"time"
 
@@ -68,7 +70,7 @@ func main() {
 	APIParser := parser.NewOpenAPIParser()
 	doc, err := APIParser.ParseSystemDocFromPath(config.GlobalConfig.OpenAPISpecPath)
 	if err != nil {
-		log.Error().Err(err).Msgf("[main] Failed to parse OpenAPI spec: %v", err)
+		log.Err(err).Msgf("[main] Failed to parse OpenAPI spec: %v", err)
 		return
 	}
 	APIManager.InitFromSystemDoc(doc)
@@ -76,13 +78,14 @@ func main() {
 	// Parse doc of internal services
 	serviceDoc, err := APIParser.ParseServiceDocFromPath(config.GlobalConfig.InternalServiceOpenAPIPath)
 	if err != nil {
-		log.Error().Err(err).Msgf("[main] Failed to parse internal service OpenAPI spec: %v", err)
+		log.Err(err).Msgf("[main] Failed to parse internal service OpenAPI spec: %v", err)
 		return
 	}
 	APIManager.InitFromServiceDoc(serviceDoc)
 
-	// Initialize case manager and response checker
-	caseManager := casemanager.NewCaseManager(APIManager)
+	// Initialize necessary components
+	resourceManager := resource.NewResourceManager()
+	caseManager := casemanager.NewCaseManager(APIManager, resourceManager)
 	responseChecker := feedback.NewResponseChecker(APIManager)
 	runTimeGraph := feedback.NewRuntimeGraph(APIManager.APIDataflowGraph)
 
@@ -95,12 +98,12 @@ func main() {
 		if config.GlobalConfig.DependencyFileType == "Restler" {
 			dependencyFileParser = parser.NewAPIDependencyRestlerParser()
 		} else {
-			log.Error().Err(err).Msgf("[main] Unsupported dependency file type: %s", config.GlobalConfig.DependencyFileType)
+			log.Err(err).Msgf("[main] Unsupported dependency file type: %s", config.GlobalConfig.DependencyFileType)
 			return
 		}
 		dependecyGraph, err := dependencyFileParser.ParseFromPath(config.GlobalConfig.DependencyFilePath)
 		if err != nil {
-			log.Error().Err(err).Msgf("Failed to parse dependency file: %v", err)
+			log.Err(err).Msgf("Failed to parse dependency file: %v", err)
 			return
 		}
 		APIManager.APIDependencyGraph = dependecyGraph
@@ -113,16 +116,16 @@ func main() {
 			APIManager,
 			caseManager,
 			responseChecker,
-			feedback.NewTraceManager(),
+			trace.NewTraceManager(),
 			runTimeGraph,
 		)
 	} else {
-		log.Error().Err(err).Msgf("[main] Unsupported fuzzer type: %s", config.GlobalConfig.FuzzerType)
+		log.Err(err).Msgf("[main] Unsupported fuzzer type: %s", config.GlobalConfig.FuzzerType)
 		return
 	}
 	err = mainFuzzer.Start()
 	if err != nil {
-		log.Error().Err(err).Msgf("[main] Fuzzer failed: %v", err)
+		log.Err(err).Msgf("[main] Fuzzer failed: %v", err)
 		return
 	}
 
@@ -136,20 +139,20 @@ func main() {
 	// Create the output directory if it does not exist.
 	err = os.MkdirAll(config.GlobalConfig.OutputDir, os.ModePerm)
 	if err != nil {
-		log.Error().Err(err).Msgf("[main] Failed to create the output directory: %v", err)
+		log.Err(err).Msgf("[main] Failed to create the output directory: %v", err)
 		return
 	}
 	systemReportPath := fmt.Sprintf("%s/system_report_%s.json", config.GlobalConfig.OutputDir, t.Format(time.RFC3339))
 	err = systemReporter.GenerateSystemReport(responseChecker, systemReportPath)
 	if err != nil {
-		log.Error().Err(err).Msgf("[main] Failed to generate system report: %v", err)
+		log.Err(err).Msgf("[main] Failed to generate system report: %v", err)
 		return
 	}
 	internalServiceReporter := report.NewInternalServiceReporter()
 	internalServiceReportPath := fmt.Sprintf("%s/internal_service_report_%s.json", config.GlobalConfig.OutputDir, t.Format(time.RFC3339))
 	err = internalServiceReporter.GenerateInternalServiceReport(mainFuzzer.GetRuntimeGraph(), internalServiceReportPath)
 	if err != nil {
-		log.Error().Err(err).Msgf("[main] Failed to generate internal service report: %v", err)
+		log.Err(err).Msgf("[main] Failed to generate internal service report: %v", err)
 		return
 	}
 

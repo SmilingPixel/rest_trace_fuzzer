@@ -52,12 +52,12 @@ To use the tool, follow these steps:
 
 1. Build the project:
     ```sh
-    bash build.sh
+    bash ./scripts/build.sh
     ```
 
 2. Run the tool:
     ```sh
-    bash run.sh
+    bash ./scripts/run.sh
     ```
 
 ## Configuration
@@ -65,10 +65,13 @@ To use the tool, follow these steps:
 The tool can be configured using command-line arguments and environment variables. The following options are available:
 
 - `--openapi-spec`: Path to the OpenAPI specification file.
+- `--server-base-url`: Base URL of the server to test.
+- `--internal-service-openapi-spec`: Path to the internal service OpenAPI specification file.
+- `--trace-backend-url`: URL of the trace backend.
+- `--trace-backend-type`: Type of the trace backend. Currently only supports 'Jaeger'.
 - `--fuzzer-type`: Type of fuzzer to use (e.g., Basic).
 - `--fuzzer-budget`: Time budget for fuzzing (e.g., 30s).
-- `--server-base-url`: Base URL of the server to test.
-- `--internal-service-openapi-spec-map`: Path to the internal service OpenAPI specification map file.
+- `--log-level`: Log level: debug, info, warn, error, fatal, panic.
 - `--output-dir`: Directory to save the output reports.
 
 ## License

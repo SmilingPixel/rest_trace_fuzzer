@@ -39,7 +39,6 @@ func splitIntoWords(name string) []string {
 	return words
 }
 
-
 // matchVariableNames determines if two variable names represent the same concept by
 // comparing their respective word slices. It returns true if they match and false otherwise.
 //

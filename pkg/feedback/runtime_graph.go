@@ -1,6 +1,9 @@
 package feedback
 
-import "resttracefuzzer/pkg/static"
+import (
+	"resttracefuzzer/pkg/feedback/trace"
+	"resttracefuzzer/pkg/static"
+)
 
 // RuntimeEdge represents an edge in the runtime graph.
 // It includes static info(source and target) and runtime info(hit count).
@@ -32,10 +35,10 @@ func NewRuntimeGraph(APIDataflowGraph *static.APIDataflowGraph) *RuntimeGraph {
 }
 
 // UpdateFromCallInfos updates the runtime graph from the call information.
-func (g *RuntimeGraph) UpdateFromCallInfos(callInfos []*CallInfo) error {
+func (g *RuntimeGraph) UpdateFromCallInfos(callInfos []*trace.CallInfo) error {
 	// TODO: Implement this method. @xunzhou24
 	// Group by source service
-	service2CallInfos := make(map[string][]*CallInfo)
+	service2CallInfos := make(map[string][]*trace.CallInfo)
 	for _, callInfo := range callInfos {
 		sourceService := callInfo.SourceService
 		service2CallInfos[sourceService] = append(service2CallInfos[sourceService], callInfo)
@@ -55,4 +58,15 @@ func (g *RuntimeGraph) UpdateFromCallInfos(callInfos []*CallInfo) error {
 		}
 	}
 	return nil
+}
+
+// GetEdgeCoverage returns the edge coverage of the runtime graph.
+func (g *RuntimeGraph) GetEdgeCoverage() float64 {
+	coveredEdges := 0
+	for _, edge := range g.Edges {
+		if edge.HitCount > 0 {
+			coveredEdges++
+		}
+	}
+	return float64(coveredEdges) / float64(len(g.Edges))
 }

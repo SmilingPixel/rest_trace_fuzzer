@@ -4,10 +4,12 @@ import (
 	"resttracefuzzer/internal/config"
 	"resttracefuzzer/pkg/casemanager"
 	"resttracefuzzer/pkg/feedback"
+	"resttracefuzzer/pkg/feedback/trace"
 	"resttracefuzzer/pkg/static"
 	"resttracefuzzer/pkg/utils"
 	"time"
 
+	"github.com/bytedance/sonic"
 	"github.com/rs/zerolog/log"
 )
 
@@ -23,7 +25,7 @@ type BasicFuzzer struct {
 	ResponseChecker *feedback.ResponseChecker
 
 	// TraceManager manages traces.
-	TraceManager *feedback.TraceManager
+	TraceManager *trace.TraceManager
 
 	// RuntimeGraph is the runtime graph, including coverage information.
 	RunTimeGraph *feedback.RuntimeGraph
@@ -33,6 +35,9 @@ type BasicFuzzer struct {
 
 	// HTTPClient is the HTTP client.
 	HTTPClient *utils.HTTPClient
+
+	// FuzzingSnapshot is the snapshot of the fuzzing process.
+	FuzzingSnapshot *FuzzingSnapshot
 }
 
 // NewBasicFuzzer creates a new BasicFuzzer.
@@ -40,12 +45,13 @@ func NewBasicFuzzer(
 	APIManager *static.APIManager,
 	caseManager *casemanager.CaseManager,
 	responseChecker *feedback.ResponseChecker,
-	traceManager *feedback.TraceManager,
+	traceManager *trace.TraceManager,
 	runtimeGraph *feedback.RuntimeGraph,
 ) *BasicFuzzer {
 	httpClient := utils.NewHTTPClient(
 		config.GlobalConfig.ServerBaseURL,
 	)
+	fuzzingSnapshot := NewFuzzingSnapshot()
 	return &BasicFuzzer{
 		APIManager:      APIManager,
 		CaseManager:     caseManager,
@@ -54,6 +60,7 @@ func NewBasicFuzzer(
 		Budget:          config.GlobalConfig.FuzzerBudget,
 		HTTPClient:      httpClient,
 		RunTimeGraph:    runtimeGraph,
+		FuzzingSnapshot: fuzzingSnapshot,
 	}
 }
 
@@ -65,23 +72,23 @@ func (f *BasicFuzzer) Start() error {
 	log.Info().Msgf("[BasicFuzzer.Start] Fuzzer started at %v", startTime)
 
 	// loop:
-	// 1. Pop a test case from the case manager.
-	// 2. For each operation in the test case:
+	// 1. Pop a test scenario from the case manager.
+	// 2. For each operation in the test scenario:
 	//   a. Instantiate the operation.
 	//   b. Make a request to the API.
 	//   c. Process the response.
 	// 3. Analyse the result, generate a report, and update the case manager.
 	// 4. Go to step 1.
 	for time.Since(startTime) <= f.Budget {
-		testCase, err := f.CaseManager.Pop()
+		testScenario, err := f.CaseManager.Pop()
 		if err != nil {
-			log.Error().Err(err).Msg("[BasicFuzzer.Start] Failed to pop a test case")
+			log.Err(err).Msg("[BasicFuzzer.Start] Failed to pop a test scenario")
 			break
 		}
 
-		err = f.ExecuteTestcase(testCase)
+		err = f.ExecuteTestScenario(testScenario)
 		if err != nil {
-			log.Error().Err(err).Msg("[BasicFuzzer.Start] Failed to execute the test case")
+			log.Err(err).Msg("[BasicFuzzer.Start] Failed to execute the test scenario")
 			break
 		}
 
@@ -92,50 +99,83 @@ func (f *BasicFuzzer) Start() error {
 	return nil
 }
 
-func (f *BasicFuzzer) ExecuteTestcase(testcase *casemanager.Testcase) error {
-	for _, operationCase := range testcase.OperationCases {
-		// operation := operationCase.Operation
-		path := operationCase.APIMethod.Endpoint
-		method := operationCase.APIMethod.Method
-		// By default, we only support HTTP method.
-		simpleAPIMethod := static.SimpleAPIMethod{
-			Endpoint: path,
-			Method:   method,
-			Type:     static.SimpleAPIMethodTypeHTTP,
-		}
-		log.Debug().Msgf("[BasicFuzzer.ExecuteTestcase] Execute operation: %s %s", method, path)
-		statusCode, respBody, err := f.HTTPClient.PerformRequest(path, method)
+// ExecuteTestScenario executes a test scenario (a sequence of operation cases).
+// This method makes HTTP calls, checks the response, and updates the runtime graph.
+// If the analysers conclude that the test scenario is interesting, the case manager will be updated (e.g., add the test scenario back to queue).
+func (f *BasicFuzzer) ExecuteTestScenario(testScenario *casemanager.TestScenario) error {
+	for _, operationCase := range testScenario.OperationCases {
+		err := f.ExecuteCaseOperation(operationCase)
 		if err != nil {
-			log.Error().Err(err).Msg("[BasicFuzzer.ExecuteTestcase] Failed to perform request")
-			return err
+			log.Err(err).Msg("[BasicFuzzer.ExecuteTestScenario] Failed to execute operation")
 		}
-		log.Debug().Msgf("[BasicFuzzer.ExecuteTestcase] Response status code: %d, body: %s", statusCode, string(respBody))
+		statusCode := operationCase.ResponseStatusCode
 
 		// Check the response.
-		err = f.ResponseChecker.CheckResponse(simpleAPIMethod, statusCode)
+		err = f.ResponseChecker.CheckResponse(operationCase.APIMethod, statusCode)
 		if err != nil {
-			log.Error().Err(err).Msg("[BasicFuzzer.ExecuteTestcase] Failed to check response")
+			log.Err(err).Msg("[BasicFuzzer.ExecuteTestScenario] Failed to check response")
 			return err
 		}
 
+		// TODO: parse and validate the response body @xunzhou24
+
 		// fetch traces from the service, parse them, and update local runtime graph.
-		err = f.TraceManager.PullTraces()
+		newTraces, err := f.TraceManager.PullTracesAndReturn()
 		if err != nil {
-			log.Error().Err(err).Msg("[BasicFuzzer.ExecuteTestcase] Failed to pull traces")
+			log.Err(err).Msg("[BasicFuzzer.ExecuteTestScenario] Failed to pull traces")
 			return err
 		}
-		callInfoList, err := f.TraceManager.GetCallInfos(nil) // TODO: pass the trace @xunzhou24
+		callInfoList, err := f.TraceManager.ConvertTraces2CallInfos(newTraces)
 		if err != nil {
-			log.Error().Err(err).Msg("[BasicFuzzer.ExecuteTestcase] Failed to get call infos")
+			log.Err(err).Msg("[BasicFuzzer.ExecuteTestScenario] Failed to get call infos")
 			return err
 		}
 		err = f.RunTimeGraph.UpdateFromCallInfos(callInfoList)
 		if err != nil {
-			log.Error().Err(err).Msg("[BasicFuzzer.ExecuteTestcase] Failed to update runtime graph")
+			log.Err(err).Msg("[BasicFuzzer.ExecuteTestScenario] Failed to update runtime graph")
 			return err
 		}
-		log.Info().Msg("[BasicFuzzer.ExecuteTestcase] Operation executed successfully")
+		log.Info().Msg("[BasicFuzzer.ExecuteTestScenario] Operation executed successfully")
 	}
+
+	hasAchieveNewCoverage := f.FuzzingSnapshot.Update(
+		f.RunTimeGraph.GetEdgeCoverage(),
+		f.ResponseChecker.GetCoveredStatusCodeCount(),
+	)
+	log.Info().Msgf("[BasicFuzzer.ExecuteTestScenario] Finish execute current test scenario, Edge coverage: %f, covered status code count: %d, hasAchieveNewCoverage: %v", f.RunTimeGraph.GetEdgeCoverage(), f.ResponseChecker.GetCoveredStatusCodeCount(), hasAchieveNewCoverage)
+
+	// Pass the scenario and the result back to the case manager,
+	// and decide whether to put the scenario back to the queue and to generate a new one.
+	err := f.CaseManager.EvaluateScenarioAndTryUpdate(hasAchieveNewCoverage, testScenario)
+	if err != nil {
+		log.Err(err).Msg("[BasicFuzzer.ExecuteTestScenario] Failed to evaluate scenario and try update")
+		return err
+	}
+
+	return nil
+}
+
+// ExecuteCaseOperation executes a case operation from a test case.
+// This method makes HTTP call, and fills the response in the operation case.
+func (f *BasicFuzzer) ExecuteCaseOperation(operationCase *casemanager.OperationCase) error {
+	path := operationCase.APIMethod.Endpoint
+	method := operationCase.APIMethod.Method
+	log.Debug().Msgf("[BasicFuzzer.ExecuteCaseOperation] Execute operation: %s %s", method, path)
+	statusCode, respBodyBytes, err := f.HTTPClient.PerformRequest(path, method, nil, nil, nil)
+	if err != nil {
+		// A failed request will not stop the fuzzing process.
+		log.Err(err).Msg("[BasicFuzzer.ExecuteCaseOperation] Failed to perform request")
+	}
+	respBody := make(map[string]interface{})
+	err = sonic.Unmarshal(respBodyBytes, &respBody)
+	if err != nil {
+		// A broken response body will not stop the fuzzing process.
+		log.Err(err).Msg("[BasicFuzzer.ExecuteCaseOperation] Failed to unmarshal response body")
+	}
+	// Fill the response in the operation case.
+	operationCase.ResponseStatusCode = statusCode
+	operationCase.ResponseBody = respBody
+	log.Debug().Msgf("[BasicFuzzer.ExecuteTestScenario] Response status code: %d, body: %s", statusCode, string(respBodyBytes))
 	return nil
 }
 

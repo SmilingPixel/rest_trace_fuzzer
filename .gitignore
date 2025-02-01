@@ -1,4 +1,5 @@
 bin/
+output/
 
 # Go workspace file
 go.work
@@ -10,3 +11,9 @@ go.work.sum
 !.vscode/launch.json
 !.vscode/extensions.json
 !.vscode/*.code-snippets
+
+# Python virtual environment
+/venv
+
+# env file
+.env
