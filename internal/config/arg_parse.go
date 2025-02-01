@@ -34,5 +34,5 @@ func ParseCmdArgs() {
 	}
 
 	jsonStr, _ := sonic.Marshal(GlobalConfig)
-	log.Info().Msgf("[ParseCmdArgs] Parsed command line arguments: %s", jsonStr)
+	log.Info().Msgf("[ParseCmdArgs] Parsed arguments: %s", jsonStr)
 }

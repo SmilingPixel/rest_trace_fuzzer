@@ -122,7 +122,7 @@ def generate_arg_parse_code(config: List[Dict[str, Any]]) -> str:
     arg_parse_code_lines.append(BLANK_LINE)
 
     arg_parse_code_lines.append('jsonStr, _ := sonic.Marshal(GlobalConfig)')
-    arg_parse_code_lines.append('log.Info().Msgf("[ParseCmdArgs] Parsed command line arguments: %s", jsonStr)')
+    arg_parse_code_lines.append('log.Info().Msgf("[ParseCmdArgs] Parsed arguments: %s", jsonStr)')
     arg_parse_code_lines.append("}")
 
     return "\n".join(arg_parse_code_lines)
