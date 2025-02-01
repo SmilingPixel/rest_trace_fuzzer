@@ -3,7 +3,9 @@ package config
 
 import "flag"
 import "os"
+import "time"
 import "github.com/bytedance/sonic"
+import "github.com/joho/godotenv"
 import "github.com/rs/zerolog/log"
 
 func ParseCmdArgs() {
@@ -31,6 +33,52 @@ func ParseCmdArgs() {
 		if err != nil {
 			log.Err(err).Msgf("[ParseCmdArgs] Failed to parse config file: %s", err)
 		}
+	}
+
+	// If environment variables are provided, override the config
+	err := godotenv.Load()
+	if err != nil {
+		log.Err(err).Msgf("[ParseCmdArgs] Failed to load environment variables: %s", err)
+	}
+	if envVal, ok := os.LookupEnv("CONFIG_FILE_PATH"); ok && envVal != "" {
+		GlobalConfig.ConfigFilePath = envVal
+	}
+	if envVal, ok := os.LookupEnv("OPENAPI_SPEC_PATH"); ok && envVal != "" {
+		GlobalConfig.OpenAPISpecPath = envVal
+	}
+	if envVal, ok := os.LookupEnv("SERVER_BASE_URL"); ok && envVal != "" {
+		GlobalConfig.ServerBaseURL = envVal
+	}
+	if envVal, ok := os.LookupEnv("INTERNAL_SERVICE_OPENAPI_PATH"); ok && envVal != "" {
+		GlobalConfig.InternalServiceOpenAPIPath = envVal
+	}
+	if envVal, ok := os.LookupEnv("TRACE_BACKEND_URL"); ok && envVal != "" {
+		GlobalConfig.TraceBackendURL = envVal
+	}
+	if envVal, ok := os.LookupEnv("TRACE_BACKEND_TYPE"); ok && envVal != "" {
+		GlobalConfig.TraceBackendType = envVal
+	}
+	if envVal, ok := os.LookupEnv("DEPENDENCY_FILE_PATH"); ok && envVal != "" {
+		GlobalConfig.DependencyFilePath = envVal
+	}
+	if envVal, ok := os.LookupEnv("DEPENDENCY_FILE_TYPE"); ok && envVal != "" {
+		GlobalConfig.DependencyFileType = envVal
+	}
+	if envVal, ok := os.LookupEnv("FUZZER_TYPE"); ok && envVal != "" {
+		GlobalConfig.FuzzerType = envVal
+	}
+	if envVal, ok := os.LookupEnv("FUZZER_BUDGET"); ok && envVal != "" {
+		envValDuration, err := time.ParseDuration(envVal)
+		if err != nil {
+			log.Err(err).Msgf("[ParseCmdArgs] Failed to parse duration: %s", err)
+		}
+		GlobalConfig.FuzzerBudget = envValDuration
+	}
+	if envVal, ok := os.LookupEnv("LOG_LEVEL"); ok && envVal != "" {
+		GlobalConfig.LogLevel = envVal
+	}
+	if envVal, ok := os.LookupEnv("OUTPUT_DIR"); ok && envVal != "" {
+		GlobalConfig.OutputDir = envVal
 	}
 
 	jsonStr, _ := sonic.Marshal(GlobalConfig)

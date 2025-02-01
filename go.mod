@@ -6,6 +6,7 @@ require (
 	github.com/bytedance/sonic v1.12.7
 	github.com/cloudwego/hertz v0.9.5
 	github.com/getkin/kin-openapi v0.128.0
+	github.com/joho/godotenv v1.5.1
 	github.com/rs/zerolog v1.33.0
 )
 

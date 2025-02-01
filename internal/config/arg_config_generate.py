@@ -39,6 +39,18 @@ def to_camel_case(snake_str: str) -> str:
             components[i] = components[i].title()
     return ''.join(components)
 
+def to_upper_snake_case(snake_str: str) -> str:
+    """
+    Convert a snake_case string to UPPER_SNAKE_CASE.
+
+    Args:
+        snake_str (str): The snake_case string.
+
+    Returns:
+        str: The UPPER_SNAKE_CASE string.
+    """
+    return snake_str.upper()
+
 def to_go_type(json_type: str) -> str:
     """
     Convert a JSON type to a Go type.
@@ -81,7 +93,7 @@ def generate_arg_parse_code(config: List[Dict[str, Any]]) -> str:
         str: The generated Go code.
     """
     package_declaration = "package config"
-    imported_packages = ["flag", "os", "github.com/bytedance/sonic", "github.com/rs/zerolog/log"]
+    imported_packages = ["flag", "os", "time", "github.com/bytedance/sonic", "github.com/joho/godotenv", "github.com/rs/zerolog/log"]
     arg_parse_code_lines = []
     arg_parse_code_lines.append(DO_NOT_EDIT_HEADER)
     arg_parse_code_lines.append(package_declaration)
@@ -120,6 +132,34 @@ def generate_arg_parse_code(config: List[Dict[str, Any]]) -> str:
     arg_parse_code_lines.append("}")
     arg_parse_code_lines.append("}")
     arg_parse_code_lines.append(BLANK_LINE)
+
+    # If environment variables are provided, override the config
+    arg_parse_code_lines.append("// If environment variables are provided, override the config")
+    arg_parse_code_lines.append("err := godotenv.Load()")
+    arg_parse_code_lines.append("if err != nil {")
+    arg_parse_code_lines.append('log.Err(err).Msgf("[ParseCmdArgs] Failed to load environment variables: %s", err)')
+    arg_parse_code_lines.append("}")
+    for arg in config:
+        config_name = arg["config_name"]
+        go_type = to_go_type(arg["type"])
+        arg_parse_code_lines.append(f'if envVal, ok := os.LookupEnv("{to_upper_snake_case(config_name)}"); ok && envVal != "" {{')
+        if go_type == "time.Duration":
+            arg_parse_code_lines.append(f'envValDuration, err := time.ParseDuration(envVal)')
+            arg_parse_code_lines.append("if err != nil {")
+            arg_parse_code_lines.append('log.Err(err).Msgf("[ParseCmdArgs] Failed to parse duration: %s", err)')
+            arg_parse_code_lines.append("}")
+            arg_parse_code_lines.append(f'GlobalConfig.{to_camel_case(config_name)} = envValDuration')
+        elif go_type == "int":
+            arg_parse_code_lines.append(f'envValInt, err := strconv.Atoi(envVal)')
+            arg_parse_code_lines.append("if err != nil {")
+            arg_parse_code_lines.append('log.Err(err).Msgf("[ParseCmdArgs] Failed to parse int: %s", err)')
+            arg_parse_code_lines.append("}")
+            arg_parse_code_lines.append(f'GlobalConfig.{to_camel_case(config_name)} = envValInt')
+        else:  
+            arg_parse_code_lines.append(f'GlobalConfig.{to_camel_case(config_name)} = envVal')
+        arg_parse_code_lines.append("}")
+    arg_parse_code_lines.append(BLANK_LINE)
+
 
     arg_parse_code_lines.append('jsonStr, _ := sonic.Marshal(GlobalConfig)')
     arg_parse_code_lines.append('log.Info().Msgf("[ParseCmdArgs] Parsed arguments: %s", jsonStr)')
