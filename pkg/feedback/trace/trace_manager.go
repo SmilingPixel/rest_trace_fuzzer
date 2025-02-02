@@ -44,7 +44,7 @@ func (m *TraceManager) PullTraces() error {
 }
 
 // PullTracesAndReturn pulls traces from the trace source(e.g., Jaeger), and return the traces.
-func (m *TraceManager) PullTracesAndReturn() ([]*SimplifiedJaegerTrace, error) {
+func (m *TraceManager) PullTracesAndReturn() ([]*SimplifiedTrace, error) {
 	// Fetch traces from the trace source.
 	traces, err := m.TraceFetcher.FetchFromRemote()
 	if err != nil {
@@ -60,7 +60,7 @@ func (m *TraceManager) PullTracesAndReturn() ([]*SimplifiedJaegerTrace, error) {
 }
 
 // ConvertTraces2CallInfos returns the call information (list) between services.
-func (m *TraceManager) ConvertTraces2CallInfos(traces []*SimplifiedJaegerTrace) ([]*CallInfo, error) {
+func (m *TraceManager) ConvertTraces2CallInfos(traces []*SimplifiedTrace) ([]*CallInfo, error) {
 	res := make([]*CallInfo, 0)
 	if len(traces) == 0 {
 		log.Warn().Msg("[TraceManager.ConvertTraces2CallInfos] No trace available")
@@ -78,7 +78,7 @@ func (m *TraceManager) ConvertTraces2CallInfos(traces []*SimplifiedJaegerTrace) 
 }
 
 // convertSingleTrace2CallInfos returns the call information (list) between services.
-func (m *TraceManager) convertSingleTrace2CallInfos(trace *SimplifiedJaegerTrace) ([]*CallInfo, error) {
+func (m *TraceManager) convertSingleTrace2CallInfos(trace *SimplifiedTrace) ([]*CallInfo, error) {
 	res := make([]*CallInfo, 0)
 	if trace == nil || len(trace.SpanMap) == 0 {
 		log.Warn().Msg("[TraceManager.convertSingleTrace2CallInfos] Invalid trace")
@@ -86,13 +86,8 @@ func (m *TraceManager) convertSingleTrace2CallInfos(trace *SimplifiedJaegerTrace
 	}
 	for _, span := range trace.SpanMap {
 		for _, ref := range span.References {
-			refMap, ok := ref.(map[string]string)
-			if !ok {
-				log.Warn().Msg("[TraceManager.convertSingleTrace2CallInfos] Invalid reference")
-				continue
-			}
-			if refMap["refType"] == "CHILD_OF" {
-				parentSpanID := refMap["spanID"] // TODO: check here @xunzhou24
+			if ref["refType"] == "CHILD_OF" {
+				parentSpanID := ref["spanID"] // TODO: check here @xunzhou24
 				parentSpan := trace.SpanMap[parentSpanID]
 				callInfo := &CallInfo{
 					SourceService:         parentSpan.Process.ServiceName,
