@@ -70,7 +70,7 @@ func main() {
 	APIParser := parser.NewOpenAPIParser()
 	doc, err := APIParser.ParseSystemDocFromPath(config.GlobalConfig.OpenAPISpecPath)
 	if err != nil {
-		log.Err(err).Msgf("[main] Failed to parse OpenAPI spec: %v", err)
+		log.Err(err).Msgf("[main] Failed to parse OpenAPI spec")
 		return
 	}
 	APIManager.InitFromSystemDoc(doc)
@@ -78,7 +78,7 @@ func main() {
 	// Parse doc of internal services
 	serviceDoc, err := APIParser.ParseServiceDocFromPath(config.GlobalConfig.InternalServiceOpenAPIPath)
 	if err != nil {
-		log.Err(err).Msgf("[main] Failed to parse internal service OpenAPI spec: %v", err)
+		log.Err(err).Msgf("[main] Failed to parse internal service OpenAPI spec")
 		return
 	}
 	APIManager.InitFromServiceDoc(serviceDoc)
@@ -103,7 +103,7 @@ func main() {
 		}
 		dependecyGraph, err := dependencyFileParser.ParseFromPath(config.GlobalConfig.DependencyFilePath)
 		if err != nil {
-			log.Err(err).Msgf("Failed to parse dependency file: %v", err)
+			log.Err(err).Msgf("Failed to parse dependency file")
 			return
 		}
 		APIManager.APIDependencyGraph = dependecyGraph
@@ -125,7 +125,7 @@ func main() {
 	}
 	err = mainFuzzer.Start()
 	if err != nil {
-		log.Err(err).Msgf("[main] Fuzzer failed: %v", err)
+		log.Err(err).Msgf("[main] Fuzzer failed")
 		return
 	}
 
@@ -139,20 +139,20 @@ func main() {
 	// Create the output directory if it does not exist.
 	err = os.MkdirAll(config.GlobalConfig.OutputDir, os.ModePerm)
 	if err != nil {
-		log.Err(err).Msgf("[main] Failed to create the output directory: %v", err)
+		log.Err(err).Msgf("[main] Failed to create the output directory")
 		return
 	}
 	systemReportPath := fmt.Sprintf("%s/system_report_%s.json", config.GlobalConfig.OutputDir, t.Format(time.RFC3339))
 	err = systemReporter.GenerateSystemReport(responseChecker, systemReportPath)
 	if err != nil {
-		log.Err(err).Msgf("[main] Failed to generate system report: %v", err)
+		log.Err(err).Msgf("[main] Failed to generate system report")
 		return
 	}
 	internalServiceReporter := report.NewInternalServiceReporter()
 	internalServiceReportPath := fmt.Sprintf("%s/internal_service_report_%s.json", config.GlobalConfig.OutputDir, t.Format(time.RFC3339))
 	err = internalServiceReporter.GenerateInternalServiceReport(mainFuzzer.GetRuntimeGraph(), internalServiceReportPath)
 	if err != nil {
-		log.Err(err).Msgf("[main] Failed to generate internal service report: %v", err)
+		log.Err(err).Msgf("[main] Failed to generate internal service report")
 		return
 	}
 

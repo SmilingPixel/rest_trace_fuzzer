@@ -6,7 +6,7 @@
     "trace_backend_url": "http://localhost:4317",
     "trace_backend_type": "Jaeger",
     "fuzzer_type": "Basic",
-    "fuzzer_budget": 30,
+    "fuzzer_budget": "10*1000*1000*1000",
     "log_level": "info",
     "output_dir": "./output"
   }

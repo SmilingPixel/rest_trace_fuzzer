@@ -88,7 +88,11 @@ func (m *TraceManager) convertSingleTrace2CallInfos(trace *SimplifiedTrace) ([]*
 		for _, ref := range span.References {
 			if ref["refType"] == "CHILD_OF" {
 				parentSpanID := ref["spanID"] // TODO: check here @xunzhou24
-				parentSpan := trace.SpanMap[parentSpanID]
+				parentSpan, ok := trace.SpanMap[parentSpanID]
+				if !ok {
+					log.Warn().Msgf("[TraceManager.convertSingleTrace2CallInfos] Parent span not found, parentSpanID: %s", parentSpanID)
+					continue
+				}
 				callInfo := &CallInfo{
 					SourceService:         parentSpan.Process.ServiceName,
 					TargetService:         span.Process.ServiceName,

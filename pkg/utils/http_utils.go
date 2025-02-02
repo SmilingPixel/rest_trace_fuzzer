@@ -33,7 +33,8 @@ func NewHTTPClient(baseURL string) *HTTPClient {
 // TODO: support authentication. @xunzhou24
 func (c *HTTPClient) PerformRequest(path, method string, headers map[string]string, params map[string]string, body []byte) (int, []byte, error) {
 	req, resp := protocol.AcquireRequest(), protocol.AcquireResponse()
-	req.SetRequestURI(c.BaseURL)
+	requestURL := c.BaseURL + path
+	req.SetRequestURI(requestURL)
 	req.SetHeaders(headers)
 	if len(params) > 0 {
 		queryParams := make([]string, 0)
@@ -47,12 +48,12 @@ func (c *HTTPClient) PerformRequest(path, method string, headers map[string]stri
 	req.SetMethod(method)
 	err := c.Client.Do(context.Background(), req, resp)
 	if err != nil {
-		log.Err(err).Msgf("[HTTPClient.PerformRequest] Failed to perform request: %v", err)
+		log.Err(err).Msgf("[HTTPClient.PerformRequest] Failed to perform request, URL: %s, method: %s", requestURL, method)
 		return 0, nil, err
 	}
 	bodyBytes, err := resp.BodyE()
 	if err != nil {
-		log.Err(err).Msgf("[HTTPClient.PerformRequest] Failed to get response body: %v", err)
+		log.Err(err).Msgf("[HTTPClient.PerformRequest] Failed to get response body, URL: %s, method: %s", requestURL, method)
 		return 0, nil, err
 	}
 	statusCode := resp.StatusCode()
