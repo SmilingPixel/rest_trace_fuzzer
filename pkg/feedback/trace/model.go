@@ -12,6 +12,8 @@ type SimplifiedTrace struct {
 	TraceID string `json:"traceID"`
 	// Spans maps span IDs to SimplifiedTraceSpan.
 	SpanMap map[string]*SimplifiedTraceSpan `json:"spanMap"`
+	// StartTime is the start time of the trace.
+	StartTime time.Time `json:"startTime"`
 }
 
 // SimplifiedTraceSpan represents a simplified version of a trace span model.
@@ -24,16 +26,16 @@ type SimplifiedTraceSpan struct {
 	References    []map[string]string `json:"references"`    // References to other spans
 	StartTime     time.Time     `json:"startTime"`     // Start time of the span
 	Duration      int64        `json:"duration"`      // Duration of the span, in microseconds
-	Tags          []map[string]string `json:"tags"`          // Tags associated with the span
-	Process       Process       `json:"process"`       // Process information
+	Tags          []TagEntry `json:"tags"`          // Tags associated with the span
+	Process       ProcessValueEntry       `json:"process"`       // Process information
 	Logs          []LogEntry    `json:"logs"`          // Log entries associated with the span
 	ChildrenIDs   []string      `json:"childrenIDs"`    // Children spans' IDs
 }
 
-// Process represents the process information in a trace.
-type Process struct {
+// ProcessValueEntry represents the process information in a trace.
+type ProcessValueEntry struct {
 	ServiceName string        `json:"serviceName"` // Name of the service
-	Tags        []interface{} `json:"tags"`        // Tags associated with the process
+	Tags        []TagEntry `json:"tags"`        // Tags associated with the process
 }
 
 // LogEntry represents a log entry in a trace.
@@ -42,16 +44,22 @@ type LogEntry struct {
 	Fields    []interface{} `json:"fields"`    // Fields associated with the log entry
 }
 
+type TagEntry struct {
+	Key   string `json:"key"`
+	Type string `json:"type"`
+	Value interface{} `json:"value"`
+}
+
 // CallInfo represents the information of a call between two services.
 type CallInfo struct {
 	// SourceService is the name of the source service.
-	SourceService string
+	SourceService string `json:"sourceService"`
 	// TargetService is the name of the target service.
-	TargetService string
+	TargetService string `json:"targetService"`
 	// SourceMethodTraceName is the name of the source method.
-	SourceMethodTraceName string
+	SourceMethodTraceName string `json:"sourceMethodTraceName"`
 	// TargetMethodTraceName is the name of the target method.
-	TargetMethodTraceName string
+	TargetMethodTraceName string `json:"targetMethodTraceName"`
 }
 
 // SpanKindType represents the type of a span.
@@ -73,6 +81,7 @@ func (s *SpanKindType) UnmarshalJSON(data []byte) error {
 type JaegerTrace struct {
 	TraceID string `json:"traceID"`
 	Spans   []JaegerTraceSpan `json:"spans"`
+	Processes map[string]ProcessValueEntry `json:"processes"`
 }
 
 // JaegerTraceSpan represents a span in a Jaeger trace.
@@ -84,26 +93,32 @@ type JaegerTraceSpan struct {
 	References    []map[string]string    `json:"references"`    // References to other spans
 	StartTime     int64                  `json:"startTime"`     // Start time of the span
 	Duration      int64                  `json:"duration"`      // Duration of the span
-	Tags          []map[string]string    `json:"tags"`          // Tags associated with the span
+	Tags          []TagEntry    `json:"tags"`          // Tags associated with the span
 	Logs          []map[string]interface{} `json:"logs"`          // Log entries associated with the span
 	ProcessID     string                 `json:"processID"`     // Process ID
-	Warnings      interface{}            `json:"warnings"`      // Warnings associated with the span
+	Warnings      interface{}            `json:"-"`      // Warnings associated with the span TODO: check here @xunzhou24
 }
+
 
 // ToSimplifiedTrace converts a JaegerTrace to a SimplifiedTrace.
 func (j *JaegerTrace) ToSimplifiedTrace() *SimplifiedTrace {
 	spanMap := make(map[string]*SimplifiedTraceSpan)
+	startTime := time.Now()
 	for _, span := range j.Spans {
-		spanMap[span.SpanID] = span.ToSimplifiedTraceSpan()
+		spanMap[span.SpanID] = span.ToSimplifiedTraceSpan(j.Processes)
+		if spanMap[span.SpanID].StartTime.Before(startTime) {
+			startTime = spanMap[span.SpanID].StartTime
+		}
 	}
 	return &SimplifiedTrace{
 		TraceID: j.TraceID,
 		SpanMap: spanMap,
+		StartTime: startTime,
 	}
 }
 
 // ToSimplifiedTraceSpan converts a JaegerTraceSpan to a SimplifiedTraceSpan.
-func (j *JaegerTraceSpan) ToSimplifiedTraceSpan() *SimplifiedTraceSpan {
+func (j *JaegerTraceSpan) ToSimplifiedTraceSpan(processMap map[string]ProcessValueEntry) *SimplifiedTraceSpan {
 	span := &SimplifiedTraceSpan{
 		TraceID:       j.TraceID,
 		SpanID:        j.SpanID,
@@ -111,9 +126,7 @@ func (j *JaegerTraceSpan) ToSimplifiedTraceSpan() *SimplifiedTraceSpan {
 		OperationName: j.OperationName,
 		StartTime:     time.Unix(0, j.StartTime*int64(time.Microsecond)),
 		Duration:      j.Duration,
-		Process: Process{
-			ServiceName: j.ProcessID,
-		},
+		Process: 	 processMap[j.ProcessID],
 	}
 
 	span.Tags = append(span.Tags, j.Tags...)

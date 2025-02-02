@@ -93,7 +93,7 @@ def generate_arg_parse_code(config: List[Dict[str, Any]]) -> str:
         str: The generated Go code.
     """
     package_declaration = "package config"
-    imported_packages = ["flag", "os", "time", "github.com/bytedance/sonic", "github.com/joho/godotenv", "github.com/rs/zerolog/log"]
+    imported_packages = ["flag", "os", "strconv", "github.com/bytedance/sonic", "github.com/joho/godotenv", "github.com/rs/zerolog/log"]
     arg_parse_code_lines = []
     arg_parse_code_lines.append(DO_NOT_EDIT_HEADER)
     arg_parse_code_lines.append(package_declaration)
@@ -178,7 +178,7 @@ def generate_config_code(config: List[Dict[str, Any]]) -> str:
         str: The generated Go code.
     """
     package_declaration = "package config"
-    imported_packages = ["time"]
+    imported_packages = []
     config_code_lines = []
     config_code_lines.append(DO_NOT_EDIT_HEADER)
     config_code_lines.append(package_declaration)

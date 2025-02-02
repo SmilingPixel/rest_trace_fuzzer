@@ -75,9 +75,9 @@
         "arg_name": "fuzzer-budget",
         "config_name": "fuzzer_budget",
         "description": "The maximum time the fuzzer can run, in seconds",
-        "type": "duration",
+        "type": "number",
         "required": false,
-        "default": 30
+        "default": 5
     },
     {
         "arg_name": "log-level",

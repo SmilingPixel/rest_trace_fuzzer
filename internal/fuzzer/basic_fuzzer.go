@@ -57,7 +57,7 @@ func NewBasicFuzzer(
 		CaseManager:     caseManager,
 		ResponseChecker: responseChecker,
 		TraceManager:    traceManager,
-		Budget:          config.GlobalConfig.FuzzerBudget,
+		Budget:          time.Duration(config.GlobalConfig.FuzzerBudget) * time.Second, // Convert seconds to nanoseconds.
 		HTTPClient:      httpClient,
 		RunTimeGraph:    runtimeGraph,
 		FuzzingSnapshot: fuzzingSnapshot,
@@ -69,7 +69,7 @@ func (f *BasicFuzzer) Start() error {
 	// TODO: Implement this method. @xunzhou24
 
 	startTime := time.Now()
-	log.Info().Msgf("[BasicFuzzer.Start] Fuzzer started at %v", startTime)
+	log.Info().Msgf("[BasicFuzzer.Start] Fuzzer started at %v, f.Budget: %v", startTime, f.Budget)
 
 	// loop:
 	// 1. Pop a test scenario from the case manager.

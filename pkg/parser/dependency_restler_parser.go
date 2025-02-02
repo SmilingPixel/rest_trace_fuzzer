@@ -22,7 +22,7 @@ func NewAPIDependencyRestlerParser() *APIDependencyRestlerParser {
 func (p *APIDependencyRestlerParser) ParseFromPath(path string) (*static.APIDependencyGraph, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		log.Info().Msgf("[ParseFromPath] Error reading file: %v", err)
+		log.Err(err).Msgf("[ParseFromPath] Error reading file")
 		return nil, err
 	}
 
@@ -32,7 +32,7 @@ func (p *APIDependencyRestlerParser) ParseFromPath(path string) (*static.APIDepe
 	type PathMap map[string]MethodMap
 	var jsonMap PathMap
 	if err := sonic.Unmarshal(data, &jsonMap); err != nil {
-		log.Info().Msgf("[ParseFromPath] Error parsing JSON: %v", err)
+		log.Err(err).Msgf("[ParseFromPath] Error parsing JSON")
 		return nil, err
 	}
 

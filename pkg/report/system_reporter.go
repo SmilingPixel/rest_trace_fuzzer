@@ -65,13 +65,13 @@ func (r *SystemReporter) GenerateSystemReport(responseChecker *feedback.Response
 	// marshal the report to a JSON file.
 	reportBytes, err := sonic.Marshal(systemTestReport)
 	if err != nil {
-		log.Err(err).Msgf("[SystemReporter.GenerateSystemReport] Failed to marshal the system test report: %v", err)
+		log.Err(err).Msgf("[SystemReporter.GenerateSystemReport] Failed to marshal the system test report")
 	}
 
 	// Write the JSON string to the output file.
 	err = os.WriteFile(outputPath, reportBytes, 0644)
 	if err != nil {
-		log.Err(err).Msgf("[SystemReporter.GenerateSystemReport] Failed to write the system test report to file: %v", err)
+		log.Err(err).Msgf("[SystemReporter.GenerateSystemReport] Failed to write the system test report to file")
 		return err
 	}
 	log.Info().Msgf("[SystemReporter.GenerateSystemReport] System test report has been written to %s", outputPath)
