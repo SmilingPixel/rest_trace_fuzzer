@@ -3,6 +3,7 @@ package trace
 import (
 	"io"
 	"os"
+	"time"
 
 	"resttracefuzzer/internal/config"
 	"resttracefuzzer/pkg/utils"
@@ -11,13 +12,18 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+const (
+	// Threshold for trace age in seconds.
+	TRACE_FILTER_OUT_AGE = 3 * 60
+)
+
 // TraceFetcher fetches traces from trace banckend and parses them into Jaeger-style spans.
 type TraceFetcher interface {
 	// FetchFromPath fetches traces from a local file.
-	FetchFromPath(path string) ([]*SimplifiedJaegerTraceSpan, error)
+	FetchFromPath(path string) ([]*SimplifiedTraceSpan, error)
 
 	// FetchFromRemote fetches traces from a remote source.
-	FetchFromRemote() ([]*SimplifiedJaegerTrace, error)
+	FetchFromRemote() ([]*SimplifiedTrace, error)
 }
 
 // JaegerTraceFetcher represents a fetcher for Jaeger traces.
@@ -38,7 +44,7 @@ func NewJaegerTraceFetcher() *JaegerTraceFetcher {
 // FetchFromPath fetches Jaeger traces from given path.
 //
 // Deprecated: Use FetchFromRemote instead.
-func (p *JaegerTraceFetcher) FetchFromPath(filePath string) ([]*SimplifiedJaegerTraceSpan, error) {
+func (p *JaegerTraceFetcher) FetchFromPath(filePath string) ([]*SimplifiedTraceSpan, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		log.Err(err).Msgf("[JaegerTraceFetcher.FetchFromPath] Failed to open file: %s", filePath)
@@ -53,7 +59,7 @@ func (p *JaegerTraceFetcher) FetchFromPath(filePath string) ([]*SimplifiedJaeger
 	}
 
 	var result struct {
-		Spans []*SimplifiedJaegerTraceSpan `json:"spans"`
+		Spans []*SimplifiedTraceSpan `json:"spans"`
 	}
 	if err := sonic.Unmarshal(bytes, &result); err != nil {
 		log.Err(err).Msgf("[JaegerTraceFetcher.FetchFromPath] Failed to unmarshal file: %s", filePath)
@@ -65,7 +71,7 @@ func (p *JaegerTraceFetcher) FetchFromPath(filePath string) ([]*SimplifiedJaeger
 
 // FetchFromRemote fetches Jaeger traces from remote source.
 // It returns a list of traces, or an error if failed.
-func (p *JaegerTraceFetcher) FetchFromRemote() ([]*SimplifiedJaegerTrace, error) {
+func (p *JaegerTraceFetcher) FetchFromRemote() ([]*SimplifiedTrace, error) {
 	serviceNames, err := p.fetchAllServicesFromRemote()
 	if err != nil {
 		log.Err(err).Msg("[JaegerTraceFetcher.FetchFromRemote] Failed to fetch services")
@@ -75,14 +81,21 @@ func (p *JaegerTraceFetcher) FetchFromRemote() ([]*SimplifiedJaegerTrace, error)
 		log.Warn().Msg("[JaegerTraceFetcher.FetchFromRemote] No services found")
 		return nil, nil
 	}
-	traces := make([]*SimplifiedJaegerTrace, 0)
+	traces := make([]*SimplifiedTrace, 0)
 	for _, serviceName := range serviceNames {
 		serviceTraces, err := p.fetchServiceTracesFromRemote(serviceName)
 		if err != nil {
 			log.Err(err).Msg("[JaegerTraceFetcher.FetchFromRemote] Failed to fetch traces")
 			return nil, err
 		}
-		traces = append(traces, serviceTraces...)
+		// Filter out empty and too old traces
+		currentTime := time.Now()
+		for _, trace := range serviceTraces {
+			if trace == nil || len(trace.SpanMap) == 0 || currentTime.Sub(trace.SpanMap[trace.TraceID].StartTime) > TRACE_FILTER_OUT_AGE*time.Second {
+				continue
+			}
+			traces = append(traces, trace)
+		}
 	}
 	return traces, nil
 }
@@ -111,7 +124,7 @@ func (p *JaegerTraceFetcher) fetchAllServicesFromRemote() ([]string, error) {
 
 // fetchServiceTracesFromRemote fetches traces of a service from remote source.
 // It returns a list of traces, or an error if failed.
-func (p *JaegerTraceFetcher) fetchServiceTracesFromRemote(serviceName string) ([]*SimplifiedJaegerTrace, error) {
+func (p *JaegerTraceFetcher) fetchServiceTracesFromRemote(serviceName string) ([]*SimplifiedTrace, error) {
 	url := "/api/traces" + "?limit=2000service=" + serviceName
 	headers := map[string]string{}
 	params := map[string]string{}
@@ -124,10 +137,14 @@ func (p *JaegerTraceFetcher) fetchServiceTracesFromRemote(serviceName string) ([
 		log.Err(err).Msgf("[JaegerTraceFetcher.FetchServiceTracesFromRemote] Failed to fetch traces: %d", statusCode)
 		return nil, err
 	}
-	var traces []*SimplifiedJaegerTrace
-	if err := sonic.Unmarshal(respBytes, &traces); err != nil {
-		log.Err(err).Msgf("[JaegerTraceFetcher.FetchServiceTracesFromRemote] Failed to unmarshal traces: %v", err)
+	var jaegerTraceList []JaegerTrace
+	if err := sonic.Unmarshal(respBytes, &jaegerTraceList); err != nil {
+		log.Err(err).Msgf("[JaegerTraceFetcher.FetchServiceTracesFromRemote] Failed to unmarshal Jaeger traces: %v", err)
 		return nil, err
+	}
+	traces := make([]*SimplifiedTrace, 0)
+	for _, jaegerTrace := range jaegerTraceList {
+		traces = append(traces, jaegerTrace.ToSimplifiedTrace())
 	}
 	return traces, nil
 }
