@@ -105,27 +105,27 @@ func (m *CaseManager) EvaluateScenarioAndTryUpdate(hasAchieveNewCoverage bool, e
 	executedScenario.ExecutedTimes++
 
 	// Put the scenario back to the queue if it has achieved new coverage or has not been executed for enough times
-    if hasAchieveNewCoverage || executedScenario.ExecutedTimes < MaxExecutedTimes {
-        // Put the scenario back to the queue
-        m.Push(executedScenario)
-    }
+	if hasAchieveNewCoverage || executedScenario.ExecutedTimes < MaxExecutedTimes {
+		// Put the scenario back to the queue
+		m.Push(executedScenario)
+	}
 
-    // Process the scenario to generate a new one
-    newScenario, err := m.extendScenarioIfExecSuccess(executedScenario)
-    if err != nil {
-        log.Err(err).Msg("[CaseManager.evaluateScenarioAndTryUpdate] Failed to process scenario")
-        return err
-    }
+	// Process the scenario to generate a new one
+	newScenario, err := m.extendScenarioIfExecSuccess(executedScenario)
+	if err != nil {
+		log.Err(err).Msg("[CaseManager.evaluateScenarioAndTryUpdate] Failed to process scenario")
+		return err
+	}
 	if newScenario != nil {
 		m.Push(newScenario)
 	}
 
-    return nil
+	return nil
 }
 
 // extendScenarioIfExecSuccess processes a test scenario to extend it, if needed, and if all proceeding operations are executed successfully.
 func (m *CaseManager) extendScenarioIfExecSuccess(existingScenario *TestScenario) (*TestScenario, error) {
-    // This might involve modifying request parameters, headers, body, etc.
+	// This might involve modifying request parameters, headers, body, etc.
 	if !existingScenario.IsExecutedSuccessfully() {
 		log.Warn().Msg("[CaseManager.extendScenarioIfExecSuccess] The existing scenario is not executed successfully")
 		return nil, nil
@@ -135,7 +135,7 @@ func (m *CaseManager) extendScenarioIfExecSuccess(existingScenario *TestScenario
 	newScenario := existingScenario.Copy()
 	newScenario.Reset()
 	// TODO: append a new operation to the scenario @xunzhou24
-    return newScenario, nil
+	return newScenario, nil
 }
 
 // Init initializes the case queue.
@@ -147,7 +147,7 @@ func (m *CaseManager) initTestcasesFromDoc() error {
 			Operation: operation,
 			APIMethod: method,
 		}
-		testcase := NewTestScenario([]*OperationCase{ &operationCase })
+		testcase := NewTestScenario([]*OperationCase{&operationCase})
 		m.Push(testcase)
 	}
 	return nil

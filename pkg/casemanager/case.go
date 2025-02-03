@@ -11,6 +11,7 @@ import (
 //  1. Definition of the API method, including the method type, path, schema, etc.
 //  2. The request instance, including the request body, headers, etc. (This should be filled during the test case generation)
 //  3. The expected response, including the response body, headers, etc. (This should be filled after the test case execution)
+//
 // Part 2 and 3 will be re-filled each time the test case is executed.
 type OperationCase struct {
 	// APIMethod is the definition of the API method being tested.
@@ -86,7 +87,6 @@ func (ts *TestScenario) Reset() {
 	ts.ExecutedTimes = 0
 }
 
-
 // IsExecutedSuccessfully checks whether the operation case is executed successfully.
 // It only checks the response status code for now.
 func (oc *OperationCase) IsExecutedSuccessfully() bool {
@@ -116,16 +116,13 @@ func (oc *OperationCase) Copy() *OperationCase {
 		responseBody[k] = v
 	}
 	return &OperationCase{
-		APIMethod:         oc.APIMethod,
-		Operation:         oc.Operation,
-		RequestHeaders:    requestHeaders,
-		RequestParams:     requestParams,
-		RequestBody:       requestBody,
-		ResponseHeaders:   responseHeaders,
+		APIMethod:          oc.APIMethod,
+		Operation:          oc.Operation,
+		RequestHeaders:     requestHeaders,
+		RequestParams:      requestParams,
+		RequestBody:        requestBody,
+		ResponseHeaders:    responseHeaders,
 		ResponseStatusCode: oc.ResponseStatusCode,
-		ResponseBody:      responseBody,
+		ResponseBody:       responseBody,
 	}
 }
-
-
-

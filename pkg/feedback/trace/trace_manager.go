@@ -1,6 +1,9 @@
 package trace
 
-import "github.com/rs/zerolog/log"
+import (
+	"github.com/bytedance/sonic"
+	"github.com/rs/zerolog/log"
+)
 
 // TraceManager manages traces.
 type TraceManager struct {
@@ -90,7 +93,8 @@ func (m *TraceManager) convertSingleTrace2CallInfos(trace *SimplifiedTrace) ([]*
 				parentSpanID := ref["spanID"] // TODO: check here @xunzhou24
 				parentSpan, ok := trace.SpanMap[parentSpanID]
 				if !ok {
-					log.Warn().Msgf("[TraceManager.convertSingleTrace2CallInfos] Parent span not found, parentSpanID: %s", parentSpanID)
+					spanStr, _ := sonic.MarshalString(span)
+					log.Debug().Msgf("[TraceManager.convertSingleTrace2CallInfos] Parent span not found, parentSpanID: %s, span: %s", parentSpanID, spanStr)
 					continue
 				}
 				callInfo := &CallInfo{

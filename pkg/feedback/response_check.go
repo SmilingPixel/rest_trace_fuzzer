@@ -48,4 +48,3 @@ func (rc *ResponseChecker) GetCoveredStatusCodeCount() int {
 	}
 	return count
 }
-
