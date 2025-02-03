@@ -65,11 +65,11 @@ func NewBasicFuzzer(
 }
 
 // Start starts the fuzzer.
+// The fuzzer will run until the budget is exhausted or some error occurs.
 func (f *BasicFuzzer) Start() error {
-	// TODO: Implement this method. @xunzhou24
 
 	startTime := time.Now()
-	log.Info().Msgf("[BasicFuzzer.Start] Fuzzer started at %v, f.Budget: %v", startTime, f.Budget)
+	log.Info().Msgf("[BasicFuzzer.Start] Fuzzer started at %v, Budget: %v", startTime, f.Budget)
 
 	// loop:
 	// 1. Pop a test scenario from the case manager.
@@ -160,8 +160,11 @@ func (f *BasicFuzzer) ExecuteTestScenario(testScenario *casemanager.TestScenario
 func (f *BasicFuzzer) ExecuteCaseOperation(operationCase *casemanager.OperationCase) error {
 	path := operationCase.APIMethod.Endpoint
 	method := operationCase.APIMethod.Method
+	headers := operationCase.RequestHeaders
+	params := operationCase.RequestParams
+	body := operationCase.RequestBody
 	log.Debug().Msgf("[BasicFuzzer.ExecuteCaseOperation] Execute operation: %s %s", method, path)
-	statusCode, respBodyBytes, err := f.HTTPClient.PerformRequest(path, method, nil, nil, nil)
+	statusCode, respBodyBytes, err := f.HTTPClient.PerformRequest(path, method, headers, params, body)
 	if err != nil {
 		// A failed request will not stop the fuzzing process.
 		log.Err(err).Msg("[BasicFuzzer.ExecuteCaseOperation] Failed to perform request")

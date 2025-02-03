@@ -2,6 +2,7 @@ package feedback
 
 import (
 	"resttracefuzzer/pkg/static"
+	"strconv"
 
 	"github.com/rs/zerolog/log"
 )
@@ -19,8 +20,23 @@ type ResponseChecker struct {
 // NewResponseChecker creates a new ResponseChecker.
 // An OpenAPI document is required to initialize the ResponseChecker.
 func NewResponseChecker(APIManager *static.APIManager) *ResponseChecker {
+	// Initialize the hit count map according to the OpenAPI document.
+	// We can utilize the pre-processed APIMap in the APIManager to make it.
 	counter := make(map[static.SimpleAPIMethod]map[int]int)
-	// TODO: initialize the counter with the status code in the OpenAPI document. @xunzhou24
+	APIMap := APIManager.APIMap
+	for method, operation := range APIMap {
+		counter[method] = make(map[int]int)
+		// fieldKey is the status code or 'default'. See [OpenAPI 3.0](https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.0.3.md#responses-object).
+		// We only care about the status code, and ignore 'default'.
+		for fieldKey := range operation.Responses.Map() {
+			statusCode, err := strconv.Atoi(fieldKey)
+			if err != nil {
+				log.Debug().Msgf("[NewResponseChecker] Failed to parse field key %s as int", fieldKey)
+				continue
+			}
+			counter[method][statusCode] = 0
+		}
+	}
 	return &ResponseChecker{
 		StatusHitCount: counter,
 		APIManager:     APIManager,

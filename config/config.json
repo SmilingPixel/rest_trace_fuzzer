@@ -7,6 +7,7 @@
     "trace_backend_type": "Jaeger",
     "fuzzer_type": "Basic",
     "fuzzer_budget": 5,
-    "log_level": "info",
-    "output_dir": "./output"
+    "log_level": "debug",
+    "output_dir": "./output",
+    "log_to_file": true
   }
