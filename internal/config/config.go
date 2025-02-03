@@ -39,6 +39,9 @@ type RuntimeConfig struct {
 
 	// Output directory, e.g., ./output
 	OutputDir string `json:"output_dir"`
+
+	// Should log to file
+	LogToFile bool `json:"log_to_file"`
 }
 
 func InitConfig() {

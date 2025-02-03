@@ -38,6 +38,9 @@ x          x       xxxxxxx   xx    xx    xxx   xx
 
 func main() {
 
+	// Record the start time
+	t := time.Now()
+
 	// Initialize logger with default log level (Info)
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	fmt.Print(HELLO)
@@ -62,6 +65,18 @@ func main() {
 	} else {
 		log.Error().Msgf("[main] Unsupported log level: %s", config.GlobalConfig.LogLevel)
 		return
+	}
+
+	// Log to file if specified
+	if config.GlobalConfig.LogToFile {
+		logFilePath := fmt.Sprintf("%s/log_%s.log", config.GlobalConfig.OutputDir, t.Format(time.RFC3339))
+		fileWriter, err := os.Create(logFilePath)
+		if err != nil {
+			log.Err(err).Msgf("[main] Failed to create log file: %s", logFilePath)
+			return
+		}
+		log.Info().Msgf("[main] Log to file is enabled, I will write logs to %s", config.GlobalConfig.OutputDir)
+		log.Logger = log.Output(fileWriter)
 	}
 
 	APIManager := static.NewAPIManager()
@@ -134,7 +149,6 @@ func main() {
 	// with prefix "system_report_", "internal_service_report_", etc.
 	// The reports are saved in the output directory
 	// TODO @xunzhou24
-	t := time.Now()
 	systemReporter := report.NewSystemReporter(APIManager)
 	// Create the output directory if it does not exist.
 	err = os.MkdirAll(config.GlobalConfig.OutputDir, os.ModePerm)

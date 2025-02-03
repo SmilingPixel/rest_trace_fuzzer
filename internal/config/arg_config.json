@@ -94,5 +94,13 @@
         "type": "string",
         "required": false,
         "default": "./output"
+    },
+    {
+        "arg_name": "log-to-file",
+        "config_name": "log_to_file",
+        "description": "Should log to file",
+        "type": "boolean",
+        "required": false,
+        "default": false
     }
 ]

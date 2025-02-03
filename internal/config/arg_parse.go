@@ -21,6 +21,7 @@ func ParseCmdArgs() {
 	flag.IntVar(&GlobalConfig.FuzzerBudget, "fuzzer-budget", 5, "The maximum time the fuzzer can run, in seconds")
 	flag.StringVar(&GlobalConfig.LogLevel, "log-level", "info", "Log level: debug, info, warn, error, fatal, panic")
 	flag.StringVar(&GlobalConfig.OutputDir, "output-dir", "./output", "Output directory, e.g., ./output")
+	flag.BoolVar(&GlobalConfig.LogToFile, "log-to-file", false, "Should log to file")
 	flag.Parse()
 
 	// If config file is provided, load the config from the file
@@ -79,6 +80,9 @@ func ParseCmdArgs() {
 	}
 	if envVal, ok := os.LookupEnv("OUTPUT_DIR"); ok && envVal != "" {
 		GlobalConfig.OutputDir = envVal
+	}
+	if envVal, ok := os.LookupEnv("LOG_TO_FILE"); ok && envVal != "" {
+		GlobalConfig.LogToFile = true
 	}
 
 	jsonStr, _ := sonic.Marshal(GlobalConfig)

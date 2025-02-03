@@ -67,6 +67,8 @@ def to_go_type(json_type: str) -> str:
         return "int"
     elif json_type == "duration":
         return "time.Duration"
+    elif json_type == "boolean":
+        return "bool"
     else:
         return "string"
 
@@ -113,6 +115,8 @@ def generate_arg_parse_code(config: List[Dict[str, Any]]) -> str:
             arg_parse_code_lines.append(f'flag.DurationVar(&GlobalConfig.{to_camel_case(config_name)}, "{arg_name}", {default_value}, "{description}")')
         elif go_type == "int":
             arg_parse_code_lines.append(f'flag.IntVar(&GlobalConfig.{to_camel_case(config_name)}, "{arg_name}", {default_value}, "{description}")')
+        elif go_type == "bool":
+            arg_parse_code_lines.append(f'flag.BoolVar(&GlobalConfig.{to_camel_case(config_name)}, "{arg_name}", {"true" if default_value else "false"}, "{description}")')
         else:
             arg_parse_code_lines.append(f'flag.StringVar(&GlobalConfig.{to_camel_case(config_name)}, "{arg_name}", "{default_value}", "{description}")')
 
@@ -155,6 +159,8 @@ def generate_arg_parse_code(config: List[Dict[str, Any]]) -> str:
             arg_parse_code_lines.append('log.Err(err).Msgf("[ParseCmdArgs] Failed to parse int: %s", err)')
             arg_parse_code_lines.append("}")
             arg_parse_code_lines.append(f'GlobalConfig.{to_camel_case(config_name)} = envValInt')
+        elif go_type == "bool":
+            arg_parse_code_lines.append(f'GlobalConfig.{to_camel_case(config_name)} = true')
         else:  
             arg_parse_code_lines.append(f'GlobalConfig.{to_camel_case(config_name)} = envVal')
         arg_parse_code_lines.append("}")
