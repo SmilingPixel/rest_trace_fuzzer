@@ -91,7 +91,7 @@ func (p *JaegerTraceFetcher) FetchFromRemote() ([]*SimplifiedTrace, error) {
 		// Filter out empty and too old traces
 		currentTime := time.Now()
 		for _, trace := range serviceTraces {
-			if trace == nil || currentTime.Sub(trace.StartTime) > TRACE_FILTER_OUT_AGE * time.Second {
+			if trace == nil || currentTime.Sub(trace.StartTime) > TRACE_FILTER_OUT_AGE*time.Second {
 				continue
 			}
 			traces = append(traces, trace)

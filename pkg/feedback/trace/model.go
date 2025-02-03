@@ -18,23 +18,23 @@ type SimplifiedTrace struct {
 
 // SimplifiedTraceSpan represents a simplified version of a trace span model.
 type SimplifiedTraceSpan struct {
-	TraceID       string        `json:"traceID"`       // Unique identifier for the trace
-	SpanID        string        `json:"spanID"`        // Unique identifier for the span
-	ParentID      string        `json:"parentID"`      // Unique identifier for the parent span
-	OperationName string        `json:"operationName"` // Name of the operation
-	SpanKind      SpanKindType  `json:"spanKind"`      // Kind of the span
+	TraceID       string              `json:"traceID"`       // Unique identifier for the trace
+	SpanID        string              `json:"spanID"`        // Unique identifier for the span
+	ParentID      string              `json:"parentID"`      // Unique identifier for the parent span
+	OperationName string              `json:"operationName"` // Name of the operation
+	SpanKind      SpanKindType        `json:"spanKind"`      // Kind of the span
 	References    []map[string]string `json:"references"`    // References to other spans
-	StartTime     time.Time     `json:"startTime"`     // Start time of the span
-	Duration      int64        `json:"duration"`      // Duration of the span, in microseconds
-	Tags          []TagEntry `json:"tags"`          // Tags associated with the span
-	Process       ProcessValueEntry       `json:"process"`       // Process information
-	Logs          []LogEntry    `json:"logs"`          // Log entries associated with the span
-	ChildrenIDs   []string      `json:"childrenIDs"`    // Children spans' IDs
+	StartTime     time.Time           `json:"startTime"`     // Start time of the span
+	Duration      int64               `json:"duration"`      // Duration of the span, in microseconds
+	Tags          []TagEntry          `json:"tags"`          // Tags associated with the span
+	Process       ProcessValueEntry   `json:"process"`       // Process information
+	Logs          []LogEntry          `json:"logs"`          // Log entries associated with the span
+	ChildrenIDs   []string            `json:"childrenIDs"`   // Children spans' IDs
 }
 
 // ProcessValueEntry represents the process information in a trace.
 type ProcessValueEntry struct {
-	ServiceName string        `json:"serviceName"` // Name of the service
+	ServiceName string     `json:"serviceName"` // Name of the service
 	Tags        []TagEntry `json:"tags"`        // Tags associated with the process
 }
 
@@ -45,8 +45,8 @@ type LogEntry struct {
 }
 
 type TagEntry struct {
-	Key   string `json:"key"`
-	Type string `json:"type"`
+	Key   string      `json:"key"`
+	Type  string      `json:"type"`
 	Value interface{} `json:"value"`
 }
 
@@ -79,26 +79,25 @@ func (s *SpanKindType) UnmarshalJSON(data []byte) error {
 }
 
 type JaegerTrace struct {
-	TraceID string `json:"traceID"`
-	Spans   []JaegerTraceSpan `json:"spans"`
+	TraceID   string                       `json:"traceID"`
+	Spans     []JaegerTraceSpan            `json:"spans"`
 	Processes map[string]ProcessValueEntry `json:"processes"`
 }
 
 // JaegerTraceSpan represents a span in a Jaeger trace.
 type JaegerTraceSpan struct {
-	TraceID       string                 `json:"traceID"`       // Unique identifier for the trace
-	SpanID        string                 `json:"spanID"`        // Unique identifier for the span
-	ParentID      string                 `json:"parentID"`      // Unique identifier for the parent span
-	OperationName string                 `json:"operationName"` // Name of the operation
-	References    []map[string]string    `json:"references"`    // References to other spans
-	StartTime     int64                  `json:"startTime"`     // Start time of the span
-	Duration      int64                  `json:"duration"`      // Duration of the span
-	Tags          []TagEntry    `json:"tags"`          // Tags associated with the span
+	TraceID       string                   `json:"traceID"`       // Unique identifier for the trace
+	SpanID        string                   `json:"spanID"`        // Unique identifier for the span
+	ParentID      string                   `json:"parentID"`      // Unique identifier for the parent span
+	OperationName string                   `json:"operationName"` // Name of the operation
+	References    []map[string]string      `json:"references"`    // References to other spans
+	StartTime     int64                    `json:"startTime"`     // Start time of the span
+	Duration      int64                    `json:"duration"`      // Duration of the span
+	Tags          []TagEntry               `json:"tags"`          // Tags associated with the span
 	Logs          []map[string]interface{} `json:"logs"`          // Log entries associated with the span
-	ProcessID     string                 `json:"processID"`     // Process ID
-	Warnings      interface{}            `json:"-"`      // Warnings associated with the span TODO: check here @xunzhou24
+	ProcessID     string                   `json:"processID"`     // Process ID
+	Warnings      interface{}              `json:"-"`             // Warnings associated with the span TODO: check here @xunzhou24
 }
-
 
 // ToSimplifiedTrace converts a JaegerTrace to a SimplifiedTrace.
 func (j *JaegerTrace) ToSimplifiedTrace() *SimplifiedTrace {
@@ -111,8 +110,8 @@ func (j *JaegerTrace) ToSimplifiedTrace() *SimplifiedTrace {
 		}
 	}
 	return &SimplifiedTrace{
-		TraceID: j.TraceID,
-		SpanMap: spanMap,
+		TraceID:   j.TraceID,
+		SpanMap:   spanMap,
 		StartTime: startTime,
 	}
 }
@@ -126,7 +125,7 @@ func (j *JaegerTraceSpan) ToSimplifiedTraceSpan(processMap map[string]ProcessVal
 		OperationName: j.OperationName,
 		StartTime:     time.Unix(0, j.StartTime*int64(time.Microsecond)),
 		Duration:      j.Duration,
-		Process: 	 processMap[j.ProcessID],
+		Process:       processMap[j.ProcessID],
 	}
 
 	span.Tags = append(span.Tags, j.Tags...)

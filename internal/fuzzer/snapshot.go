@@ -4,11 +4,11 @@ package fuzzer
 // It includes metrics such as runtime graph edge coverage and the count of covered status codes.
 // TODO: Add more metrics. @xunzhou24
 type FuzzingSnapshot struct {
-    // RuntimeGraphEdgeCoverage is the percentage of edges covered in the runtime graph.
-    RuntimeGraphEdgeCoverage float64 `json:"runtime_graph_edge_coverage"`
+	// RuntimeGraphEdgeCoverage is the percentage of edges covered in the runtime graph.
+	RuntimeGraphEdgeCoverage float64 `json:"runtime_graph_edge_coverage"`
 
-    // CoveredStatusCodeCount is the number of unique status codes covered during fuzzing.
-    CoveredStatusCodeCount int `json:"covered_status_code_count"`
+	// CoveredStatusCodeCount is the number of unique status codes covered during fuzzing.
+	CoveredStatusCodeCount int `json:"covered_status_code_count"`
 }
 
 // NewFuzzingSnapshot creates a new FuzzingSnapshot.
