@@ -12,14 +12,10 @@
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/api-fuzzer",
             "args": [
-                "--openapi-spec", "${workspaceFolder}/../openapi/otel_demo/system_swagger.json",
-                "--fuzzer-type", "Basic",
-                "--fuzzer-budget", "30s",
-                "--server-base-url", "http://www.example.com",
-                "--internal-service-openapi-spec", "${workspaceFolder}/../openapi/otel_demo/internal_service_oas.yaml",
-                "--output-dir", "${workspaceFolder}/./output",
+                "--config-file", "${workspaceFolder}/config/config.json",
                 "--log-level", "debug"
-            ]
+            ],
+            "cwd": "${workspaceFolder}", // This is the working directory, which is "" by default when launching
         }
     ]
 }
