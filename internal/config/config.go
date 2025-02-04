@@ -42,6 +42,9 @@ type RuntimeConfig struct {
 
 	// Should log to file
 	LogToFile bool `json:"log_to_file"`
+
+	// Extra headers to be added to the request, in the format of stringified JSON, e.g., '{\"header1\": \"value1\", \"header2\": \"value2\"}'
+	ExtraHeaders string `json:"extra_headers"`
 }
 
 func InitConfig() {

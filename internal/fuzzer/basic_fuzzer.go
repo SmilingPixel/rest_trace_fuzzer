@@ -80,7 +80,7 @@ func (f *BasicFuzzer) Start() error {
 	// 3. Analyse the result, generate a report, and update the case manager.
 	// 4. Go to step 1.
 	for time.Since(startTime) <= f.Budget {
-		testScenario, err := f.CaseManager.Pop()
+		testScenario, err := f.CaseManager.PopAndPopulate()
 		if err != nil {
 			log.Err(err).Msg("[BasicFuzzer.Start] Failed to pop a test scenario")
 			break
@@ -161,15 +161,16 @@ func (f *BasicFuzzer) ExecuteCaseOperation(operationCase *casemanager.OperationC
 	path := operationCase.APIMethod.Endpoint
 	method := operationCase.APIMethod.Method
 	headers := operationCase.RequestHeaders
-	params := operationCase.RequestParams
+	pathParams := operationCase.RequestPathParams
+	queryParams := operationCase.RequestQueryParams
 	body := operationCase.RequestBody
 	log.Debug().Msgf("[BasicFuzzer.ExecuteCaseOperation] Execute operation: %s %s", method, path)
-	statusCode, respBodyBytes, err := f.HTTPClient.PerformRequest(path, method, headers, params, body)
+	statusCode, respBodyBytes, err := f.HTTPClient.PerformRequest(path, method, headers, pathParams, queryParams, body)
 	if err != nil {
 		// A failed request will not stop the fuzzing process.
 		log.Err(err).Msg("[BasicFuzzer.ExecuteCaseOperation] Failed to perform request")
 	}
-	respBody := make(map[string]interface{})
+	var respBody interface{}
 	err = sonic.Unmarshal(respBodyBytes, &respBody)
 	if err != nil {
 		// A broken response body will not stop the fuzzing process.

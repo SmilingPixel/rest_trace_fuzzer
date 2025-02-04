@@ -104,8 +104,7 @@ func (p *JaegerTraceFetcher) FetchFromRemote() ([]*SimplifiedTrace, error) {
 // It returns a list of service names, or an error if failed.
 func (p *JaegerTraceFetcher) fetchAllServicesFromRemote() ([]string, error) {
 	headers := map[string]string{}
-	params := map[string]string{}
-	statusCode, respBytes, err := p.FetcherClient.PerformGet("/api/services", headers, params)
+	statusCode, respBytes, err := p.FetcherClient.PerformGet("/api/services", headers, nil, nil)
 	if err != nil {
 		log.Err(err).Msgf("[JaegerTraceFetcher.FetchAllServicesFromRemote] Failed to fetch services")
 		return nil, err
@@ -127,16 +126,19 @@ func (p *JaegerTraceFetcher) fetchAllServicesFromRemote() ([]string, error) {
 // fetchServiceTracesFromRemote fetches traces of a service from remote source.
 // It returns a list of traces, or an error if failed.
 func (p *JaegerTraceFetcher) fetchServiceTracesFromRemote(serviceName string) ([]*SimplifiedTrace, error) {
-	pathWithParams := "/api/traces" + "?limit=2000&service=" + serviceName
+	path := "/api/traces"
 	headers := map[string]string{}
-	params := map[string]string{}
-	statusCode, respBytes, err := p.FetcherClient.PerformGet(pathWithParams, headers, params)
+	queryParams := map[string]string{
+		"limit":   "2000",
+		"service": serviceName,
+	}
+	statusCode, respBytes, err := p.FetcherClient.PerformGet(path, headers, nil, queryParams)
 	if err != nil {
-		log.Err(err).Msgf("[JaegerTraceFetcher.FetchServiceTracesFromRemote] Failed to fetch traces, pathWithParams: %s", pathWithParams)
+		log.Err(err).Msgf("[JaegerTraceFetcher.FetchServiceTracesFromRemote] Failed to fetch traces, path: %s, query params: %v", path, queryParams)
 		return nil, err
 	}
 	if statusCode < 200 || statusCode >= 300 {
-		log.Err(err).Msgf("[JaegerTraceFetcher.FetchServiceTracesFromRemote] Failed to fetch traces, statusCode: %d, pathWithParams: %s", statusCode, pathWithParams)
+		log.Err(err).Msgf("[JaegerTraceFetcher.FetchServiceTracesFromRemote] Failed to fetch traces, statusCode: %d, path: %s, query params: %v", statusCode, path, queryParams)
 		return nil, err
 	}
 
