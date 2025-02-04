@@ -22,6 +22,7 @@ func ParseCmdArgs() {
 	flag.StringVar(&GlobalConfig.LogLevel, "log-level", "info", "Log level: debug, info, warn, error, fatal, panic")
 	flag.StringVar(&GlobalConfig.OutputDir, "output-dir", "./output", "Output directory, e.g., ./output")
 	flag.BoolVar(&GlobalConfig.LogToFile, "log-to-file", false, "Should log to file")
+	flag.StringVar(&GlobalConfig.ExtraHeaders, "extra-headers", "", "Extra headers to be added to the request, in the format of stringified JSON, e.g., '{\"header1\": \"value1\", \"header2\": \"value2\"}'")
 	flag.Parse()
 
 	// If config file is provided, load the config from the file
@@ -83,6 +84,9 @@ func ParseCmdArgs() {
 	}
 	if envVal, ok := os.LookupEnv("LOG_TO_FILE"); ok && envVal != "" {
 		GlobalConfig.LogToFile = true
+	}
+	if envVal, ok := os.LookupEnv("EXTRA_HEADERS"); ok && envVal != "" {
+		GlobalConfig.ExtraHeaders = envVal
 	}
 
 	jsonStr, _ := sonic.Marshal(GlobalConfig)

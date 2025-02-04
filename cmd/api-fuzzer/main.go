@@ -14,6 +14,7 @@ import (
 	"resttracefuzzer/pkg/static"
 	"time"
 
+	"github.com/bytedance/sonic"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -98,9 +99,19 @@ func main() {
 	}
 	APIManager.InitFromServiceDoc(serviceDoc)
 
+	// Parse extra headers
+	extraHeaders := make(map[string]string)
+	if config.GlobalConfig.ExtraHeaders != "" {
+		err = sonic.UnmarshalString(config.GlobalConfig.ExtraHeaders, &extraHeaders)
+		if err != nil {
+			log.Err(err).Msgf("[main] Failed to parse extra headers")
+			return
+		}
+	}
+
 	// Initialize necessary components
 	resourceManager := resource.NewResourceManager()
-	caseManager := casemanager.NewCaseManager(APIManager, resourceManager)
+	caseManager := casemanager.NewCaseManager(APIManager, resourceManager, extraHeaders)
 	responseChecker := feedback.NewResponseChecker(APIManager)
 	runTimeGraph := feedback.NewRuntimeGraph(APIManager.APIDataflowGraph)
 

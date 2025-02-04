@@ -79,6 +79,6 @@ type SimpleAPIProperty struct {
 	// Name is the name of the property.
 	Name string
 
-	// Type is the type of the property.
-	Type SimpleAPIPropertyType
+	// Typ is the type of the property.
+	Typ SimpleAPIPropertyType
 }

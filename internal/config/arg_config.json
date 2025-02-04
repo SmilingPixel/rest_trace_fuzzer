@@ -102,5 +102,13 @@
         "type": "boolean",
         "required": false,
         "default": false
+    },
+    {
+        "arg_name": "extra-headers",
+        "config_name": "extra_headers",
+        "description": "Extra headers to be added to the request, in the format of stringified JSON, e.g., '{\\\"header1\\\": \\\"value1\\\", \\\"header2\\\": \\\"value2\\\"}'",
+        "type": "string",
+        "required": false,
+        "default": ""
     }
 ]

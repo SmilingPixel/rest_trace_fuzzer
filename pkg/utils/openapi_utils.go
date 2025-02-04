@@ -25,19 +25,19 @@ func FlattenSchema(schema *openapi3.SchemaRef) (map[string]*openapi3.SchemaRef, 
 	for len(que) > 0 {
 		newQue := make([]*openapi3.SchemaRef, 0)
 		for _, s := range que {
-			props := s.Value.Properties
-			for propName, propScheme := range props {
-				// log.Debug().Msgf("[flattenSchema] start to process property %s", propName)
-				if propScheme.Value.Type.Includes("object") {
-					newQue = append(newQue, propScheme)
-					schemas[propName] = propScheme
-				} else if propScheme.Value.Type.Includes("array") {
-					newQue = append(newQue, propScheme.Value.Items)
-					schemas[propName] = propScheme.Value.Items
-				} else {
-					schemas[propName] = propScheme
+			switch {
+			case s.Value.Type.Includes("object"):
+				for propName, propSchema := range s.Value.Properties {
+					newQue = append(newQue, propSchema)
+					schemas[propName] = propSchema
 				}
+			case s.Value.Type.Includes("array"):
+				newQue = append(newQue, s.Value.Items)
+				schemas[s.Value.Title] = s.Value.Items
+			default:
+				schemas[s.Value.Title] = s
 			}
+
 		}
 		que = newQue
 	}
@@ -86,12 +86,16 @@ func GenerateJsonTemplateFromSchema(schema *openapi3.SchemaRef) (map[string]inte
 // GenerateDefaultValueForPrimitiveSchemaType generates a placeholder value for a primitive schema type.
 //
 // TODO: deprecate it when strategy-based generation is implemented. @xunzhou24
+// TODO: support multiple types, see https://swagger.io/docs/specification/v3_0/describing-parameters/ @xunzhou24
 func GenerateDefaultValueForPrimitiveSchemaType(schemaType *openapi3.Types) interface{} {
+	log.Debug().Msgf("[GenerateDefaultValueForPrimitiveSchemaType] schemaType: %v", schemaType)
 	switch {
 	case schemaType.Includes("string"):
-		return "string"
+		return "114-514"
 	case schemaType.Includes("number"):
-		return 1
+		return 114.514
+	case schemaType.Includes("integer"):
+		return 114514
 	case schemaType.Includes("boolean"):
 		return true
 	default:

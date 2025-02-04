@@ -26,15 +26,21 @@ type CaseManager struct {
 
 	// The resource manager.
 	ResourceManager *resource.ResourceManager
+
+	// GlobalExtraHeaders is the global extra headers, which will be added to each request.
+	// It is a map of header name to header value.
+	// It can be used for simple cases, e.g., adding an authorization header.
+	GlobalExtraHeaders map[string]string
 }
 
 // NewCaseManager creates a new CaseManager.
-func NewCaseManager(APIManager *static.APIManager, resourceManager *resource.ResourceManager) *CaseManager {
+func NewCaseManager(APIManager *static.APIManager, resourceManager *resource.ResourceManager, globalExtraHeaders map[string]string) *CaseManager {
 	testScenarios := make([]*TestScenario, 0)
 	m := &CaseManager{
 		APIManager:      APIManager,
 		ResourceManager: resourceManager,
 		TestScenarios:   testScenarios,
+		GlobalExtraHeaders: globalExtraHeaders,
 	}
 	m.initTestcasesFromDoc()
 	return m
@@ -61,22 +67,30 @@ func (m *CaseManager) PopAndPopulate() (*TestScenario, error) {
 		log.Err(err).Msg("[CaseManager.PopAndFillRequest] Failed to pop a test scenario")
 		return nil, err
 	}
-	// TODO: Implement this method. @xunzhou24
+
 	for _, operationCase := range testScenario.OperationCases {
 		log.Debug().Msgf("[CaseManager.PopAndPopulate] Start to populate request for operation %v", operationCase.APIMethod)
-		// fill the request params
+		// fill the request path and query params
 		requestParamsDef := operationCase.Operation.Parameters
 		if requestParamsDef != nil {
-			requestParams, err := m.generateRequestParamsFromSchema(requestParamsDef)
+			requestPathParams, requestQueryParams, err := m.generateRequestParamsFromSchema(requestParamsDef)
 			if err != nil {
 				log.Err(err).Msg("[CaseManager.PopAndFillRequest] Failed to generate request params")
 				return nil, err
 			}
-			operationCase.RequestParams = requestParams
+			operationCase.RequestPathParams = requestPathParams
+			operationCase.RequestQueryParams = requestQueryParams
 		}
 
-		// fill the request headers
-		// TODO: Implement this method. @xunzhou24
+		// fill the request headers, including global extra headers and operation specific headers
+		requestHeaders := make(map[string]string)
+		// Add global extra headers
+		for k, v := range m.GlobalExtraHeaders {
+			requestHeaders[k] = v
+		}
+		// Add operation specific headers
+		// TODO: Implement this. @xunzhou24
+		operationCase.RequestHeaders = requestHeaders
 
 		// fill the request body
 		requestBodySchema := operationCase.Operation.RequestBody
@@ -155,43 +169,70 @@ func (m *CaseManager) initTestcasesFromDoc() error {
 
 // generateRequestBodyFromSchema generates a request body from a schema.
 // It returns a json object, and error if any.
-func (m *CaseManager) generateRequestBodyFromSchema(requestBodyRef *openapi3.RequestBodyRef) (map[string]interface{}, error) {
+func (m *CaseManager) generateRequestBodyFromSchema(requestBodyRef *openapi3.RequestBodyRef) (interface{}, error) {
 	if requestBodyRef == nil || requestBodyRef.Value == nil {
 		return nil, fmt.Errorf("request body is nil")
 	}
-	return m.generateObjectFromSchema(requestBodyRef.Value.Content.Get("application/json").Schema)
+	return m.generateValueFromSchema(requestBodyRef.Value.Content.Get("application/json").Schema)
 }
 
 // generateRequestParamsFromSchema generates request params from a schema.
-// It returns a map of request params, and error if any.
-func (m *CaseManager) generateRequestParamsFromSchema(params []*openapi3.ParameterRef) (map[string]string, error) {
-	result := make(map[string]string)
+// It returns a map of request (path) params, a map of query params, and an error if any.
+func (m *CaseManager) generateRequestParamsFromSchema(params []*openapi3.ParameterRef) (map[string]string, map[string]string, error) {
+	pathParams := make(map[string]string)
+	queryParams := make(map[string]string)
 	for _, param := range params {
 		if param == nil || param.Value == nil {
-			return nil, fmt.Errorf("request param is nil")
+			return nil, nil, fmt.Errorf("request param is nil")
 		}
 		// TODO: format string to param format @xunzhou24
 		// e.g. ['a', 'b'] => 'a,b'
-		generatedObject, err := m.generateObjectFromSchema(param.Value.Schema)
+		generatedObject, err := m.generateObjectValueFromSchema(param.Value.Schema)
 		if err != nil {
 			log.Err(err).Msgf("[CaseManager.generateRequestParamsFromSchema] Failed to generate object from schema %v", param.Value.Schema)
-			return nil, err
+			return nil, nil, err
 		}
 		valueStr, err := sonic.MarshalString(generatedObject)
 		if err != nil {
 			log.Err(err).Msgf("[CaseManager.generateRequestParamsFromSchema] Failed to marshal object to string %v", generatedObject)
-			return nil, err
+			return nil, nil, err
 		}
-		result[param.Value.Name] = valueStr
+		if param.Value.In == "path" {
+			pathParams[param.Value.Name] = valueStr
+		} else if param.Value.In == "query" {
+			queryParams[param.Value.Name] = valueStr
+		} else {
+			// TODO: support other param locations (e.g., header) @xunzhou24
+			log.Warn().Msgf("[CaseManager.generateRequestParamsFromSchema] Unsupported param location %v", param.Value.In)
+		}
 	}
-	return result, nil
+	return pathParams, queryParams, nil
 }
 
-// generateObjectFromSchema generates a json object from a schema.
+
+// generateValueFromSchema generates a value from a schema.
+// It returns a value, and error if any.
+func (m *CaseManager) generateValueFromSchema(schema *openapi3.SchemaRef) (interface{}, error) {
+	if schema == nil || schema.Value == nil {
+		return nil, fmt.Errorf("schema is nil")
+	}
+
+	switch {
+	case schema.Value.Type.Includes("object"):
+		return m.generateObjectValueFromSchema(schema)
+	case schema.Value.Type.Includes("array"):
+		return m.generateArrayValueFromSchema(schema)
+	default:
+		return m.generatePrimitiveValueFromSchema(schema)
+	}
+}
+
+
+// generateObjectValueFromSchema generates a json object value from a schema.
 // It returns a json object, and error if any.
 //
-// TODO: Implement strategies
-func (m *CaseManager) generateObjectFromSchema(schema *openapi3.SchemaRef) (map[string]interface{}, error) {
+// TODO: Implement strategies @xunzhou24
+func (m *CaseManager) generateObjectValueFromSchema(schema *openapi3.SchemaRef) (map[string]interface{}, error) {
 	if schema == nil || schema.Value == nil {
 		return nil, fmt.Errorf("schema is nil")
 	}
@@ -199,26 +240,40 @@ func (m *CaseManager) generateObjectFromSchema(schema *openapi3.SchemaRef) (map[
 	result := make(map[string]interface{})
 
 	for propName, propSchema := range schema.Value.Properties {
-		switch {
-		case propSchema.Value.Type.Includes("object"):
-			subResult, err := m.generateObjectFromSchema(propSchema)
-			if err != nil {
-				return nil, err
-			}
-			result[propName] = subResult
-
-		case propSchema.Value.Type.Includes("array"):
-			subResult, err := m.generateObjectFromSchema(propSchema.Value.Items)
-			if err != nil {
-				return nil, err
-			}
-			// TODO: control the array size @xunzhou24
-			result[propName] = []interface{}{subResult}
-
-		default:
-			// primitive types
-			result[propName] = utils.GenerateDefaultValueForPrimitiveSchemaType(propSchema.Value.Type)
+		propValue, err := m.generateValueFromSchema(propSchema)
+		if err != nil {
+			return nil, err
 		}
+		result[propName] = propValue
 	}
 	return result, nil
+}
+
+// generateArrayValueFromSchema generates a json array value from a schema.
+// It returns a json array, and error if any.
+func (m *CaseManager) generateArrayValueFromSchema(schema *openapi3.SchemaRef) ([]interface{}, error) {
+	if schema == nil || schema.Value == nil {
+		return nil, fmt.Errorf("schema is nil")
+	}
+
+	result := make([]interface{}, 0)
+
+	// TODO: control the array size @xunzhou24
+	// For now, we generate an array with one element.
+	elementValue, err := m.generateValueFromSchema(schema.Value.Items)
+	if err != nil {
+		return nil, err
+	}
+	result = append(result, elementValue)
+
+	return result, nil
+}
+
+// generatePrimitiveValueFromSchema generates a primitive value from a schema.
+// It returns a primitive value, and error if any.
+func (m *CaseManager) generatePrimitiveValueFromSchema(schema *openapi3.SchemaRef) (interface{}, error) {
+	if schema == nil || schema.Value == nil {
+		return nil, fmt.Errorf("schema is nil")
+	}
+	return utils.GenerateDefaultValueForPrimitiveSchemaType(schema.Value.Type), nil
 }

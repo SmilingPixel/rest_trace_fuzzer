@@ -23,12 +23,15 @@ type OperationCase struct {
 	// RequestHeaders contains the headers to be sent with the request.
 	RequestHeaders map[string]string `json:"request_headers"`
 
-	// RequestParams contains the parameters to be sent with the request.
-	RequestParams map[string]string `json:"request_params"`
+	// RequestPathParams contains the path parameters to be sent with the request.
+	RequestPathParams map[string]string `json:"request_path_params"`
+
+	// RequestQueryParams contains the query parameters to be sent with the request.
+	RequestQueryParams map[string]string `json:"request_query_params"`
 
 	// RequestBody contains the body to be sent with the request.
 	// It is a json object.
-	RequestBody map[string]interface{} `json:"request_body"`
+	RequestBody interface{} `json:"request_body"`
 
 	// ResponseHeaders contains the expected headers in the response.
 	ResponseHeaders map[string]string `json:"response_headers"`
@@ -38,7 +41,7 @@ type OperationCase struct {
 
 	// ResponseBody contains the expected body of the response.
 	// It is a json object.
-	ResponseBody map[string]interface{} `json:"response_body"`
+	ResponseBody interface{} `json:"response_body"`
 }
 
 // A TestScenario is a sequence of [resttracefuzzer/pkg/casemanager/OperationCase].
@@ -94,32 +97,27 @@ func (oc *OperationCase) IsExecutedSuccessfully() bool {
 }
 
 // Copy creates a deep copy of the operation case.
+// TODO: deep copy the request and response body.
 func (oc *OperationCase) Copy() *OperationCase {
 	requestHeaders := make(map[string]string)
 	for k, v := range oc.RequestHeaders {
 		requestHeaders[k] = v
 	}
 	requestParams := make(map[string]string)
-	for k, v := range oc.RequestParams {
+	for k, v := range oc.RequestQueryParams {
 		requestParams[k] = v
 	}
-	requestBody := make(map[string]interface{})
-	for k, v := range oc.RequestBody {
-		requestBody[k] = v
-	}
+	requestBody := oc.RequestBody
 	responseHeaders := make(map[string]string)
 	for k, v := range oc.ResponseHeaders {
 		responseHeaders[k] = v
 	}
-	responseBody := make(map[string]interface{})
-	for k, v := range oc.ResponseBody {
-		responseBody[k] = v
-	}
+	responseBody := oc.ResponseBody
 	return &OperationCase{
 		APIMethod:          oc.APIMethod,
 		Operation:          oc.Operation,
 		RequestHeaders:     requestHeaders,
-		RequestParams:      requestParams,
+		RequestQueryParams: requestParams,
 		RequestBody:        requestBody,
 		ResponseHeaders:    responseHeaders,
 		ResponseStatusCode: oc.ResponseStatusCode,
