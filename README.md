@@ -52,12 +52,12 @@ To use the tool, follow these steps:
 
 1. Build the project:
     ```sh
-    bash ./scripts/build.sh
+    make build
     ```
 
 2. Run the tool:
     ```sh
-    bash ./scripts/run.sh
+    make run
     ```
 
 ## Configuration
