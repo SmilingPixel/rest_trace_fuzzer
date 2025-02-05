@@ -14,7 +14,7 @@ import (
 
 const (
 	// Threshold for trace age in seconds.
-	TRACE_FILTER_OUT_AGE = 3 * 60
+	TRACE_FILTER_OUT_AGE = 3 * time.Minute
 )
 
 // TraceFetcher fetches traces from trace banckend and parses them into Jaeger-style spans.
@@ -91,7 +91,7 @@ func (p *JaegerTraceFetcher) FetchFromRemote() ([]*SimplifiedTrace, error) {
 		// Filter out empty and too old traces
 		currentTime := time.Now()
 		for _, trace := range serviceTraces {
-			if trace == nil || currentTime.Sub(trace.StartTime) > TRACE_FILTER_OUT_AGE*time.Second {
+			if trace == nil || currentTime.Sub(trace.StartTime) > TRACE_FILTER_OUT_AGE {
 				continue
 			}
 			traces = append(traces, trace)

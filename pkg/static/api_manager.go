@@ -60,7 +60,7 @@ func (m *APIManager) InitFromServiceDoc(doc *openapi3.T) {
 			// Split the operationID by `_`.
 			operationIDParts := strings.Split(operationID, "_")
 			if len(operationIDParts) != 2 {
-				log.Warn().Msgf("Invalid operationID: %s", operationID)
+				log.Warn().Msgf("[APIManager.InitFromServiceDoc] Invalid operationID: %s", operationID)
 				continue
 			}
 			serviceName := operationIDParts[0]

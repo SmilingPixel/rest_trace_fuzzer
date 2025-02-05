@@ -77,8 +77,8 @@ type SimpleAPIMethod struct {
 // TODO: fill type field when creating @xunzhou24
 type SimpleAPIProperty struct {
 	// Name is the name of the property.
-	Name string
+	Name string `json:"name"`
 
 	// Typ is the type of the property.
-	Typ SimpleAPIPropertyType
+	Typ SimpleAPIPropertyType `json:"type"`
 }

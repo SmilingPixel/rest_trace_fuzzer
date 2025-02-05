@@ -49,7 +49,7 @@ func NewResponseChecker(APIManager *static.APIManager) *ResponseChecker {
 func (rc *ResponseChecker) CheckResponse(method static.SimpleAPIMethod, statusCode int) error {
 	// TODO: implement the CheckResponse method. @xunzhou24
 	if _, ok := rc.StatusHitCount[method]; !ok {
-		log.Warn().Msgf("Method %s %s is not in the OpenAPI document", method.Method, method.Endpoint)
+		log.Warn().Msgf("[ResponseChecker.CheckResponse] Method %s %s is not in the OpenAPI document", method.Method, method.Endpoint)
 		return nil
 	}
 	rc.StatusHitCount[method][statusCode]++

@@ -22,7 +22,7 @@ func NewAPIDependencyRestlerParser() *APIDependencyRestlerParser {
 func (p *APIDependencyRestlerParser) ParseFromPath(path string) (*static.APIDependencyGraph, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		log.Err(err).Msgf("[ParseFromPath] Error reading file")
+		log.Err(err).Msgf("[APIDependencyRestlerParser.ParseFromPath] Error reading file")
 		return nil, err
 	}
 
@@ -32,7 +32,7 @@ func (p *APIDependencyRestlerParser) ParseFromPath(path string) (*static.APIDepe
 	type PathMap map[string]MethodMap
 	var jsonMap PathMap
 	if err := sonic.Unmarshal(data, &jsonMap); err != nil {
-		log.Err(err).Msgf("[ParseFromPath] Error parsing JSON")
+		log.Err(err).Msgf("[APIDependencyRestlerParser.ParseFromPath] Error parsing JSON")
 		return nil, err
 	}
 
@@ -78,7 +78,7 @@ func (p *APIDependencyRestlerParser) ParseFromPath(path string) (*static.APIDepe
 						Endpoint: producerConsumerDetail["producer_endpoint"],
 						Method:   producerConsumerDetail["producer_method"],
 					}
-					log.Info().Msgf("[ParseFromPath] Adding dependency from %v to %v", producer, consumer)
+					log.Info().Msgf("[APIDependencyRestlerParser.ParseFromPath] Adding dependency from %v to %v", producer, consumer)
 					dependencyGraph.AddDependency(consumer, producer)
 				}
 			}
