@@ -41,11 +41,7 @@ func (c *HTTPClient) PerformRequest(path, method string, headers map[string]stri
 
 	// Set path params
 	if len(queryParams) > 0 {
-		queryParamsStrList := make([]string, 0)
-		for k, v := range queryParams {
-			queryParamsStrList = append(queryParamsStrList, k+"="+v)
-		}
-		req.SetQueryString(strings.Join(queryParamsStrList, "&"))
+		req.SetQueryString(paramDict2QueryStr(queryParams))
 	}
 
 	// Set path params, replacing the path params in the URL
@@ -79,4 +75,16 @@ func (c *HTTPClient) PerformRequest(path, method string, headers map[string]stri
 // PerformGet performs an HTTP GET request.
 func (c *HTTPClient) PerformGet(path string, headers map[string]string, pathParams, queryParams map[string]string) (int, []byte, error) {
 	return c.PerformRequest(path, "GET", headers, pathParams, queryParams, nil)
+}
+
+// paramDict2QueryStr converts a map of parameters to a query string.
+// It returns the query string.
+//
+// For example, if the input is {"a": "1", "b": ["2", "3"]}, the output is "a=1&b=2,3".
+func paramDict2QueryStr(paramDict map[string]string) string {
+	queryParamsStrList := make([]string, 0)
+	for k, v := range paramDict {
+		queryParamsStrList = append(queryParamsStrList, k+"="+v)
+	}
+	return strings.Join(queryParamsStrList, "&")
 }

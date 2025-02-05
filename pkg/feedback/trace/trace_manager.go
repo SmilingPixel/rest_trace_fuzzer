@@ -35,12 +35,12 @@ func (m *TraceManager) PullTraces() error {
 	// Fetch traces from the trace source.
 	traces, err := m.TraceFetcher.FetchFromRemote()
 	if err != nil {
-		log.Err(err).Msg("Failed to fetch traces from remote")
+		log.Err(err).Msg("[TraceManager.PullTraces] Failed to fetch traces from remote")
 		return err
 	}
 	err = m.TraceDB.BatchUpsert(traces)
 	if err != nil {
-		log.Err(err).Msg("Failed to upsert traces")
+		log.Err(err).Msg("[TraceManager.PullTraces] Failed to upsert traces")
 		return err
 	}
 	return nil
@@ -51,12 +51,12 @@ func (m *TraceManager) PullTracesAndReturn() ([]*SimplifiedTrace, error) {
 	// Fetch traces from the trace source.
 	traces, err := m.TraceFetcher.FetchFromRemote()
 	if err != nil {
-		log.Err(err).Msg("Failed to fetch traces from remote")
+		log.Err(err).Msg("[TraceManager.PullTracesAndReturn] Failed to fetch traces from remote")
 		return nil, err
 	}
 	newTraces, err := m.TraceDB.BatchInsertAndReturn(traces)
 	if err != nil {
-		log.Err(err).Msg("Failed to insert traces")
+		log.Err(err).Msg("[TraceManager.PullTracesAndReturn] Failed to insert traces")
 		return nil, err
 	}
 	return newTraces, nil

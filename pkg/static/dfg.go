@@ -104,7 +104,7 @@ func (g *APIDataflowGraph) parseServiceOperationPair(
 	if sourceOperation.RequestBody != nil {
 		flattenedSourceRequestBody, err := utils.FlattenSchema(sourceOperation.RequestBody.Value.Content.Get("application/json").Schema)
 		if err != nil {
-			log.Err(err).Msg("[parseServiceOperationPair] Failed to flatten source request body")
+			log.Err(err).Msg("[APIDataflowGraph.parseServiceOperationPair] Failed to flatten source request body")
 		}
 		for schemaName := range flattenedSourceRequestBody {
 			simpleAPIProperty := SimpleAPIProperty{
@@ -117,7 +117,7 @@ func (g *APIDataflowGraph) parseServiceOperationPair(
 	if targetOperation.RequestBody != nil {
 		flattenedTargetRequestBody, err := utils.FlattenSchema(targetOperation.RequestBody.Value.Content.Get("application/json").Schema)
 		if err != nil {
-			log.Err(err).Msg("[parseServiceOperationPair] Failed to flatten target request body")
+			log.Err(err).Msg("[APIDataflowGraph.parseServiceOperationPair] Failed to flatten target request body")
 		}
 		for schemaName := range flattenedTargetRequestBody {
 			simpleAPIProperty := SimpleAPIProperty{
@@ -156,6 +156,6 @@ func (g *APIDataflowGraph) AddEdge(source, target *APIDataflowNode, sourceProp, 
 		SourceProperty: sourceProp,
 		TargetProperty: targetProp,
 	}
-	log.Info().Msgf("[AddEdge] Adding edge: %v -> %v", source, target)
+	log.Trace().Msgf("[APIDataflowGraph.AddEdge] Adding edge: %v -> %v", source, target)
 	g.Edges = append(g.Edges, edge)
 }

@@ -5,6 +5,7 @@ import (
 	"resttracefuzzer/pkg/resource"
 	"resttracefuzzer/pkg/static"
 	"resttracefuzzer/pkg/utils"
+	"strings"
 
 	"github.com/bytedance/sonic"
 	"github.com/getkin/kin-openapi/openapi3"
@@ -185,18 +186,35 @@ func (m *CaseManager) generateRequestParamsFromSchema(params []*openapi3.Paramet
 		if param == nil || param.Value == nil {
 			return nil, nil, fmt.Errorf("request param is nil")
 		}
-		// TODO: format string to param format @xunzhou24
-		// e.g. ['a', 'b'] => 'a,b'
-		generatedObject, err := m.generateObjectValueFromSchema(param.Value.Schema)
+
+		generatedValue, err := m.generateValueFromSchema(param.Value.Schema)
 		if err != nil {
 			log.Err(err).Msgf("[CaseManager.generateRequestParamsFromSchema] Failed to generate object from schema %v", param.Value.Schema)
 			return nil, nil, err
 		}
-		valueStr, err := sonic.MarshalString(generatedObject)
-		if err != nil {
-			log.Err(err).Msgf("[CaseManager.generateRequestParamsFromSchema] Failed to marshal object to string %v", generatedObject)
-			return nil, nil, err
+
+		var valueStr string
+		// For array type, we need to convert the array to string.
+		// For example, if the array is [1, 2, 3], we convert it to "1,2,3", instead of json-style (e.g., "[1,2,3]").
+		if generatedArray, ok := generatedValue.([]interface{}); ok {
+			valueList := make([]string, 0)
+			for _, v := range generatedArray {
+				vStr, err := sonic.MarshalString(v)
+				if err != nil {
+					log.Err(err).Msgf("[CaseManager.generateRequestParamsFromSchema] Failed to marshal object to string %v", v)
+					return nil, nil, err
+				}
+				valueList = append(valueList, vStr)
+			}
+			valueStr = strings.Join(valueList, ",")
+		} else {
+			valueStr, err = sonic.MarshalString(generatedValue)
+			if err != nil {
+				log.Err(err).Msgf("[CaseManager.generateRequestParamsFromSchema] Failed to marshal object to string %v", generatedValue)
+				return nil, nil, err
+			}
 		}
+		
 		if param.Value.In == "path" {
 			pathParams[param.Value.Name] = valueStr
 		} else if param.Value.In == "query" {

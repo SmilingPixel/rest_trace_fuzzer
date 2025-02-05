@@ -25,7 +25,7 @@ func NewResourceManager() *ResourceManager {
 func (m *ResourceManager) GetSingleResourceByType(propertyType static.SimpleAPIPropertyType) *Resource {
 	resources := m.ResourcePool[propertyType]
 	if len(resources) == 0 {
-		log.Warn().Msgf("[ResourceManager.GetRandomResourceByType]No resource of type %s", propertyType)
+		log.Warn().Msgf("[ResourceManager.GetRandomResourceByType] No resource of type %s", propertyType)
 		return nil
 	}
 	return resources[rand.IntN(len(resources))]
