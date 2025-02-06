@@ -42,8 +42,9 @@ const (
 	// TODO: Add more types if needed, such as MessageQueue, etc. @xunzhou24
 
 	// SimpleAPIPropertyTypeNumber
-	// TODO: do we need to distinguish between integer and float? @xunzhou24
 	SimpleAPIPropertyTypeNumber SimpleAPIPropertyType = "number"
+
+	SimpleAPIPropertyTypeInteger SimpleAPIPropertyType = "integer"
 
 	// SimpleAPIPropertyTypeString
 	SimpleAPIPropertyTypeString SimpleAPIPropertyType = "string"

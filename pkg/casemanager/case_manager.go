@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"resttracefuzzer/pkg/resource"
 	"resttracefuzzer/pkg/static"
-	"resttracefuzzer/pkg/utils"
+	"resttracefuzzer/pkg/strategy"
 	"strings"
 
 	"github.com/bytedance/sonic"
@@ -28,6 +28,9 @@ type CaseManager struct {
 	// The resource manager.
 	ResourceManager *resource.ResourceManager
 
+	// The fuzz strategist.
+	FuzzStrategist *strategy.FuzzStrategist
+
 	// GlobalExtraHeaders is the global extra headers, which will be added to each request.
 	// It is a map of header name to header value.
 	// It can be used for simple cases, e.g., adding an authorization header.
@@ -35,11 +38,12 @@ type CaseManager struct {
 }
 
 // NewCaseManager creates a new CaseManager.
-func NewCaseManager(APIManager *static.APIManager, resourceManager *resource.ResourceManager, globalExtraHeaders map[string]string) *CaseManager {
+func NewCaseManager(APIManager *static.APIManager, resourceManager *resource.ResourceManager, fuzzStrategist *strategy.FuzzStrategist, globalExtraHeaders map[string]string) *CaseManager {
 	testScenarios := make([]*TestScenario, 0)
 	m := &CaseManager{
 		APIManager:      APIManager,
 		ResourceManager: resourceManager,
+		FuzzStrategist:  fuzzStrategist,
 		TestScenarios:   testScenarios,
 		GlobalExtraHeaders: globalExtraHeaders,
 	}
@@ -174,7 +178,7 @@ func (m *CaseManager) generateRequestBodyFromSchema(requestBodyRef *openapi3.Req
 	if requestBodyRef == nil || requestBodyRef.Value == nil {
 		return nil, fmt.Errorf("request body is nil")
 	}
-	return m.generateValueFromSchema(requestBodyRef.Value.Content.Get("application/json").Schema)
+	return m.FuzzStrategist.GenerateValueForSchema(requestBodyRef.Value.Content.Get("application/json").Schema)
 }
 
 // generateRequestParamsFromSchema generates request params from a schema.
@@ -187,7 +191,7 @@ func (m *CaseManager) generateRequestParamsFromSchema(params []*openapi3.Paramet
 			return nil, nil, fmt.Errorf("request param is nil")
 		}
 
-		generatedValue, err := m.generateValueFromSchema(param.Value.Schema)
+		generatedValue, err := m.FuzzStrategist.GenerateValueForSchema(param.Value.Schema)
 		if err != nil {
 			log.Err(err).Msgf("[CaseManager.generateRequestParamsFromSchema] Failed to generate object from schema %v", param.Value.Schema)
 			return nil, nil, err
@@ -225,73 +229,4 @@ func (m *CaseManager) generateRequestParamsFromSchema(params []*openapi3.Paramet
 		}
 	}
 	return pathParams, queryParams, nil
-}
-
-
-// generateValueFromSchema generates a value from a schema.
-// It returns a value, and error if any.
-func (m *CaseManager) generateValueFromSchema(schema *openapi3.SchemaRef) (interface{}, error) {
-	if schema == nil || schema.Value == nil {
-		return nil, fmt.Errorf("schema is nil")
-	}
-
-	switch {
-	case schema.Value.Type.Includes("object"):
-		return m.generateObjectValueFromSchema(schema)
-	case schema.Value.Type.Includes("array"):
-		return m.generateArrayValueFromSchema(schema)
-	default:
-		return m.generatePrimitiveValueFromSchema(schema)
-	}
-}
-
-
-// generateObjectValueFromSchema generates a json object value from a schema.
-// It returns a json object, and error if any.
-//
-// TODO: Implement strategies @xunzhou24
-func (m *CaseManager) generateObjectValueFromSchema(schema *openapi3.SchemaRef) (map[string]interface{}, error) {
-	if schema == nil || schema.Value == nil {
-		return nil, fmt.Errorf("schema is nil")
-	}
-
-	result := make(map[string]interface{})
-
-	for propName, propSchema := range schema.Value.Properties {
-		propValue, err := m.generateValueFromSchema(propSchema)
-		if err != nil {
-			return nil, err
-		}
-		result[propName] = propValue
-	}
-	return result, nil
-}
-
-// generateArrayValueFromSchema generates a json array value from a schema.
-// It returns a json array, and error if any.
-func (m *CaseManager) generateArrayValueFromSchema(schema *openapi3.SchemaRef) ([]interface{}, error) {
-	if schema == nil || schema.Value == nil {
-		return nil, fmt.Errorf("schema is nil")
-	}
-
-	result := make([]interface{}, 0)
-
-	// TODO: control the array size @xunzhou24
-	// For now, we generate an array with one element.
-	elementValue, err := m.generateValueFromSchema(schema.Value.Items)
-	if err != nil {
-		return nil, err
-	}
-	result = append(result, elementValue)
-
-	return result, nil
-}
-
-// generatePrimitiveValueFromSchema generates a primitive value from a schema.
-// It returns a primitive value, and error if any.
-func (m *CaseManager) generatePrimitiveValueFromSchema(schema *openapi3.SchemaRef) (interface{}, error) {
-	if schema == nil || schema.Value == nil {
-		return nil, fmt.Errorf("schema is nil")
-	}
-	return utils.GenerateDefaultValueForPrimitiveSchemaType(schema.Value.Type), nil
 }

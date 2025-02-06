@@ -12,6 +12,7 @@ import (
 	"resttracefuzzer/pkg/report"
 	"resttracefuzzer/pkg/resource"
 	"resttracefuzzer/pkg/static"
+	"resttracefuzzer/pkg/strategy"
 	"time"
 
 	"github.com/bytedance/sonic"
@@ -111,7 +112,8 @@ func main() {
 
 	// Initialize necessary components
 	resourceManager := resource.NewResourceManager()
-	caseManager := casemanager.NewCaseManager(APIManager, resourceManager, extraHeaders)
+	fuzzStrategist := strategy.NewFuzzStrategist(resourceManager)
+	caseManager := casemanager.NewCaseManager(APIManager, resourceManager, fuzzStrategist, extraHeaders)
 	responseChecker := feedback.NewResponseChecker(APIManager)
 	runTimeGraph := feedback.NewRuntimeGraph(APIManager.APIDataflowGraph)
 
