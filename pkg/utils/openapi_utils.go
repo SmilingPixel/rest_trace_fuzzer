@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"fmt"
+	"math/rand/v2"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/rs/zerolog/log"
@@ -44,49 +44,12 @@ func FlattenSchema(schema *openapi3.SchemaRef) (map[string]*openapi3.SchemaRef, 
 	return schemas, nil
 }
 
-// GenerateJsonTemplateFromSchema generates a JSON template from a schema.
-// It returns a json object.
-//
-// For primitive types, the method fills a default value.
-//
-// Deprecated: Use [resttracefuzzer/pkg/casemanager.PopulateCaseOperation] instead.
-func GenerateJsonTemplateFromSchema(schema *openapi3.SchemaRef) (map[string]interface{}, error) {
-	if schema == nil || schema.Value == nil {
-		return nil, fmt.Errorf("schema is nil")
-	}
-
-	result := make(map[string]interface{})
-
-	for propName, propSchema := range schema.Value.Properties {
-		switch {
-		case propSchema.Value.Type.Includes("object"):
-			subResult, err := GenerateJsonTemplateFromSchema(propSchema)
-			if err != nil {
-				return nil, err
-			}
-			result[propName] = subResult
-
-		case propSchema.Value.Type.Includes("array"):
-			subResult, err := GenerateJsonTemplateFromSchema(propSchema.Value.Items)
-			if err != nil {
-				return nil, err
-			}
-			// TODO: control the array size @xunzhou24
-			result[propName] = []interface{}{subResult}
-
-		default:
-			// primitive types
-			result[propName] = GenerateDefaultValueForPrimitiveSchemaType(propSchema.Value.Type)
-		}
-	}
-
-	return result, nil
+// IncludePrimitiveType checks if the types include primitive types.
+func IncludePrimitiveType(types *openapi3.Types) bool {
+	return types.Includes("string") || types.Includes("number") || types.Includes("integer") || types.Includes("boolean")
 }
 
-// GenerateDefaultValueForPrimitiveSchemaType generates a placeholder value for a primitive schema type.
-//
-// TODO: deprecate it when strategy-based generation is implemented. @xunzhou24
-// TODO: support multiple types, see https://swagger.io/docs/specification/v3_0/describing-parameters/ @xunzhou24
+// GenerateDefaultValueForPrimitiveSchemaType generates a default value for a primitive schema type.
 func GenerateDefaultValueForPrimitiveSchemaType(schemaType *openapi3.Types) interface{} {
 	log.Debug().Msgf("[GenerateDefaultValueForPrimitiveSchemaType] schemaType: %v", schemaType)
 	switch {
@@ -98,6 +61,24 @@ func GenerateDefaultValueForPrimitiveSchemaType(schemaType *openapi3.Types) inte
 		return 114514
 	case schemaType.Includes("boolean"):
 		return true
+	default:
+		return nil
+	}
+}
+
+// GenerateRandomValueForPrimitiveSchemaType generates a random value for a primitive schema type.
+func GenerateRandomValueForPrimitiveSchemaType(schemaType *openapi3.Types) interface{} {
+	log.Debug().Msgf("[GenerateRandomValueForPrimitiveSchemaType] schemaType: %v", schemaType)
+	switch {
+	case schemaType.Includes("string"):
+		randLength := rand.IntN(114) + 1
+		return RandStringBytes(randLength)
+	case schemaType.Includes("number"):
+		return rand.Float64() + float64(rand.IntN(114514))
+	case schemaType.Includes("integer"):
+		return rand.IntN(114514)
+	case schemaType.Includes("boolean"):
+		return rand.IntN(2) == 1
 	default:
 		return nil
 	}
