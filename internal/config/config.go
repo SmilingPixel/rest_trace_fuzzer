@@ -45,6 +45,9 @@ type RuntimeConfig struct {
 
 	// Extra headers to be added to the request, in the format of stringified JSON, e.g., '{\"header1\": \"value1\", \"header2\": \"value2\"}'
 	ExtraHeaders string `json:"extra_headers"`
+
+	// Path to the file containing the dictionary of fuzz values, in the format of a JSON list. Each element in the list is a dictionary with two key-value pairs, one is `name` (value is of type string) and the other is `value` (value can be any json).
+	FuzzValueDictFilePath string `json:"fuzz_value_dict_file_path"`
 }
 
 func InitConfig() {

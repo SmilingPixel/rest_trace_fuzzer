@@ -23,6 +23,7 @@ func ParseCmdArgs() {
 	flag.StringVar(&GlobalConfig.OutputDir, "output-dir", "./output", "Output directory, e.g., ./output")
 	flag.BoolVar(&GlobalConfig.LogToFile, "log-to-file", false, "Should log to file")
 	flag.StringVar(&GlobalConfig.ExtraHeaders, "extra-headers", "", "Extra headers to be added to the request, in the format of stringified JSON, e.g., '{\"header1\": \"value1\", \"header2\": \"value2\"}'")
+	flag.StringVar(&GlobalConfig.FuzzValueDictFilePath, "fuzz-value-dict-file", "", "Path to the file containing the dictionary of fuzz values, in the format of a JSON list. Each element in the list is a dictionary with two key-value pairs, one is `name` (value is of type string) and the other is `value` (value can be any json).")
 	flag.Parse()
 
 	// If config file is provided, load the config from the file
@@ -87,6 +88,9 @@ func ParseCmdArgs() {
 	}
 	if envVal, ok := os.LookupEnv("EXTRA_HEADERS"); ok && envVal != "" {
 		GlobalConfig.ExtraHeaders = envVal
+	}
+	if envVal, ok := os.LookupEnv("FUZZ_VALUE_DICT_FILE_PATH"); ok && envVal != "" {
+		GlobalConfig.FuzzValueDictFilePath = envVal
 	}
 
 	jsonStr, _ := sonic.Marshal(GlobalConfig)

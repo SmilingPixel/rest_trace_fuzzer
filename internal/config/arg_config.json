@@ -110,5 +110,13 @@
         "type": "string",
         "required": false,
         "default": ""
+    },
+    {
+        "arg_name": "fuzz-value-dict-file",
+        "config_name": "fuzz_value_dict_file_path",
+        "description": "Path to the file containing the dictionary of fuzz values, in the format of a JSON list. Each element in the list is a dictionary with two key-value pairs, one is `name` (value is of type string) and the other is `value` (value can be any json).",
+        "type": "string",
+        "required": false,
+        "default": ""
     }
 ]
