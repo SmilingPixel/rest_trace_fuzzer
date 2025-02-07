@@ -10,5 +10,6 @@
     "log_level": "debug",
     "output_dir": "./output",
     "log_to_file": true,
-    "extra_headers": "{\"token\":\"YOUR_TOKEN_HERE\"}"
+    "extra_headers": "{\"token\":\"YOUR_TOKEN_HERE\"}",
+    "fuzz-value-dict-file": "./config/fuzz_value_dict.json"
   }

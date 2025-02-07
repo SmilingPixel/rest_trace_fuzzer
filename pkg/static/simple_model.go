@@ -1,6 +1,9 @@
 package static
 
-import "github.com/bytedance/sonic"
+import (
+	"github.com/bytedance/sonic"
+	"github.com/rs/zerolog/log"
+)
 
 // SimpleAPIMethodType represents the type of an API method.
 type SimpleAPIMethodType string
@@ -34,6 +37,46 @@ func (t *SimpleAPIPropertyType) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// Name2SimpleAPIMethodType converts a string to a SimpleAPIMethodType.
+func Name2SimpleAPIPropertyType(name string) SimpleAPIPropertyType {
+	switch name {
+	case "number":
+		return SimpleAPIPropertyTypeNumber
+	case "integer":
+		return SimpleAPIPropertyTypeInteger
+	case "string":
+		return SimpleAPIPropertyTypeString
+	case "boolean":
+		return SimpleAPIPropertyTypeBoolean
+	case "object":
+		return SimpleAPIPropertyTypeObject
+	case "array":
+		return SimpleAPIPropertyTypeArray
+	default:
+		return SimpleAPIPropertyTypeUnknown
+	}
+}
+
+// DeterminePropertyType determines the type of a property.
+// It uses reflection to determine the type of the value.
+func DeterminePropertyType(value interface{}) SimpleAPIPropertyType {
+	switch value.(type) {
+	case string:
+		return SimpleAPIPropertyTypeString
+	case int64:
+		return SimpleAPIPropertyTypeNumber
+	case bool:
+		return SimpleAPIPropertyTypeBoolean
+	case map[string]interface{}:
+		return SimpleAPIPropertyTypeObject
+	case []interface{}:
+		return SimpleAPIPropertyTypeArray
+	default:
+		log.Warn().Msgf("[DeterminePropertyType] Unknown type: %T", value)
+		return SimpleAPIPropertyTypeUnknown
+	}
+}
+
 const (
 	// SimpleAPIMethodTypeHTTP represents an HTTP API method.
 	SimpleAPIMethodTypeHTTP SimpleAPIMethodType = "HTTP"
@@ -57,6 +100,10 @@ const (
 
 	// SimpleAPIPropertyTypeArray
 	SimpleAPIPropertyTypeArray SimpleAPIPropertyType = "array"
+
+	// Unkown
+	SimpleAPIPropertyTypeUnknown SimpleAPIPropertyType = "unknown"
+
 )
 
 // SimpleAPIMethod represents an API method on a specific endpoint.
