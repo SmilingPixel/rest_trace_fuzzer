@@ -51,6 +51,73 @@ The architecture diagram is powered by [draw.io](https://app.diagrams.net/).
 
 # 3. 具体实现方案
 
+下面是项目的代码结构：
+```bash
+.
+├── cmd
+│   └── api-fuzzer          # Main entry point for the API fuzzer application
+│       └── main.go         # Main application logic
+├── config
+│   └── config.json         # Configuration file for the application
+├── docs                    # Documentation files
+│   ├── architecture.drawio # Architecture diagram source file
+│   ├── architecture.svg    # Architecture diagram in SVG format
+│   └── design.md           # Design documentation
+├── go.mod                  # Go module file
+├── go.sum                  # Go dependencies file
+├── internal                # Internal packages
+│   ├── config              # Configuration related code
+│   │   ├── arg_config_generate.py # Script to generate argument configuration
+│   │   ├── arg_config.json  # Argument configuration file, auto-generated
+│   │   ├── arg_parse.go     # Argument parsing logic, auto-generated
+│   │   └── config.go
+│   └── fuzzer              # Fuzzer related code
+│       ├── basic_fuzzer.go  # Basic fuzzer implementation
+│       ├── config.go        # Fuzzer configuration handling
+│       ├── fuzzer.go        # Main fuzzer interfaces
+│       └── snapshot.go      # Snapshot handling for fuzzing
+├── LICENSE                 # License file
+├── Makefile                # Makefile for generate and run automation
+├── pkg                     # Public packages
+│   ├── casemanager         # Case management logic
+│   │   ├── case.go          # Case structure and methods
+│   │   └── case_manager.go  # Case manager implementation
+│   ├── feedback            # Feedback handling logic
+│   │   ├── response_check.go # Response checking logic
+│   │   ├── runtime_graph.go  # Runtime graph handling
+│   │   └── trace           # Trace handling logic
+│   │       ├── model.go      # Trace model definitions
+│   │       ├── trace_db.go   # Trace database interactions
+│   │       ├── trace_fetcher.go # Trace fetching logic
+│   │       └── trace_manager.go # Trace manager implementation
+│   ├── parser              # Parsing logic
+│   │   ├── api_parser.go    # API parsing logic
+│   │   ├── dependency_parser.go # Dependency parsing logic
+│   │   └── dependency_restler_parser.go # RESTler dependency parsing logic
+│   ├── report              # Reporting logic
+│   │   ├── internal_service_reporter.go # Internal service reporting
+│   │   ├── models.go        # Report models
+│   │   └── system_reporter.go # System reporting logic
+│   ├── resource            # Resource management logic
+│   │   ├── resource.go      # Resource structure and methods
+│   │   └── resource_manager.go # Resource manager implementation
+│   ├── static              # Static info related
+│   │   ├── api_manager.go   # API manager logic
+│   │   ├── dependency.go    # Dependency handling
+│   │   ├── dfg.go           # Data flow graph handling
+│   │   └── simple_model.go  # Simple model for static info
+│   └── utils               # Utility functions
+│       ├── http_utils.go    # HTTP utility functions
+│       ├── nlp_utils.go     # NLP utility functions
+│       └── openapi_utils.go # OpenAPI utility functions
+├── README.md               # Project README file
+└── scripts                 # Scripts for various tasks
+  ├── build.sh            # Build script
+  ├── clean_output.sh     # Script to clean output
+  ├── generate_arg_config_code.sh # Script to generate argument configuration code
+  └── run.sh              # Script to run the application
+```
+
 ## 3.1. OpenAPI 解析
 
 框架选取 [getkin/kin-openapi](https://github.com/getkin/kin-openapi/)
