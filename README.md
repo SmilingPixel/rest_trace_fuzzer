@@ -60,6 +60,13 @@ To use the tool, follow these steps:
     make run
     ```
 
+3. Clean the project:
+    ```sh
+    make clean
+    ```
+
+In addition, we provide vscode tasks to use the tool. You can build, run and clean the project by selecting the task `Run` in vscode. See the [.vscode/tasks.json](.vscode/tasks.json) file for more details.
+
 ## Configuration
 
 The tool can be configured using command-line arguments and environment variables. The following options are available:

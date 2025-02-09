@@ -1,11 +1,16 @@
 #!/bin/bash
 
-# Set the output directory and binary name
-BIN_OUTPUT_DIR="bin"
-BINARY_NAME="api-fuzzer"
+# Check if the correct number of arguments are provided
+if [ "$#" -ne 1 ]; then
+    echo "Usage: $0 <EXECUTABLE_PATH>"
+    exit 1
+fi
+
+# Set the binary path from command line arguments
+EXECUTABLE_PATH="$1"
 
 # Ensure the binary exists
-if [ ! -f "$BIN_OUTPUT_DIR/$BINARY_NAME" ]; then
+if [ ! -f "$EXECUTABLE_PATH" ]; then
     echo "Error: Binary not found. Please build the project first."
     exit 1
 fi
@@ -17,5 +22,5 @@ CONFIG_FILE="./config/config.json"
 
 # Run the binary
 echo "Running the binary..."
-$BIN_OUTPUT_DIR/$BINARY_NAME \
+$EXECUTABLE_PATH \
     --config-file $CONFIG_FILE

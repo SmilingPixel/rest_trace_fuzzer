@@ -4,7 +4,6 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-
         {
             "name": "Launch Package",
             "type": "go",
@@ -12,8 +11,10 @@
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/api-fuzzer",
             "args": [
-                "--config-file", "${workspaceFolder}/config/config.json",
-                "--log-level", "debug"
+                "--config-file",
+                "${workspaceFolder}/config/config.json",
+                "--log-level",
+                "debug"
             ],
             "cwd": "${workspaceFolder}", // This is the working directory, which is "" by default when launching
         }
