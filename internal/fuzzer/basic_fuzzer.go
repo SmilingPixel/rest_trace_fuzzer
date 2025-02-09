@@ -170,16 +170,23 @@ func (f *BasicFuzzer) ExecuteCaseOperation(operationCase *casemanager.OperationC
 		// A failed request will not stop the fuzzing process.
 		log.Err(err).Msg("[BasicFuzzer.ExecuteCaseOperation] Failed to perform request")
 	}
+	// Unmarshal the response body only if the status code is successful, otherwise keep the response body as bytes.
 	var respBody interface{}
-	err = sonic.Unmarshal(respBodyBytes, &respBody)
-	if err != nil {
-		// A broken response body will not stop the fuzzing process.
-		log.Err(err).Msg("[BasicFuzzer.ExecuteCaseOperation] Failed to unmarshal response body")
+	if utils.IsStatusCodeSuccess(statusCode) {
+		// Unmarshal the response body.
+		err = sonic.Unmarshal(respBodyBytes, &respBody)
+		if err != nil {
+			// A broken response body will not stop the fuzzing process.
+			log.Err(err).Msg("[BasicFuzzer.ExecuteCaseOperation] Failed to unmarshal response body")
+		}
+	} else {
+		log.Info().Msgf("[BasicFuzzer.ExecuteCaseOperation] Unsuccessful response status code: %d, response body: %s", statusCode, string(respBodyBytes))
+		respBody = respBodyBytes
 	}
 	// Fill the response in the operation case.
 	operationCase.ResponseStatusCode = statusCode
 	operationCase.ResponseBody = respBody
-	log.Debug().Msgf("[BasicFuzzer.ExecuteTestScenario] Response status code: %d, body: %s", statusCode, string(respBodyBytes))
+	log.Debug().Msgf("[BasicFuzzer.ExecuteCaseOperation] Response status code: %d, body: %s", statusCode, string(respBodyBytes))
 	return nil
 }
 

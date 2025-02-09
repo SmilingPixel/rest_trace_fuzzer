@@ -7,6 +7,7 @@ import (
 	"github.com/bytedance/sonic"
 	"github.com/cloudwego/hertz/pkg/app/client"
 	"github.com/cloudwego/hertz/pkg/protocol"
+	"github.com/cloudwego/hertz/pkg/protocol/consts"
 	"github.com/rs/zerolog/log"
 )
 
@@ -115,4 +116,37 @@ func paramDict2QueryStr(paramDict map[string]string) string {
 		queryParamsStrList = append(queryParamsStrList, k+"="+v)
 	}
 	return strings.Join(queryParamsStrList, "&")
+}
+
+// GetStatusCodeClass returns the class of a status code.
+// There are five classes defined by the standard:
+//  - 1xx: Informational
+//  - 2xx: Successful
+//  - 3xx: Redirection
+//  - 4xx: Client Error
+//  - 5xx: Server Error
+// It returns minimal code of a class to indicate the class.
+// If the status code is not in the standard range, it returns -1.
+func GetStatusCodeClass(statusCode int) int {
+	switch {
+	case statusCode >= consts.StatusContinue && statusCode < consts.StatusOK:
+		return consts.StatusContinue
+	case statusCode >= consts.StatusOK && statusCode < consts.StatusMultipleChoices:
+		return consts.StatusOK
+	case statusCode >= consts.StatusMultipleChoices && statusCode < consts.StatusBadRequest:
+		return consts.StatusMultipleChoices
+	case statusCode >= consts.StatusBadRequest && statusCode < consts.StatusInternalServerError:
+		return consts.StatusBadRequest
+	case statusCode >= consts.StatusInternalServerError && statusCode < consts.StatusHTTPVersionNotSupported:
+		return consts.StatusInternalServerError
+	default:
+		log.Warn().Msgf("[GetStatusCodeClass] Invalid status code: %d", statusCode)
+		return -1
+	}
+}
+
+// IsStatusCodeSuccess checks whether a status code is successful.
+// It returns true if the status code is in the 2xx range, otherwise false.
+func IsStatusCodeSuccess(statusCode int) bool {
+	return GetStatusCodeClass(statusCode) == consts.StatusOK
 }

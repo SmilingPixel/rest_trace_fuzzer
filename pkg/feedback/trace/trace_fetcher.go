@@ -3,6 +3,7 @@ package trace
 import (
 	"io"
 	"os"
+	"strconv"
 	"time"
 
 	"resttracefuzzer/internal/config"
@@ -15,9 +16,12 @@ import (
 const (
 	// Threshold for trace age in seconds.
 	TRACE_FILTER_OUT_AGE = 3 * time.Minute
+
+	// Maximum number of traces in a fetch request. (You can set it via query param "limit")
+	MAX_TRACE_FETCH_NUM = 100
 )
 
-// TraceFetcher fetches traces from trace banckend and parses them into Jaeger-style spans.
+// TraceFetcher fetches traces from trace backend and parses them into Jaeger-style spans.
 type TraceFetcher interface {
 	// FetchFromPath fetches traces from a local file.
 	FetchFromPath(path string) ([]*SimplifiedTraceSpan, error)
@@ -129,7 +133,7 @@ func (p *JaegerTraceFetcher) fetchServiceTracesFromRemote(serviceName string) ([
 	path := "/api/traces"
 	headers := map[string]string{}
 	queryParams := map[string]string{
-		"limit":   "2000",
+		"limit":   strconv.Itoa(MAX_TRACE_FETCH_NUM),
 		"service": serviceName,
 	}
 	statusCode, respBytes, err := p.FetcherClient.PerformGet(path, headers, nil, queryParams)
