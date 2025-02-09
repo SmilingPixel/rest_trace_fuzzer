@@ -44,6 +44,7 @@ func main() {
 	t := time.Now()
 
 	// Initialize logger with default log level (Info)
+	// If user specifies a log level in the command line arguments, we will override it later
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	fmt.Print(HELLO)
 
@@ -53,9 +54,10 @@ func main() {
 
 	// Override log level if specified in the command line arguments
 	logLevels := map[string]zerolog.Level{
-		"":      zerolog.InfoLevel,
-		"info":  zerolog.InfoLevel,
+		"":      zerolog.InfoLevel, // Default log level
+		"trace": zerolog.TraceLevel,
 		"debug": zerolog.DebugLevel,
+		"info":  zerolog.InfoLevel,
 		"warn":  zerolog.WarnLevel,
 		"error": zerolog.ErrorLevel,
 		"fatal": zerolog.FatalLevel,
@@ -112,6 +114,14 @@ func main() {
 
 	// Initialize necessary components
 	resourceManager := resource.NewResourceManager()
+	if config.GlobalConfig.FuzzValueDictFilePath != "" {
+		err = resourceManager.LoadFromExternalDictFile(config.GlobalConfig.FuzzValueDictFilePath)
+		// If failed to load resources from external dictionary file, log the error;
+		// but continue the fuzzing process
+		if err != nil {
+			log.Err(err).Msgf("[main] Failed to load resources from external dictionary file")
+		}
+	}
 	fuzzStrategist := strategy.NewFuzzStrategist(resourceManager)
 	caseManager := casemanager.NewCaseManager(APIManager, resourceManager, fuzzStrategist, extraHeaders)
 	responseChecker := feedback.NewResponseChecker(APIManager)
