@@ -41,6 +41,7 @@ type SchemaToValueStrategy struct {
 
 // NewSchemaToValueStrategy creates a new SchemaToValueStrategy.
 // By default, the weight of random value, value from resource pool, and mutation are all 1.
+// If you do not want resource pool or mutation to interfere, you can set their weight to 0.
 // TODO: initialize the weight map from configuration. @xunzhou24
 func NewSchemaToValueStrategy(resourceManager *resource.ResourceManager) *SchemaToValueStrategy {
 	valueSourceWeightMap := map[string]int{
@@ -55,7 +56,6 @@ func NewSchemaToValueStrategy(resourceManager *resource.ResourceManager) *Schema
 }
 
 // GenerateValueForSchema generates a value for a given schema.
-// TODO: Implement the value generation logic. @xunzhou24
 func (s *SchemaToValueStrategy) GenerateValueForSchema(schema *openapi3.SchemaRef) (interface{}, error) {
 	// Try to apply value source.
 	value, generated, err := s.preCheckAndTryApplyValueSource(schema)
@@ -164,6 +164,7 @@ func (s *SchemaToValueStrategy) generatePrimitiveValueForSchema(schema *openapi3
 //  1. The generated value, if successful.
 //  2. A boolean indicating whether the value is generated, if successful.
 //  3. An error, if any.
+// The method is inserted into each of the generate methods.
 func (s *SchemaToValueStrategy) preCheckAndTryApplyValueSource(schema *openapi3.SchemaRef) (interface{}, bool, error) {
 	if schema == nil || schema.Value == nil {
 		return nil, false, fmt.Errorf("schema is nil")

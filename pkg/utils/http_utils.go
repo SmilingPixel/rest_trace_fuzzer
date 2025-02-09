@@ -29,9 +29,37 @@ func NewHTTPClient(baseURL string) *HTTPClient {
 	}
 }
 
+// PerformRequestWithRetry performs an HTTP request with retry logic.
+// It retries the request up to maxRetry times if a timeout error occurs.
+// If the request fails for any other reason, it returns the error immediately.
+// If all retry attempts fail due to timeout, it logs an error and returns the last error encountered.
+func (c *HTTPClient) PerformRequestWithRetry(path, method string, headers map[string]string, pathParams, queryParams map[string]string, body interface{}, maxRetry int) (int, []byte, error) {
+	// If maxRetry is invalid, fallback to 1
+	if maxRetry <= 0 {
+		log.Warn().Msgf("[HTTPClient.PerformRequestWithRetry] Invalid max retry: %d, fallback to 1", maxRetry)
+		return c.PerformRequest(path, method, headers, pathParams, queryParams, body)
+	}
+
+	// Retry only when timeout
+	var err error
+	for i := 0; i < maxRetry; i++ {
+		statusCode, respBodyBytes, err := c.PerformRequest(path, method, headers, pathParams, queryParams, body)
+		if err != nil {
+			if strings.Contains(string(err.Error()), "timeout") {
+				log.Warn().Msgf("[HTTPClient.PerformRequestWithRetry] Retry %d times due to timeout, URL: %s, method: %s", i+1, c.BaseURL+path, method)
+				continue
+			} else {
+				return statusCode, respBodyBytes, err
+			}
+		}
+		return statusCode, respBodyBytes, nil
+	}
+	log.Err(err).Msgf("[HTTPClient.PerformRequestWithRetry] Retry %d times but still timeout, URL: %s, method: %s", maxRetry, c.BaseURL+path, method)
+	return 0, nil, err
+}
+
 // PerformRequest performs an HTTP request.
 // It returns the status code, the response body in bytes, and an error if any.
-// TODO: support authentication. @xunzhou24
 func (c *HTTPClient) PerformRequest(path, method string, headers map[string]string, pathParams, queryParams map[string]string, body interface{}) (int, []byte, error) {
 	req, resp := protocol.AcquireRequest(), protocol.AcquireResponse()
 	requestURL := c.BaseURL + path
@@ -56,7 +84,7 @@ func (c *HTTPClient) PerformRequest(path, method string, headers map[string]stri
 	}
 	req.SetBody(bodyBytes)
 
-	log.Debug().Msgf("[HTTPClient.PerformRequest] Perform request, path: %s, method: %s, headers: %v, query params: %v, body: %v", path, method, headers, queryParams, body)
+	log.Debug().Msgf("[HTTPClient.PerformRequest] Perform request, URL: %s, method: %s, headers: %v, query params: %v, body: %v", requestURL, method, headers, queryParams, body)
 	err = c.Client.Do(context.Background(), req, resp)
 	if err != nil {
 		log.Err(err).Msgf("[HTTPClient.PerformRequest] Failed to perform request, URL: %s, method: %s", requestURL, method)
