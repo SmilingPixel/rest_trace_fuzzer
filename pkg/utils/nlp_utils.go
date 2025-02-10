@@ -71,8 +71,13 @@ type SimilarityCalculator interface {
 // LevenshteinSimilarityCalculator implements the calculation of Levenshtein distance and similarity.
 type LevenshteinSimilarityCalculator struct{}
 
+// NewLevenshteinSimilarityCalculator creates a new LevenshteinSimilarityCalculator.
+func NewLevenshteinSimilarityCalculator() *LevenshteinSimilarityCalculator {
+	return &LevenshteinSimilarityCalculator{}
+}
+
 // CalculateSimilarity calculates the similarity between two strings based on normalized Levenshtein distance.
-func (l LevenshteinSimilarityCalculator) CalculateSimilarity(str1, str2 string) float64 {
+func (l *LevenshteinSimilarityCalculator) CalculateSimilarity(str1, str2 string) float64 {
 	distance := levenshteinDistance(str1, str2)
 	maxLength := max(len(str1), len(str2))
 	if maxLength == 0 {
@@ -121,4 +126,44 @@ func levenshteinDistance(a, b string) int {
 		}
 	}
 	return matrix[lenA][lenB]
+}
+
+
+// ConvertToStandardCase transforms a variable's name from various casing styles
+// (e.g., camelCase, snake_case, snake-case) into a standardized lowercase format
+// without any separators. This function is useful for ensuring uniform processing
+// and comparison of variable names across different conventions.
+func ConvertToStandardCase(input string) string {
+	// Remove underscores and hyphens
+	removedSeparators := strings.ReplaceAll(strings.ReplaceAll(input, "_", ""), "-", "")
+	
+	// Convert to lowercase
+	lowercaseResult := strings.ToLower(removedSeparators)
+
+	return lowercaseResult
+}
+
+// ExtractLastSegment extracts the last segment from a string using customizable delimiters.
+// Delimiters are provided as a string, where each character is considered a distinct delimiter.
+//
+// Parameters:
+// - input: A string that includes segments separated by various delimiters.
+// - delimiters: A string where each character is a delimiter to use for splitting the input.
+//
+// Returns:
+// - A string representing the last segment in the input after splitting by the specified delimiters.
+//
+// Example:
+//  input: "/oteldemo.CartService/GetCart", delimiters: "/."
+//  output: "GetCart"
+func ExtractLastSegment(input, delimiters string) string {
+	lastSegment := input
+
+	// Loop through each delimiter character and split/reduce the input accordingly
+	for _, delimiter := range delimiters {
+		segments := strings.Split(lastSegment, string(delimiter))
+		lastSegment = segments[len(segments)-1]
+	}
+
+	return lastSegment
 }

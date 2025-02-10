@@ -3,19 +3,20 @@ package feedback
 import (
 	"resttracefuzzer/pkg/feedback/trace"
 	"resttracefuzzer/pkg/static"
+	"resttracefuzzer/pkg/utils"
 )
 
 // RuntimeEdge represents an edge in the runtime graph.
 // It includes static info(source and target) and runtime info(hit count).
 type RuntimeEdge struct {
-	Source   *static.APIDataflowNode
-	Target   *static.APIDataflowNode
-	HitCount int
+	Source   *static.APIDataflowNode `json:"source"`
+	Target   *static.APIDataflowNode `json:"target"`
+	HitCount int 				   `json:"hit_count"`
 }
 
 // RuntimeGraph represents the runtime graph. It includes a list of edges.
 type RuntimeGraph struct {
-	Edges []*RuntimeEdge
+	Edges []*RuntimeEdge `json:"edges"`
 }
 
 // NewRuntimeGraph creates a new RuntimeGraph.
@@ -38,21 +39,28 @@ func NewRuntimeGraph(APIDataflowGraph *static.APIDataflowGraph) *RuntimeGraph {
 func (g *RuntimeGraph) UpdateFromCallInfos(callInfos []*trace.CallInfo) error {
 	// TODO: Implement this method. @xunzhou24
 	// Group by source service
+	// An issue found during development:
+	// The source service in callInfo is not the completely same as the source service in runtimeGraph, they may be in different cases.
+	// For example, callInfo.SourceService = "cartservice", but runtimeGraph.SourceService = "CartService".
+	// We handle it by converting both names into standard cases, and compare them.
+	// TODO: why not save standard case in the first place? @xunzhou24
 	service2CallInfos := make(map[string][]*trace.CallInfo)
 	for _, callInfo := range callInfos {
-		sourceService := callInfo.SourceService
+		sourceService := utils.ConvertToStandardCase(callInfo.SourceService)
 		service2CallInfos[sourceService] = append(service2CallInfos[sourceService], callInfo)
 	}
 
 	// Iterate over, and update the hit count of the edges.
 	for _, edge := range g.Edges {
-		sourceService := edge.Source.ServiceName
+		sourceService := utils.ConvertToStandardCase(edge.Source.ServiceName)
 		for _, callInfo := range service2CallInfos[sourceService] {
 			// TODO: A more graceful name matching strategy. @xunzhou24
 			// TODO: handle: edge in callInfo is not included in parsed runtimeGraph. @xunzhou24
-			if callInfo.TargetService == edge.Target.ServiceName &&
-				callInfo.TargetMethodTraceName == edge.Target.SimpleAPIMethod.Method &&
-				callInfo.SourceMethodTraceName == edge.Source.SimpleAPIMethod.Method {
+			// Method or operation name in trace may contain other information, e.g., /oteldemo.CartService/GetCart
+			// We extract the last segment of the method name, and compare it with the method name in runtimeGraph.
+			if utils.ConvertToStandardCase(callInfo.TargetService) == utils.ConvertToStandardCase(edge.Target.ServiceName) &&
+				utils.ExtractLastSegment(callInfo.TargetMethodTraceName, "./") == (edge.Target.SimpleAPIMethod.Method) &&
+				utils.ExtractLastSegment(callInfo.SourceMethodTraceName, "./") == (edge.Source.SimpleAPIMethod.Method) {
 				edge.HitCount++
 			}
 		}
