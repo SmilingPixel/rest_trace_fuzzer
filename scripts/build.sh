@@ -19,10 +19,6 @@ BINARY_NAME="$2"
 # Create the output directory if it doesn't exist
 mkdir -p "$OUTPUT_DIR"
 
-# Get terminal dimensions
-HEIGHT=$(tput lines)
-WIDTH=$(tput cols)
-
 # Build the project
 echo "Building the project..."
 go build -v -x -o "$OUTPUT_DIR/$BINARY_NAME" ./cmd/api-fuzzer
