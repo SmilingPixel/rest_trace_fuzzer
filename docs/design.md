@@ -106,6 +106,9 @@ The architecture diagram is powered by [draw.io](https://app.diagrams.net/).
 │   │   ├── dependency.go    # Dependency handling
 │   │   ├── dfg.go           # Data flow graph handling
 │   │   └── simple_model.go  # Simple model for static info
+│   ├── strategy             # Fuzzing strategies
+│   │   ├── fuzz_strategist.go  # Fuzzing strategist implementation
+│   │   └── value_generate.go   # strategies for value generation
 │   └── utils               # Utility functions
 │       ├── http_utils.go    # HTTP utility functions
 │       ├── nlp_utils.go     # NLP utility functions
@@ -117,6 +120,9 @@ The architecture diagram is powered by [draw.io](https://app.diagrams.net/).
   ├── generate_arg_config_code.sh # Script to generate argument configuration code
   └── run.sh              # Script to run the application
 ```
+该工具的主要部分在下面两个文件夹下:
+- `/pkg`: 主要模块设计实现
+- `/internal`: 工具内部流程相关
 
 ## 3.1. OpenAPI 解析
 
