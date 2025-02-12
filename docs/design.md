@@ -18,15 +18,13 @@ The architecture diagram is powered by [draw.io](https://app.diagrams.net/).
 
 ## 2.1. 预处理和解析
 
-
 | Module      | Description                                      | Note                                                                 |
 |-------------|--------------------------------------------------|----------------------------------------------------------------------|
-| OpenAPI Parser | 解析 OpenAPI 文件，生成接口定义                      | 输入：一批 OpenAPI 文件，包括 1. 每个 service 的接口定义（包括 HTTP 和 gRPC） 2. 整个系统对外暴露的接口定义 输出：解析完成的接口，数据结构设计见后面章节 |
+| OpenAPI Parser | 解析 OpenAPI 文件，生成接口定义                      | 输入：一批 OpenAPI 定义，包括 1. 每个 service 的接口定义（包括 HTTP 和 gRPC） 2. 整个系统对外暴露的接口定义 输出：解析完成的接口，数据结构设计见后面章节 |
 | ODG Parser  | 解析系统外部暴露 OpenAPI，生成 ODG (Operation Dependency Graph) | 输入：解析完成的 OpenAPI 输出：ODG，包括 1. 整个系统对外暴露的接口之间的依赖关系 2. 每个 service 内部的接口之间的依赖关系（即对于图中的任何一条边，其两端的节点必须属于不同的 service） |
 | DFG Parser  | 内部服务 API，生成 DFG (Data Flow Graph)            | 输入：解析完成的 OpenAPI 输出：DFG，包括 1. 每个 service 内部的接口之间的数据流传递关系（即对于图中的任何一条边，其两端的节点必须属于不同的 service） |
 
 ## 2.2. 数据持久化模块
-
 
 | Module         | Description                                      | Note                                                                 |
 |----------------|--------------------------------------------------|----------------------------------------------------------------------|
@@ -35,7 +33,8 @@ The architecture diagram is powered by [draw.io](https://app.diagrams.net/).
 | DFG DB         | 存储 DFG                                           | 数据结构：见后面章节                                                   |
 | Runtime Info Graph         | 存储程序运行时的 DFG 调用和覆盖状态                                          | 数据结构：见后面章节                                                   |
 | Resource Pool  | 存储资源池，目前主要用于存储测试过程中创建的资源       | TODO: 预计参考 foREST 的设计         |
-| Testcase Queue     | 存储测试用例，优先级队列，依据覆盖率提升等指标计算优先级                         |                                                                      |
+| Testcase Queue     | 存储测试用例，优先级队列，根据选取策略的不同，依据各种指标（例如覆盖率提升等）计算优先级 | |
+|Trace Manager   | 存储拉取下来的 trace，便于进一步处理和解析| |
 
 
 ## 2.3. 测试执行模块
@@ -47,6 +46,24 @@ The architecture diagram is powered by [draw.io](https://app.diagrams.net/).
 | Test Driver          | 执行接口请求，记录执行结果，处理反馈，更新数据持久化模块中的数据 |                                                                      |
 | Response Checker       | 收集系统响应，存储测试结果        |                                                                      |
 | Trace Analyser       | 收集 Trace，同步更新 RuntimeInfo Graph 的状态        |                                                                      |
+
+
+## 2.4. 策略执行模块
+
+定义各类操作的策略，将策略与执行动作分离，便于后期进一步扩展
+| Module               | Description                                      | Note                                                                 |
+|----------------------|--------------------------------------------------|----------------------------------------------------------------------|
+| Strategist           | 提供对外接口，定义和管理测试策略                   | 所有的策略管理和使用都必须经过其接口，收敛权责                                      |
+| Value Generation     | 负责生成测试值，支持多种值生成策略                 | 例如随机生成、从资源池获取、是否需要 mutation 等                            |
+| TODO     | TODO                 | @xunzhou24                            |
+
+
+## 2.5. 结果报告模块
+
+| Module               | Description                                      | Note                                                                 |
+|----------------------|--------------------------------------------------|----------------------------------------------------------------------|
+| Internal Service Reporter | 输出内部接口测试结果，包括覆盖率、错误率等指标 | 输入：测试执行模块中的数据 输出：内部接口测试报告 |
+| System Reporter      | 输出外部接口测试结果，包括覆盖率、错误率等指标 | 输入：测试执行模块中的数据 输出：外部接口测试报告 |
 
 
 # 3. 具体实现方案
@@ -130,7 +147,7 @@ The architecture diagram is powered by [draw.io](https://app.diagrams.net/).
 
 解析时，对于输入的 OpenAPI Spec，构建两套数据：
 1. 整个系统的接口定义
-2. 每个 service 的接口定义，存储为一个 map，key 为 service name [TODO: 这里需要确认一下]
+2. 每个 service 的接口定义，存储为一个 map，key 为 service name
 
 
 ## 3.2. ODG, DFG 解析
@@ -159,7 +176,8 @@ Edge， a -> b 表示存在数据流从 a 到 b
 |------------------|------------|-------------------------------------|
 | source           | Operation  | 表示源 Operation               |
 | target           | Operation  | 表示目标 Operation             |
-| source_resource  | [TODO: 待定] | 表示存在流动的资源（例如某个参数） |
+| source_property  | APIProperty | 表示存在流动的（源）资源（例如某个参数） |
+| target_property  | APIProperty | 表示存在流动的（目标）资源（例如某个参数） |
 
 Graph，包含一组 Edge，表示整个系统内部API之间的数据流传递关系。
 
@@ -197,6 +215,7 @@ if (outputParameter.getNormalizedName().equals(inputParameter.getNormalizedName(
 ### 3.2.3. DFG 解析
 
 - 类似于 ODG 解析，目前设计主要依赖于资源名称的解析
+  - 名称的匹配依赖字符串相似度，目前使用编辑距离（Levenshtein distance），未来预期加入多种启发式规则，可参考 Restler 的实现
 - 更加侧重于“**数据流向**”的依赖关系，因此解析的资源对，要么同时来自于两个 Operation 的输入参数，要么同时来自于两个 Operation 的输出参数
 
 
@@ -209,13 +228,23 @@ if (outputParameter.getNormalizedName().equals(inputParameter.getNormalizedName(
 - 因此，我们在 ODG 中，应该有一条边，表示 placeOrder 依赖于 charge
 
 主要依赖于两条规则：
-1. 如果两个参数的 normalized name 相同，那么认为这两个参数有依赖关系
+1. 如果两个参数的 normalized name 匹配（依据预定的各种规则），那么认为这两个参数有依赖关系
 2. 两个操作之间存在“**资源流向**”的依赖关系
 
 ## 3.3. Resource Pool
 
+一个 resource 为一个类 JSON 结构，可从 json 格式无损转换，即包含 map, array 和几种 primitive type 的类型。
 
-[TODO: 待定]
+Resource Pool 提供两种类型的查询:
+1. 基于资源名的查询
+2. 基于资源类型的查询
+例如:
+```go
+rsc1 := resourceManager.GetSingleResourceByType(SimpleAPIPropertyTypeString)
+rsc2 := resourceManager.GetSingleResourceByName("Capitano")
+```
+
+注：在目前的实现下，外部输入的预定义字典，作为初始资源加入资源池。
 
 
 ## 3.4. Testcase Queue
@@ -224,7 +253,7 @@ if (outputParameter.getNormalizedName().equals(inputParameter.getNormalizedName(
 - ~~从 ODG 中找到入度为 0 的节点，作为种子节点~~
 - 从种子节点开始，根据 ODG 的依赖关系，构建测试序列
 - 将测试序列中的节点加入 Testcase Queue （类似于 DFS 的思路）
-- 优先级:
+- 优先级（可以参考的方案）:
   - 提高内部 ODG 覆盖率的测试用例具有更高的优先级
   - 提高系统外部接口覆盖率（Path, Status Code）的测试用例具有更高的优先级
   - ...
@@ -237,21 +266,22 @@ if (outputParameter.getNormalizedName().equals(inputParameter.getNormalizedName(
 测试执行，发送请求和处理响应，更新数据持久化模块中的数据
 
 
-## 3.6. Trace Analyzer
+## 3.6. Trace Manager
 
 根据 trace 数据，生成预处理反馈，引导测试
 
-### 3.6.1. Trace 搜集
+### 3.6.1. Trace Fetcher
 
 - OpenTelemetry Demo 中，使用 Jaeger 提供的 API 进行 trace 搜集
 - 参考这个 [issue](https://github.com/orgs/jaegertracing/discussions/2876)
+- trace 本地存储，用于查询和去重等（目前粗糙地使用内存内map存储）[TODO: improve it @xunzhou24]
 
 
 ### 3.6.2. Trace 分析
 
 1. 记录覆盖的调用边和调用次数，更新 ODG 实例
 2. 统计覆盖率更新，上报给 Runtime Info Graph
-3. 更新 ODG，补充缺失的依赖关系，修改错误的依赖关系 [TODO: 具体实现待定]
+3. 更新 ODG，补充缺失的依赖关系，修改错误的依赖关系 [TODO: 具体实现待定 @xunzhou24]
 
 
 ### 3.7. Runtime Info Graph
@@ -264,7 +294,8 @@ Edge， a -> b 表示存在数据流从 a 到 b，同时携带了调用次数信
 |------------------|------------|-------------------------------------|
 | source           | Operation  | 表示源 Operation               |
 | target           | Operation  | 表示目标 Operation             |
-| source_resource  | [TODO: 待定] | 表示存在流动的资源（例如某个参数） |
+| source_property  | APIProperty | 表示存在流动的（源）资源（例如某个参数） |
+| target_property  | APIProperty | 表示存在流动的（目标）资源（例如某个参数） |
 | hit_count       | int        | 表示调用次数                       |
 
 
@@ -272,6 +303,12 @@ Edge， a -> b 表示存在数据流从 a 到 b，同时携带了调用次数信
 
 - [x] 初步的技术方案设计，包括整体架构和模块设计
 - [x] OpenAPI 解析模块的实现
-- [ ] RestTestGen 的 ODG 解析模块的移植
+- [x] RestTestGen 的 ODG 解析模块的移植
+- [x] DFG 解析模块的实现
+- [x] trace 拉取和解析模块的实现
+- [x] 基础的 testcase queue 的实现
+- [x] 资源池的基础实现
+- [x] 基础的 fuzzing 循环启动
+- [ ] trace 反馈信息的处理
 - [ ] TODO
 
