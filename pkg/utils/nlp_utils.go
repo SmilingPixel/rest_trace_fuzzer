@@ -5,13 +5,13 @@ import (
 	"unicode"
 )
 
-// splitIntoWords takes a variable name formatted in either camelCase or snake_case and
+// SplitIntoWords takes a variable name formatted in either camelCase or snake_case and
 // breaks it down into its constituent words. It returns a slice of those words all in lowercase.
 //
 // For example:
 //   - "petStore" would be split into ["pet", "store"]
 //   - "pet_store" would be split into ["pet", "store"]
-func splitIntoWords(name string) []string {
+func SplitIntoWords(name string) []string {
 	var words []string
 	var currentWord strings.Builder
 
@@ -45,8 +45,8 @@ func splitIntoWords(name string) []string {
 // Two variable names are considered a match if, after splitting them into words, they yield identical slices.
 // Comparison is case-insensitive, and underscores are treated as word boundaries.
 func MatchVariableNames(name1, name2 string) bool {
-	words1 := splitIntoWords(name1)
-	words2 := splitIntoWords(name2)
+	words1 := SplitIntoWords(name1)
+	words2 := SplitIntoWords(name2)
 
 	if len(words1) != len(words2) {
 		return false
