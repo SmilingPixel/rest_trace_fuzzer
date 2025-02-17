@@ -8,6 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// TestSplitIntoWords tests the SplitIntoWords function from the utils package.
+// It verifies that various input strings are correctly split into words.
 func TestSplitIntoWords(t *testing.T) {
 	tests := []struct {
 		input    string
@@ -26,6 +28,8 @@ func TestSplitIntoWords(t *testing.T) {
 	}
 }
 
+// TestMatchVariableNames tests the MatchVariableNames function from the utils package.
+// It verifies that various pairs of variable names are correctly matched based on their similarity.
 func TestMatchVariableNames(t *testing.T) {
 	tests := []struct {
 		name1    string
@@ -45,6 +49,8 @@ func TestMatchVariableNames(t *testing.T) {
 	}
 }
 
+// TestCalculateSimilarity tests the CalculateSimilarity function from the utils package.
+// It verifies that the similarity between various pairs of strings is correctly calculated using the Levenshtein algorithm.
 func TestCalculateSimilarity(t *testing.T) {
 	calculator := utils.NewLevenshteinSimilarityCalculator()
 
@@ -54,8 +60,8 @@ func TestCalculateSimilarity(t *testing.T) {
 		expected float64
 	}{
 		{"kitten", "sitting", 0.5714285714285714},
-		{"flaw", "lawn", 0.75},
-		{"intention", "execution", 0.5555555555555556},
+		{"flaw", "lawn", 0.5},
+		{"intention", "execution", 0.4444444444444444},
 		{"", "", 1.0},
 		{"", "nonempty", 0.0},
 	}
@@ -66,6 +72,8 @@ func TestCalculateSimilarity(t *testing.T) {
 	}
 }
 
+// TestConvertToStandardCase tests the ConvertToStandardCase function from the utils package.
+// It verifies that various input strings are correctly converted to a standard case format.
 func TestConvertToStandardCase(t *testing.T) {
 	tests := []struct {
 		input    string
@@ -84,6 +92,8 @@ func TestConvertToStandardCase(t *testing.T) {
 	}
 }
 
+// TestExtractLastSegment tests the ExtractLastSegment function from the utils package.
+// It verifies that the last segment of various input strings is correctly extracted based on the provided delimiters.
 func TestExtractLastSegment(t *testing.T) {
 	tests := []struct {
 		input      string
