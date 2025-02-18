@@ -19,7 +19,7 @@ build:
 run:
 	bash scripts/run.sh "$(BUILD_DIR)/$(BINARY)"
 
-# Clean the program output
+# Clean the program output and build
 .PHONY: clean
 clean:
 	bash scripts/clean_output.sh
