@@ -18,7 +18,7 @@ fi
 
 # Arguments
 # The configuration file
-CONFIG_FILE="./config/config.json"
+CONFIG_FILE="./config/my_config.json"
 
 # Run the binary
 echo "Running the binary..."

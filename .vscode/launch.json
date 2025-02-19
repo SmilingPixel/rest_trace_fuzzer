@@ -12,7 +12,7 @@
             "program": "${workspaceFolder}/cmd/api-fuzzer",
             "args": [
                 "--config-file",
-                "${workspaceFolder}/config/config.json",
+                "${workspaceFolder}/config/my_config.json",
                 "--log-level",
                 "debug"
             ],
