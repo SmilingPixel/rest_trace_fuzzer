@@ -33,6 +33,7 @@ func (r *InternalServiceReporter) GenerateInternalServiceReport(runtimeGraph *fe
 	// Generate the report and marshal it to JSON.
 	report := InternalServiceTestReport{
 		EdgeCoverage: edgeCoverage,
+		FinalRuntimeGraph: runtimeGraph,
 	}
 	reportJSON, err := sonic.Marshal(report)
 	if err != nil {

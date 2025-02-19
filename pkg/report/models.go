@@ -1,6 +1,9 @@
 package report
 
-import "resttracefuzzer/pkg/static"
+import (
+	"resttracefuzzer/pkg/feedback"
+	"resttracefuzzer/pkg/static"
+)
 
 type StatusHitCountReport struct {
 	APIMethod static.SimpleAPIMethod `json:"APIMethod"`
@@ -47,4 +50,7 @@ type InternalServiceTestReport struct {
 
 	// EdgeCoverage is the coverage of the edge.
 	EdgeCoverage float64 `json:"edgeCoverage"`
+
+	// FinalRuntimeGraph is the final runtime graph.
+	FinalRuntimeGraph *feedback.RuntimeGraph `json:"finalRuntimeGraph"`
 }
