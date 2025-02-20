@@ -128,6 +128,42 @@ func levenshteinDistance(a, b string) int {
 	return matrix[lenA][lenB]
 }
 
+// JaccardSimilarityCalculator implements the calculation of Jaccard similarity.
+type JaccardSimilarityCalculator struct{}
+
+// NewJaccardSimilarityCalculator creates a new JaccardSimilarityCalculator.
+func NewJaccardSimilarityCalculator() *JaccardSimilarityCalculator {
+    return &JaccardSimilarityCalculator{}
+}
+
+// CalculateSimilarity calculates the similarity between two strings based on Jaccard similarity.
+func (j *JaccardSimilarityCalculator) CalculateSimilarity(str1, str2 string) float64 {
+    set1 := make(map[rune]struct{})
+    set2 := make(map[rune]struct{})
+
+    for _, r := range str1 {
+        set1[r] = struct{}{}
+    }
+    for _, r := range str2 {
+        set2[r] = struct{}{}
+    }
+
+    intersectionSize := 0
+    for r := range set1 {
+        if _, exists := set2[r]; exists {
+            intersectionSize++
+        }
+    }
+
+    unionSize := len(set1) + len(set2) - intersectionSize
+
+    if unionSize == 0 {
+        return 1.0 // Both strings are empty
+    }
+
+    return float64(intersectionSize) / float64(unionSize)
+}
+
 
 // ConvertToStandardCase transforms a variable's name from various casing styles
 // (e.g., camelCase, snake_case, snake-case) into a standardized lowercase format

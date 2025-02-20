@@ -49,10 +49,21 @@ func TestMatchVariableNames(t *testing.T) {
 	}
 }
 
-// TestCalculateSimilarity tests the CalculateSimilarity function from the utils package.
+// TestLevenshteinSimilarityCalculator tests the CalculateSimilarity function of the LevenshteinSimilarityCalculator.
 // It verifies that the similarity between various pairs of strings is correctly calculated using the Levenshtein algorithm.
-func TestCalculateSimilarity(t *testing.T) {
-	calculator := utils.NewLevenshteinSimilarityCalculator()
+func TestLevenshteinSimilarityCalculator(t *testing.T) {
+    testCalculateSimilarity(t, utils.NewLevenshteinSimilarityCalculator())
+}
+
+// TestJaccardSimilarityCalculator tests the CalculateSimilarity function of the JaccardSimilarityCalculator.
+// It verifies that the similarity between various pairs of strings is correctly calculated using the Jaccard similarity algorithm.
+func TestJaccardSimilarityCalculator(t *testing.T) {
+    testCalculateSimilarity(t, utils.NewJaccardSimilarityCalculator())
+}
+
+// testCalculateSimilarity tests the CalculateSimilarity function from the utils package.
+// It verifies that the similarity between various pairs of strings is correctly calculated using the Levenshtein algorithm.
+func testCalculateSimilarity(t *testing.T, calculator utils.SimilarityCalculator) {
 
 	tests := []struct {
 		str1     string
