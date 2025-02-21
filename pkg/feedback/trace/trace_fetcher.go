@@ -1,6 +1,7 @@
 package trace
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"strconv"
@@ -10,6 +11,7 @@ import (
 	"resttracefuzzer/pkg/utils"
 
 	"github.com/bytedance/sonic"
+	"github.com/cloudwego/hertz/pkg/protocol/consts"
 	"github.com/rs/zerolog/log"
 )
 
@@ -37,6 +39,7 @@ type JaegerTraceFetcher struct {
 }
 
 // NewJaegerTraceFetcher creates a new JaegerTraceFetcher.
+// See [official Jaeger API doc](https://www.jaegertracing.io/docs/2.3/apis/#query-json-over-http)
 func NewJaegerTraceFetcher() *JaegerTraceFetcher {
 	jaegerBackendURL := config.GlobalConfig.TraceBackendURL
 	httpClient := utils.NewHTTPClient(jaegerBackendURL)
@@ -113,7 +116,7 @@ func (p *JaegerTraceFetcher) fetchAllServicesFromRemote() ([]string, error) {
 		log.Err(err).Msgf("[JaegerTraceFetcher.FetchAllServicesFromRemote] Failed to fetch services")
 		return nil, err
 	}
-	if statusCode < 200 || statusCode >= 300 {
+	if utils.GetStatusCodeClass(statusCode) != consts.StatusOK {
 		log.Err(err).Msgf("[JaegerTraceFetcher.FetchAllServicesFromRemote] Failed to fetch services, statusCode: %d", statusCode)
 		return nil, err
 	}
@@ -141,7 +144,7 @@ func (p *JaegerTraceFetcher) fetchServiceTracesFromRemote(serviceName string) ([
 		log.Err(err).Msgf("[JaegerTraceFetcher.FetchServiceTracesFromRemote] Failed to fetch traces, path: %s, query params: %v", path, queryParams)
 		return nil, err
 	}
-	if statusCode < 200 || statusCode >= 300 {
+	if utils.GetStatusCodeClass(statusCode) != consts.StatusOK {
 		log.Err(err).Msgf("[JaegerTraceFetcher.FetchServiceTracesFromRemote] Failed to fetch traces, statusCode: %d, path: %s, query params: %v", statusCode, path, queryParams)
 		return nil, err
 	}
@@ -158,4 +161,29 @@ func (p *JaegerTraceFetcher) fetchServiceTracesFromRemote(serviceName string) ([
 		traces = append(traces, jaegerTrace.ToSimplifiedTrace())
 	}
 	return traces, nil
+}
+
+// fetchTraceByIDFromRemote fetches a Jaeger trace by its ID from a remote source.
+// It returns a SimplifiedTrace or an error if the fetch operation fails.
+func (p *JaegerTraceFetcher) fetchTraceByIDFromRemote(traceID string) (*SimplifiedTrace, error) {
+	path := fmt.Sprintf("/api/traces/%s", traceID)
+	headers := map[string]string{}
+	statusCode, respBytes, err := p.FetcherClient.PerformGet(path, headers, nil, nil)
+	if err != nil {
+		log.Err(err).Msgf("[JaegerTraceFetcher.FetchTraceByIDFromRemote] Failed to fetch trace, path: %s", path)
+		return nil, err
+	}
+	if utils.GetStatusCodeClass(statusCode) != consts.StatusOK {
+		log.Err(err).Msgf("[JaegerTraceFetcher.FetchTraceByIDFromRemote] Failed to fetch trace, statusCode: %d, path: %s", statusCode, path)
+		return nil, err
+	}
+
+	var jaegerTraceResp struct {
+		Data JaegerTrace `json:"data"`
+	}
+	if err := sonic.Unmarshal(respBytes, &jaegerTraceResp); err != nil {
+		log.Err(err).Msgf("[JaegerTraceFetcher.FetchTraceByIDFromRemote] Failed to unmarshal Jaeger trace response")
+		return nil, err
+	}
+	return jaegerTraceResp.Data.ToSimplifiedTrace(), nil
 }
