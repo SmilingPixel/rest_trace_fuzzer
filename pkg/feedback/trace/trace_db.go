@@ -13,6 +13,10 @@ type TraceDB interface {
 	// If the trace already exists, it will be updated.
 	BatchUpsert(traces []*SimplifiedTrace) error
 
+	// InsertAndReturn inserts a trace and returns the inserted trace.
+	// If the trace already exists, it will not be inserted.
+	InsertAndReturn(trace *SimplifiedTrace) (*SimplifiedTrace, error)
+
 	// BatchInsertAndReturn inserts traces and returns the inserted traces.
 	BatchInsertAndReturn(traces []*SimplifiedTrace) ([]*SimplifiedTrace, error)
 }
@@ -82,4 +86,17 @@ func (db *InMemoryTraceDB) BatchInsertAndReturn(traces []*SimplifiedTrace) ([]*S
 		newlyInsertedTraces = append(newlyInsertedTraces, trace)
 	}
 	return newlyInsertedTraces, nil
+}
+
+// InsertAndReturn inserts a trace and returns the inserted trace.
+func (db *InMemoryTraceDB) InsertAndReturn(trace *SimplifiedTrace) (*SimplifiedTrace, error) {
+	exist, err := db.SelectByIDs([]string{trace.TraceID})
+	if err != nil {
+		return nil, err
+	}
+	if len(exist) > 0 {
+		return nil, nil
+	}
+	db.Traces = append(db.Traces, trace)
+	return trace, nil
 }

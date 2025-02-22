@@ -11,6 +11,10 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+const (
+	FUZZER_TRACE_ID_HEADER_KEY = "X-Fuzzer-Trace-ID"
+)
+
 // HTTPClient is an HTTP client.
 // It has a base URL and a client based on Hertz.
 type HTTPClient struct {
@@ -34,7 +38,7 @@ func NewHTTPClient(baseURL string) *HTTPClient {
 // It retries the request up to maxRetry times if a timeout error occurs.
 // If the request fails for any other reason, it returns the error immediately.
 // If all retry attempts fail due to timeout, it logs an error and returns the last error encountered.
-func (c *HTTPClient) PerformRequestWithRetry(path, method string, headers map[string]string, pathParams, queryParams map[string]string, body interface{}, maxRetry int) (int, []byte, error) {
+func (c *HTTPClient) PerformRequestWithRetry(path, method string, headers map[string]string, pathParams, queryParams map[string]string, body interface{}, maxRetry int) (int, map[string]string, []byte, error) {
 	// If maxRetry is invalid, fallback to 1
 	if maxRetry <= 0 {
 		log.Warn().Msgf("[HTTPClient.PerformRequestWithRetry] Invalid max retry: %d, fallback to 1", maxRetry)
@@ -44,24 +48,24 @@ func (c *HTTPClient) PerformRequestWithRetry(path, method string, headers map[st
 	// Retry only when timeout
 	var err error
 	for i := 0; i < maxRetry; i++ {
-		statusCode, respBodyBytes, err := c.PerformRequest(path, method, headers, pathParams, queryParams, body)
+		statusCode, headers, respBodyBytes, err := c.PerformRequest(path, method, headers, pathParams, queryParams, body)
 		if err != nil {
 			if strings.Contains(string(err.Error()), "timeout") {
 				log.Warn().Msgf("[HTTPClient.PerformRequestWithRetry] Retry %d times due to timeout, URL: %s, method: %s", i+1, c.BaseURL+path, method)
 				continue
 			} else {
-				return statusCode, respBodyBytes, err
+				return statusCode, headers, respBodyBytes, err
 			}
 		}
-		return statusCode, respBodyBytes, nil
+		return statusCode, headers, respBodyBytes, nil
 	}
 	log.Err(err).Msgf("[HTTPClient.PerformRequestWithRetry] Retry %d times but still timeout, URL: %s, method: %s", maxRetry, c.BaseURL+path, method)
-	return 0, nil, err
+	return 0, nil, nil, err
 }
 
 // PerformRequest performs an HTTP request.
-// It returns the status code, the response body in bytes, and an error if any.
-func (c *HTTPClient) PerformRequest(path, method string, headers map[string]string, pathParams, queryParams map[string]string, body interface{}) (int, []byte, error) {
+// It returns the status code, headers that we care about, the response body in bytes, and an error if any.
+func (c *HTTPClient) PerformRequest(path, method string, headers map[string]string, pathParams, queryParams map[string]string, body interface{}) (int, map[string]string, []byte, error) {
 	req, resp := protocol.AcquireRequest(), protocol.AcquireResponse()
 	requestURL := c.BaseURL + path
 	req.SetRequestURI(requestURL)
@@ -81,7 +85,7 @@ func (c *HTTPClient) PerformRequest(path, method string, headers map[string]stri
 	bodyBytes, err := sonic.Marshal(body)
 	if err != nil {
 		log.Err(err).Msgf("[HTTPClient.PerformRequest] Failed to marshal request body, URL: %s, method: %s", requestURL, method)
-		return 0, nil, err
+		return 0, nil, nil, err
 	}
 	req.SetBody(bodyBytes)
 
@@ -89,20 +93,24 @@ func (c *HTTPClient) PerformRequest(path, method string, headers map[string]stri
 	err = c.Client.Do(context.Background(), req, resp)
 	if err != nil {
 		log.Err(err).Msgf("[HTTPClient.PerformRequest] Failed to perform request, URL: %s, method: %s", requestURL, method)
-		return 0, nil, err
+		return 0, nil, nil, err
 	}
 	respBodyBytes, err := resp.BodyE()
 	if err != nil {
 		log.Err(err).Msgf("[HTTPClient.PerformRequest] Failed to get response body, URL: %s, method: %s", requestURL, method)
-		return 0, nil, err
+		return 0, nil, nil, err
 	}
 	statusCode := resp.StatusCode()
 	log.Debug().Msgf("[HTTPClient.PerformRequest] Response, status code: %d", statusCode) // we do not log response body, for some responses may be too large
-	return statusCode, respBodyBytes, nil
+
+	// retrive headers that we care about
+	retrivedHeaders := make(map[string]string)
+	retrivedHeaders[FUZZER_TRACE_ID_HEADER_KEY] = resp.Header.Get(FUZZER_TRACE_ID_HEADER_KEY)
+	return statusCode, retrivedHeaders, respBodyBytes, nil
 }
 
 // PerformGet performs an HTTP GET request.
-func (c *HTTPClient) PerformGet(path string, headers map[string]string, pathParams, queryParams map[string]string) (int, []byte, error) {
+func (c *HTTPClient) PerformGet(path string, headers map[string]string, pathParams, queryParams map[string]string) (int, map[string]string, []byte, error) {
 	return c.PerformRequest(path, "GET", headers, pathParams, queryParams, nil)
 }
 

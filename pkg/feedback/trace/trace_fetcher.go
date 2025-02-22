@@ -28,8 +28,11 @@ type TraceFetcher interface {
 	// FetchFromPath fetches traces from a local file.
 	FetchFromPath(path string) ([]*SimplifiedTraceSpan, error)
 
-	// FetchFromRemote fetches traces from a remote source.
-	FetchFromRemote() ([]*SimplifiedTrace, error)
+	// FetchAllFromRemote fetches all traces from a remote source.
+	FetchAllFromRemote() ([]*SimplifiedTrace, error)
+
+	// FetchOneByIDFromRemote fetches a trace by its ID from a remote source.
+	FetchOneByIDFromRemote(traceID string) (*SimplifiedTrace, error)
 }
 
 // JaegerTraceFetcher represents a fetcher for Jaeger traces.
@@ -76,9 +79,9 @@ func (p *JaegerTraceFetcher) FetchFromPath(filePath string) ([]*SimplifiedTraceS
 	return result.Spans, nil
 }
 
-// FetchFromRemote fetches Jaeger traces from remote source.
+// FetchAllFromRemote fetches all Jaeger traces from remote source.
 // It returns a list of traces, or an error if failed.
-func (p *JaegerTraceFetcher) FetchFromRemote() ([]*SimplifiedTrace, error) {
+func (p *JaegerTraceFetcher) FetchAllFromRemote() ([]*SimplifiedTrace, error) {
 	serviceNames, err := p.fetchAllServicesFromRemote()
 	if err != nil {
 		log.Err(err).Msg("[JaegerTraceFetcher.FetchFromRemote] Failed to fetch services")
@@ -107,11 +110,17 @@ func (p *JaegerTraceFetcher) FetchFromRemote() ([]*SimplifiedTrace, error) {
 	return traces, nil
 }
 
+// FetchOneByIDFromRemote fetches a Jaeger trace by its ID from remote source.
+// It returns a SimplifiedTrace or an error if failed.
+func (p *JaegerTraceFetcher) FetchOneByIDFromRemote(traceID string) (*SimplifiedTrace, error) {
+	return p.fetchTraceByIDFromRemote(traceID)
+}
+
 // fetchAllServicesFromRemote fetches all services from remote source.
 // It returns a list of service names, or an error if failed.
 func (p *JaegerTraceFetcher) fetchAllServicesFromRemote() ([]string, error) {
 	headers := map[string]string{}
-	statusCode, respBytes, err := p.FetcherClient.PerformGet("/api/services", headers, nil, nil)
+	statusCode, _, respBytes, err := p.FetcherClient.PerformGet("/api/services", headers, nil, nil)
 	if err != nil {
 		log.Err(err).Msgf("[JaegerTraceFetcher.FetchAllServicesFromRemote] Failed to fetch services")
 		return nil, err
@@ -139,7 +148,7 @@ func (p *JaegerTraceFetcher) fetchServiceTracesFromRemote(serviceName string) ([
 		"limit":   strconv.Itoa(MAX_TRACE_FETCH_NUM),
 		"service": serviceName,
 	}
-	statusCode, respBytes, err := p.FetcherClient.PerformGet(path, headers, nil, queryParams)
+	statusCode, _, respBytes, err := p.FetcherClient.PerformGet(path, headers, nil, queryParams)
 	if err != nil {
 		log.Err(err).Msgf("[JaegerTraceFetcher.FetchServiceTracesFromRemote] Failed to fetch traces, path: %s, query params: %v", path, queryParams)
 		return nil, err
@@ -168,7 +177,7 @@ func (p *JaegerTraceFetcher) fetchServiceTracesFromRemote(serviceName string) ([
 func (p *JaegerTraceFetcher) fetchTraceByIDFromRemote(traceID string) (*SimplifiedTrace, error) {
 	path := fmt.Sprintf("/api/traces/%s", traceID)
 	headers := map[string]string{}
-	statusCode, respBytes, err := p.FetcherClient.PerformGet(path, headers, nil, nil)
+	statusCode, _, respBytes, err := p.FetcherClient.PerformGet(path, headers, nil, nil)
 	if err != nil {
 		log.Err(err).Msgf("[JaegerTraceFetcher.FetchTraceByIDFromRemote] Failed to fetch trace, path: %s", path)
 		return nil, err
