@@ -119,13 +119,19 @@ func (f *BasicFuzzer) ExecuteTestScenario(testScenario *casemanager.TestScenario
 
 		// TODO: parse and validate the response body @xunzhou24
 
-		// fetch traces from the service, parse them, and update local runtime graph.
-		newTraces, err := f.TraceManager.PullTracesAndReturn()
+		// fetch the trace from the service, parse it, and update local runtime graph.
+		traceID, exist := operationCase.ResponseHeaders[utils.FUZZER_TRACE_ID_HEADER_KEY]
+		if !exist {
+			log.Warn().Msg("[BasicFuzzer.ExecuteTestScenario] No trace ID found in the response headers")
+			continue
+		}
+		newTrace, err := f.TraceManager.PullTraceByIDAndReturn(traceID)
 		if err != nil {
 			log.Err(err).Msg("[BasicFuzzer.ExecuteTestScenario] Failed to pull traces")
 			return err
 		}
-		callInfoList, err := f.TraceManager.ConvertTraces2CallInfos(newTraces)
+		// todo: ignore span kind 'internal', for the call relations are not useful for us. @xunzhou24
+		callInfoList, err := f.TraceManager.ConvertTraces2CallInfos([]*trace.SimplifiedTrace{newTrace})
 		if err != nil {
 			log.Err(err).Msg("[BasicFuzzer.ExecuteTestScenario] Failed to get call infos")
 			return err
@@ -165,7 +171,7 @@ func (f *BasicFuzzer) ExecuteCaseOperation(operationCase *casemanager.OperationC
 	queryParams := operationCase.RequestQueryParams
 	body := operationCase.RequestBody
 	log.Debug().Msgf("[BasicFuzzer.ExecuteCaseOperation] Execute operation: %s %s", method, path)
-	statusCode, respBodyBytes, err := f.HTTPClient.PerformRequest(path, method, headers, pathParams, queryParams, body)
+	statusCode, headers, respBodyBytes, err := f.HTTPClient.PerformRequest(path, method, headers, pathParams, queryParams, body)
 	if err != nil {
 		// A failed request will not stop the fuzzing process.
 		log.Err(err).Msg("[BasicFuzzer.ExecuteCaseOperation] Failed to perform request")
@@ -185,6 +191,7 @@ func (f *BasicFuzzer) ExecuteCaseOperation(operationCase *casemanager.OperationC
 	}
 	// Fill the response in the operation case.
 	operationCase.ResponseStatusCode = statusCode
+	operationCase.ResponseHeaders = headers
 	operationCase.ResponseBody = respBody
 	log.Debug().Msgf("[BasicFuzzer.ExecuteCaseOperation] Response status code: %d, body: %s", statusCode, string(respBodyBytes))
 	return nil

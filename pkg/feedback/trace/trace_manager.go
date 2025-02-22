@@ -1,7 +1,6 @@
 package trace
 
 import (
-
 	"github.com/rs/zerolog/log"
 )
 
@@ -33,7 +32,7 @@ func NewTraceManager() *TraceManager {
 // PullTraces pulls traces from the trace source(e.g., Jaeger), and update local data.
 func (m *TraceManager) PullTraces() error {
 	// Fetch traces from the trace source.
-	traces, err := m.TraceFetcher.FetchFromRemote()
+	traces, err := m.TraceFetcher.FetchAllFromRemote()
 	if err != nil {
 		log.Err(err).Msg("[TraceManager.PullTraces] Failed to fetch traces from remote")
 		return err
@@ -49,7 +48,7 @@ func (m *TraceManager) PullTraces() error {
 // PullTracesAndReturn pulls traces from the trace source(e.g., Jaeger), and return the traces.
 func (m *TraceManager) PullTracesAndReturn() ([]*SimplifiedTrace, error) {
 	// Fetch traces from the trace source.
-	traces, err := m.TraceFetcher.FetchFromRemote()
+	traces, err := m.TraceFetcher.FetchAllFromRemote()
 	if err != nil {
 		log.Err(err).Msg("[TraceManager.PullTracesAndReturn] Failed to fetch traces from remote")
 		return nil, err
@@ -60,6 +59,21 @@ func (m *TraceManager) PullTracesAndReturn() ([]*SimplifiedTrace, error) {
 		return nil, err
 	}
 	return newTraces, nil
+}
+
+// PullTraceByIDAndReturn pulls a trace by ID from the trace source(e.g., Jaeger), and return the trace.
+func (m *TraceManager) PullTraceByIDAndReturn(traceID string) (*SimplifiedTrace, error) {
+	trace, err := m.TraceFetcher.FetchOneByIDFromRemote(traceID)
+	if err != nil {
+		log.Err(err).Msgf("[TraceManager.PullTraceByIDAndReturn] Failed to fetch trace from remote, traceID: %s", traceID)
+		return nil, err
+	}
+	newTrace, err := m.TraceDB.InsertAndReturn(trace)
+	if err != nil {
+		log.Err(err).Msgf("[TraceManager.PullTraceByIDAndReturn] Failed to insert trace, traceID: %s", traceID)
+		return nil, err
+	}
+	return newTrace, nil
 }
 
 // ConvertTraces2CallInfos returns the call information (list) between services.

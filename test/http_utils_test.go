@@ -27,9 +27,10 @@ func TestPerformRequest(t *testing.T) {
 	queryParams := map[string]string{}
 	body := map[string]string{"key": "value"}
 
-	statusCode, respBody, err := client.PerformRequest("/test", "POST", headers, pathParams, queryParams, body)
+	statusCode, headers, respBody, err := client.PerformRequest("/test", "POST", headers, pathParams, queryParams, body)
 	assert.NoError(t, err)
 	assert.Equal(t, consts.StatusOK, statusCode)
+	assert.NotNil(t, headers)
 	assert.NotNil(t, respBody)
 }
 
@@ -43,9 +44,10 @@ func TestPerformHTTPSRequest(t *testing.T) {
 	queryParams := map[string]string{}
 	body := map[string]string{"key": "value"}
 
-	statusCode, respBody, err := client.PerformRequest("/test", "POST", headers, pathParams, queryParams, body)
+	statusCode, headers, respBody, err := client.PerformRequest("/test", "POST", headers, pathParams, queryParams, body)
 	assert.NoError(t, err)
 	assert.Equal(t, consts.StatusOK, statusCode)
+	assert.NotNil(t, headers)
 	assert.NotNil(t, respBody)
 }
 
@@ -59,9 +61,10 @@ func TestPerformRequestWithRetry(t *testing.T) {
 	queryParams := map[string]string{}
 	body := map[string]string{"key": "value"}
 
-	statusCode, respBody, err := client.PerformRequestWithRetry("/test", "POST", headers, pathParams, queryParams, body, 3)
+	statusCode, headers, respBody, err := client.PerformRequestWithRetry("/test", "POST", headers, pathParams, queryParams, body, 3)
 	assert.NoError(t, err)
 	assert.Equal(t, consts.StatusOK, statusCode)
+	assert.NotNil(t, headers)
 	assert.NotNil(t, respBody)
 }
 
@@ -74,9 +77,10 @@ func TestPerformGet(t *testing.T) {
 	pathParams := map[string]string{}
 	queryParams := map[string]string{}
 
-	statusCode, respBody, err := client.PerformGet("/test", headers, pathParams, queryParams)
+	statusCode, headers, respBody, err := client.PerformGet("/test", headers, pathParams, queryParams)
 	assert.NoError(t, err)
 	assert.Equal(t, consts.StatusOK, statusCode)
+	assert.NotNil(t, headers)
 	assert.NotNil(t, respBody)
 }
 
