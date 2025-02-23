@@ -35,20 +35,23 @@ type SchemaToValueStrategy struct {
 	ResourceManager *resource.ResourceManager
 
 	// ValueSourceWeightMap is the weight map for different value sources.
+	// It can use different strategies to determine the weight of each value source.
 	// It must have 3 keys (RANDOM, RESOURCE_POOL, MUTATION) with non-negative integer weights.
-	ValueSourceWeightMap map[string]int
+	ValueSourceWeightMap WeightMapStrategy
 }
 
 // NewSchemaToValueStrategy creates a new SchemaToValueStrategy.
-// By default, the weight of random value, value from resource pool, and mutation are all 1.
+// By default we use constant weight value, and the weight of random value, value from resource pool, and mutation are all 1.
 // If you do not want resource pool or mutation to interfere, you can set their weight to 0.
 // TODO: initialize the weight map from configuration. @xunzhou24
 func NewSchemaToValueStrategy(resourceManager *resource.ResourceManager) *SchemaToValueStrategy {
-	valueSourceWeightMap := map[string]int{
-		VALUE_SOURCE_RANDOM:        1,
-		VALUE_SOURCE_RESOURCE_POOL: 1,
-		VALUE_SOURCE_MUTATION:      1,
-	}
+	valueSourceWeightMap := NewConstantWeightMapStrategy(
+		map[string]int{
+			VALUE_SOURCE_RANDOM:       1,
+			VALUE_SOURCE_RESOURCE_POOL: 1,
+			VALUE_SOURCE_MUTATION:     1,
+		},
+	)
 	return &SchemaToValueStrategy{
 		ResourceManager:      resourceManager,
 		ValueSourceWeightMap: valueSourceWeightMap,
@@ -196,13 +199,13 @@ func (s *SchemaToValueStrategy) preCheckAndTryApplyValueSource(schema *openapi3.
 // decideValueSource returns the selected value source based on weights.
 func (s *SchemaToValueStrategy) decideValueSource() string {
 	totalWeight := 0
-	for _, weight := range s.ValueSourceWeightMap {
+	for _, weight := range s.ValueSourceWeightMap.GetMapWithParam(WEIGHT_MAP_STRATEGY_PARAM_PLACEHOLDER) {
 		totalWeight += weight
 	}
 
 	randomNumber := rand.IntN(totalWeight)
 	cumulativeWeight := 0
-	for source, weight := range s.ValueSourceWeightMap {
+	for source, weight := range s.ValueSourceWeightMap.GetMapWithParam(WEIGHT_MAP_STRATEGY_PARAM_PLACEHOLDER) {
 		cumulativeWeight += weight
 		if randomNumber < cumulativeWeight {
 			return source
