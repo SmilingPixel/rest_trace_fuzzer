@@ -102,6 +102,10 @@ func (m *TraceManager) convertSingleTrace2CallInfos(trace *SimplifiedTrace) ([]*
 		return res, nil
 	}
 	for _, span := range trace.SpanMap {
+		// Spans of kind 'internal' would be ignored, as we only care about the calls between services.
+		if span.SpanKind == INTERNAL {
+			continue
+		}
 		for _, ref := range span.References {
 			if ref["refType"] == "CHILD_OF" {
 				parentSpanID := ref["spanID"] // TODO: check here @xunzhou24

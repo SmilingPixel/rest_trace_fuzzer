@@ -63,7 +63,24 @@ type CallInfo struct {
 }
 
 // SpanKindType represents the type of a span.
+// See [OpenTelemetry specification](https://opentelemetry.io/docs/specs/otel/trace/api/#spankind) for more details.
 type SpanKindType string
+
+// SpanKindType values.
+const (
+    // CLIENT indicates that the span describes a request to an external service.
+    CLIENT SpanKindType = "SPAN_KIND_CLIENT"
+    // SERVER indicates that the span describes a request to the server.
+    SERVER SpanKindType = "SPAN_KIND_SERVER"
+    // PRODUCER indicates that the span describes a producer sending a message to a broker.
+    PRODUCER SpanKindType = "SPAN_KIND_PRODUCER"
+    // CONSUMER indicates that the span describes a consumer receiving a message from a broker.
+    CONSUMER SpanKindType = "SPAN_KIND_CONSUMER"
+    // INTERNAL indicates that the span describes an internal operation within an application.
+    INTERNAL SpanKindType = "SPAN_KIND_INTERNAL"
+    // UNSPECIFIED indicates that the span kind is unspecified.
+    UNSPECIFIED SpanKindType = "SPAN_KIND_UNSPECIFIED"
+)
 
 func (s SpanKindType) String() string {
 	return string(s)
@@ -76,6 +93,25 @@ func (s SpanKindType) MarshalJSON() ([]byte, error) {
 func (s *SpanKindType) UnmarshalJSON(data []byte) error {
 	*s = SpanKindType(string(data))
 	return nil
+}
+
+// convertTraceTagValueToSpanKind converts a trace tag value to a SpanKindType.
+// If the tag value is not recognized, it returns UNSPECIFIED.
+func convertTraceTagValueToSpanKind(tagValue string) SpanKindType {
+	switch tagValue {
+	case "client":
+		return CLIENT
+	case "server":
+		return SERVER
+	case "producer":
+		return PRODUCER
+	case "consumer":
+		return CONSUMER
+	case "internal":
+		return INTERNAL
+	default:
+		return UNSPECIFIED
+	}
 }
 
 type JaegerTrace struct {
@@ -117,6 +153,7 @@ func (j *JaegerTrace) ToSimplifiedTrace() *SimplifiedTrace {
 }
 
 // ToSimplifiedTraceSpan converts a JaegerTraceSpan to a SimplifiedTraceSpan.
+// For most fields, it's a direct copy. For fields like the SpanKind, they are parsed from the tags.
 func (j *JaegerTraceSpan) ToSimplifiedTraceSpan(processMap map[string]ProcessValueEntry) *SimplifiedTraceSpan {
 	span := &SimplifiedTraceSpan{
 		TraceID:       j.TraceID,
@@ -128,6 +165,7 @@ func (j *JaegerTraceSpan) ToSimplifiedTraceSpan(processMap map[string]ProcessVal
 		Process:       processMap[j.ProcessID],
 	}
 
+	// copy tags, references, and logs
 	span.Tags = append(span.Tags, j.Tags...)
 	span.References = append(span.References, j.References...)
 	for _, log := range j.Logs {
@@ -136,5 +174,15 @@ func (j *JaegerTraceSpan) ToSimplifiedTraceSpan(processMap map[string]ProcessVal
 			Fields:    log["fields"].([]interface{}),
 		})
 	}
+
+	// parse span kind
+	spanKind := UNSPECIFIED
+	for _, tag := range j.Tags {
+		if tag.Key == "span.kind" {
+			spanKind = convertTraceTagValueToSpanKind(tag.Value.(string))
+			break
+		}
+	}
+	span.SpanKind = spanKind
 	return span
 }

@@ -130,7 +130,7 @@ func (f *BasicFuzzer) ExecuteTestScenario(testScenario *casemanager.TestScenario
 			log.Err(err).Msg("[BasicFuzzer.ExecuteTestScenario] Failed to pull traces")
 			return err
 		}
-		// todo: ignore span kind 'internal', for the call relations are not useful for us. @xunzhou24
+		// During the conversion, spans of kind 'internal' would be ignored, as we only care about the calls between services.
 		callInfoList, err := f.TraceManager.ConvertTraces2CallInfos([]*trace.SimplifiedTrace{newTrace})
 		if err != nil {
 			log.Err(err).Msg("[BasicFuzzer.ExecuteTestScenario] Failed to get call infos")
