@@ -98,7 +98,7 @@ func (oc *OperationCase) IsExecutedSuccessfully() bool {
 }
 
 // Copy creates a deep copy of the operation case.
-// TODO: deep copy the request and response body.
+// TODO: deep copy the request and response body. @xunzhou24
 func (oc *OperationCase) Copy() *OperationCase {
 	requestHeaders := make(map[string]string)
 	for k, v := range oc.RequestHeaders {

@@ -37,7 +37,6 @@ func NewRuntimeGraph(APIDataflowGraph *static.APIDataflowGraph) *RuntimeGraph {
 
 // UpdateFromCallInfos updates the runtime graph from the call information.
 func (g *RuntimeGraph) UpdateFromCallInfos(callInfos []*trace.CallInfo) error {
-	// TODO: Implement this method. @xunzhou24
 	// Group by source service
 	// An issue found during development:
 	// The source service in callInfo is not the completely same as the source service in runtimeGraph, they may be in different cases.

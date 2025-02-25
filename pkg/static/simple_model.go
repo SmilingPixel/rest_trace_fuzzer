@@ -122,7 +122,7 @@ type SimpleAPIMethod struct {
 // For example, the property can be a parameter, a request body, a response, or any variables defined in them.
 // You should use the struct by value, not by pointer.
 // TODO: Add more @xunzhou24
-// TODO: fill type field when creating @xunzhou24
+// TODO: fill type field when created @xunzhou24
 type SimpleAPIProperty struct {
 	// Name is the name of the property.
 	Name string `json:"name"`

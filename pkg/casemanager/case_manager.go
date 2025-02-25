@@ -53,7 +53,7 @@ func NewCaseManager(APIManager *static.APIManager, resourceManager *resource.Res
 
 // Pop pops a test scenario of highest priority from the queue.
 func (m *CaseManager) Pop() (*TestScenario, error) {
-	// TODO: Implement this method. @xunzhou24
+	// TODO: Implement this method with different strategies. @xunzhou24
 	// We select the first test scenario for now.
 	if len(m.TestScenarios) == 0 {
 		log.Error().Msg("[CaseManager.Pop] No test scenario available")
@@ -94,7 +94,6 @@ func (m *CaseManager) PopAndPopulate() (*TestScenario, error) {
 			requestHeaders[k] = v
 		}
 		// Add operation specific headers
-		// TODO: Implement this. @xunzhou24
 		operationCase.RequestHeaders = requestHeaders
 
 		// fill the request body

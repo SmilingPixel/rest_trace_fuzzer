@@ -3,7 +3,6 @@ package trace
 // TraceDB represents a database for traces.
 // Structs that implement this interface should be able to store and retrieve traces.
 type TraceDB interface {
-	// TODO: Define the methods of the TraceDB interface. @xunzhou24
 
 	// SelectByIDs selects traces by IDs.
 	// If any trace of target ID does not exist, length of the result will be less than the length of the input.
