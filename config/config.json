@@ -11,5 +11,6 @@
     "output_dir": "./output",
     "server_base_url": "http://www.example.com",
     "trace_backend_type": "Jaeger",
-    "trace_backend_url": "http://localhost:4317"
+    "trace_backend_url": "http://localhost:4317",
+    "trace_id_header_key": "X-Trace-Id"
 }

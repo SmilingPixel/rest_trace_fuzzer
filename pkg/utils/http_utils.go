@@ -11,26 +11,32 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-const (
-	FUZZER_TRACE_ID_HEADER_KEY = "X-Fuzzer-Trace-ID"
-)
 
 // HTTPClient is an HTTP client.
 // It has a base URL and a client based on Hertz.
 type HTTPClient struct {
-	BaseURL string
-	Client  *client.Client
+	// BaseURL is the base URL for the HTTP client.
+    BaseURL                  string
+
+	// HeadersToCapture are the headers that should be captured from the response.
+    HeadersToCapture         []string
+
+	// Client is the underlying Hertz client used to make HTTP requests.
+    Client                   *client.Client
 }
 
 // NewHTTPClient creates a new HTTPClient.
-func NewHTTPClient(baseURL string) *HTTPClient {
+// It takes a baseURL as a parameter and returns an instance of HTTPClient.
+func NewHTTPClient(baseURL string, headersToCapture []string) *HTTPClient {
 	c, err := client.NewClient()
 	if err != nil {
 		panic(err)
 	}
+
 	return &HTTPClient{
-		Client:  c,
-		BaseURL: baseURL,
+		Client:          c,
+		BaseURL:        baseURL,
+		HeadersToCapture: headersToCapture,
 	}
 }
 
@@ -105,7 +111,9 @@ func (c *HTTPClient) PerformRequest(path, method string, headers map[string]stri
 
 	// retrive headers that we care about
 	retrivedHeaders := make(map[string]string)
-	retrivedHeaders[FUZZER_TRACE_ID_HEADER_KEY] = resp.Header.Get(FUZZER_TRACE_ID_HEADER_KEY)
+	for _, headerKey := range c.HeadersToCapture {
+		retrivedHeaders[headerKey] = resp.Header.Get(headerKey)
+	}
 	return statusCode, retrivedHeaders, respBodyBytes, nil
 }
 

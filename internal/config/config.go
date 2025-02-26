@@ -48,6 +48,9 @@ type RuntimeConfig struct {
 
 	// URL of the trace backend
 	TraceBackendURL string `json:"trace_backend_url"`
+
+	// The key of the trace ID header to be included in the response. By default, it is 'X-Trace-Id'.
+	TraceIDHeaderKey string `json:"trace_id_header_key"`
 }
 
 func InitConfig() {

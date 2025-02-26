@@ -50,6 +50,7 @@ func NewBasicFuzzer(
 ) *BasicFuzzer {
 	httpClient := utils.NewHTTPClient(
 		config.GlobalConfig.ServerBaseURL,
+		[]string{config.GlobalConfig.TraceIDHeaderKey},
 	)
 	fuzzingSnapshot := NewFuzzingSnapshot()
 	return &BasicFuzzer{
@@ -118,7 +119,7 @@ func (f *BasicFuzzer) ExecuteTestScenario(testScenario *casemanager.TestScenario
 		// TODO: parse and validate the response body @xunzhou24
 
 		// fetch the trace from the service, parse it, and update local runtime graph.
-		traceID, exist := operationCase.ResponseHeaders[utils.FUZZER_TRACE_ID_HEADER_KEY]
+		traceID, exist := operationCase.ResponseHeaders[config.GlobalConfig.TraceIDHeaderKey]
 		if !exist {
 			log.Warn().Msg("[BasicFuzzer.ExecuteTestScenario] No trace ID found in the response headers")
 			continue

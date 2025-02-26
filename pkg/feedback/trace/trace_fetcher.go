@@ -45,7 +45,7 @@ type JaegerTraceFetcher struct {
 // See [official Jaeger API doc](https://www.jaegertracing.io/docs/2.3/apis/#query-json-over-http)
 func NewJaegerTraceFetcher() *JaegerTraceFetcher {
 	jaegerBackendURL := config.GlobalConfig.TraceBackendURL
-	httpClient := utils.NewHTTPClient(jaegerBackendURL)
+	httpClient := utils.NewHTTPClient(jaegerBackendURL, []string{})
 	return &JaegerTraceFetcher{
 		FetcherClient: httpClient,
 	}

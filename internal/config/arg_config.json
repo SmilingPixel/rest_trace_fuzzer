@@ -118,5 +118,13 @@
         "type": "string",
         "required": true,
         "default": ""
+    },
+    {
+        "arg_name": "trace-id-header-key",
+        "config_name": "trace_id_header_key",
+        "description": "The key of the trace ID header to be included in the response. By default, it is 'X-Trace-Id'.",
+        "type": "string",
+        "required": true,
+        "default": "X-Trace-Id"
     }
 ]

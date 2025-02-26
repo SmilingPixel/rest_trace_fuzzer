@@ -9,10 +9,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const (
+	TRACE_ID_HEADER_KEY = "X-Trace-Id"
+)
+
 // TestNewHTTPClient tests the creation of a new HTTP client.
 func TestNewHTTPClient(t *testing.T) {
 	baseURL := "http://example.com"
-	client := utils.NewHTTPClient(baseURL)
+	client := utils.NewHTTPClient(baseURL, []string{TRACE_ID_HEADER_KEY})
 	assert.NotNil(t, client)
 	assert.Equal(t, baseURL, client.BaseURL)
 }
@@ -20,7 +24,7 @@ func TestNewHTTPClient(t *testing.T) {
 // TestPerformRequest tests performing a POST request with the HTTP client.
 func TestPerformRequest(t *testing.T) {
 	baseURL := "http://example.com"
-	client := utils.NewHTTPClient(baseURL)
+	client := utils.NewHTTPClient(baseURL, []string{TRACE_ID_HEADER_KEY})
 
 	headers := map[string]string{"Content-Type": "application/json"}
 	pathParams := map[string]string{}
@@ -37,7 +41,7 @@ func TestPerformRequest(t *testing.T) {
 // TestPerformHTTPSRequest tests performing a POST request with the HTTPS client.
 func TestPerformHTTPSRequest(t *testing.T) {
 	baseURL := "https://example.com"
-	client := utils.NewHTTPClient(baseURL)
+	client := utils.NewHTTPClient(baseURL, []string{TRACE_ID_HEADER_KEY})
 
 	headers := map[string]string{"Content-Type": "application/json"}
 	pathParams := map[string]string{}
@@ -54,7 +58,7 @@ func TestPerformHTTPSRequest(t *testing.T) {
 // TestPerformRequestWithRetry tests performing a POST request with retries using the HTTP client.
 func TestPerformRequestWithRetry(t *testing.T) {
 	baseURL := "http://example.com"
-	client := utils.NewHTTPClient(baseURL)
+	client := utils.NewHTTPClient(baseURL, []string{TRACE_ID_HEADER_KEY})
 
 	headers := map[string]string{"Content-Type": "application/json"}
 	pathParams := map[string]string{}
@@ -71,7 +75,7 @@ func TestPerformRequestWithRetry(t *testing.T) {
 // TestPerformGet tests performing a GET request with the HTTP client.
 func TestPerformGet(t *testing.T) {
 	baseURL := "http://example.com"
-	client := utils.NewHTTPClient(baseURL)
+	client := utils.NewHTTPClient(baseURL, []string{TRACE_ID_HEADER_KEY})
 
 	headers := map[string]string{}
 	pathParams := map[string]string{}

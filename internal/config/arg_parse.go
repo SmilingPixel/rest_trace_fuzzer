@@ -24,6 +24,7 @@ func ParseCmdArgs() {
 	flag.StringVar(&GlobalConfig.ServerBaseURL, "server-base-url", "https://www.example.com", "Base URL of the API, e.g., https://www.example.com")
 	flag.StringVar(&GlobalConfig.TraceBackendType, "trace-backend-type", "Jaeger", "Type of the trace backend. Currently only support 'Jaeger'")
 	flag.StringVar(&GlobalConfig.TraceBackendURL, "trace-backend-url", "", "URL of the trace backend")
+	flag.StringVar(&GlobalConfig.TraceIDHeaderKey, "trace-id-header-key", "X-Trace-Id", "The key of the trace ID header to be included in the response. By default, it is 'X-Trace-Id'.")
 	flag.Parse()
 
 	// If config file is provided, load the config from the file
@@ -91,6 +92,9 @@ func ParseCmdArgs() {
 	}
 	if envVal, ok := os.LookupEnv("TRACE_BACKEND_URL"); ok && envVal != "" {
 		GlobalConfig.TraceBackendURL = envVal
+	}
+	if envVal, ok := os.LookupEnv("TRACE_ID_HEADER_KEY"); ok && envVal != "" {
+		GlobalConfig.TraceIDHeaderKey = envVal
 	}
 
 	jsonStr, _ := sonic.Marshal(GlobalConfig)
