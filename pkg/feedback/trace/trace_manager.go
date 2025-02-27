@@ -1,7 +1,15 @@
 package trace
 
 import (
+	"time"
+
 	"github.com/rs/zerolog/log"
+)
+
+const (
+	// Time to wait before fetching the trace, as the trace may not be
+	// available immediately after the request.
+	TraceFetchWaitTime = 500 * time.Millisecond
 )
 
 // TraceManager manages traces.
@@ -63,8 +71,12 @@ func (m *TraceManager) PullTracesAndReturn() ([]*SimplifiedTrace, error) {
 
 // PullTraceByIDAndReturn pulls a trace by ID from the trace source(e.g., Jaeger), and return the trace.
 func (m *TraceManager) PullTraceByIDAndReturn(traceID string) (*SimplifiedTrace, error) {
+	// Wait a short time before fetching the trace, as the trace may not be
+	// available immediately after the request.
+	// TODO: a more sufficient way to wait for the trace to be available. @xunzhou24
+	time.Sleep(TraceFetchWaitTime)
 	trace, err := m.TraceFetcher.FetchOneByIDFromRemote(traceID)
-	if err != nil {
+	if err != nil || trace == nil {
 		log.Err(err).Msgf("[TraceManager.PullTraceByIDAndReturn] Failed to fetch trace from remote, traceID: %s", traceID)
 		return nil, err
 	}
@@ -76,17 +88,17 @@ func (m *TraceManager) PullTraceByIDAndReturn(traceID string) (*SimplifiedTrace,
 	return newTrace, nil
 }
 
-// ConvertTraces2CallInfos returns the call information (list) between services.
-func (m *TraceManager) ConvertTraces2CallInfos(traces []*SimplifiedTrace) ([]*CallInfo, error) {
+// BatchConvertTrace2CallInfos returns the call information (list) between services.
+func (m *TraceManager) BatchConvertTrace2CallInfos(traces []*SimplifiedTrace) ([]*CallInfo, error) {
 	res := make([]*CallInfo, 0)
 	if len(traces) == 0 {
-		log.Warn().Msg("[TraceManager.ConvertTraces2CallInfos] No trace available")
+		log.Warn().Msg("[TraceManager.BatchConvertTrace2CallInfos] No trace available")
 		return res, nil
 	}
 	for _, trace := range traces {
-		callInfoList, err := m.convertSingleTrace2CallInfos(trace)
+		callInfoList, err := m.convertTrace2CallInfos(trace)
 		if err != nil {
-			log.Err(err).Msg("[TraceManager.ConvertTraces2CallInfos] Failed to convert single trace to call infos")
+			log.Err(err).Msg("[TraceManager.BatchConvertTrace2CallInfos] Failed to convert single trace to call infos")
 			return nil, err
 		}
 		res = append(res, callInfoList...)
@@ -94,11 +106,11 @@ func (m *TraceManager) ConvertTraces2CallInfos(traces []*SimplifiedTrace) ([]*Ca
 	return res, nil
 }
 
-// convertSingleTrace2CallInfos returns the call information (list) between services.
-func (m *TraceManager) convertSingleTrace2CallInfos(trace *SimplifiedTrace) ([]*CallInfo, error) {
+// convertTrace2CallInfos returns the call information (list) between services.
+func (m *TraceManager) convertTrace2CallInfos(trace *SimplifiedTrace) ([]*CallInfo, error) {
 	res := make([]*CallInfo, 0)
 	if trace == nil || len(trace.SpanMap) == 0 {
-		log.Warn().Msg("[TraceManager.convertSingleTrace2CallInfos] Invalid trace")
+		log.Warn().Msg("[TraceManager.convertTrace2CallInfos] Invalid trace")
 		return res, nil
 	}
 	for _, span := range trace.SpanMap {
@@ -106,23 +118,39 @@ func (m *TraceManager) convertSingleTrace2CallInfos(trace *SimplifiedTrace) ([]*
 		if span.SpanKind == INTERNAL {
 			continue
 		}
+		var parentSpan *SimplifiedTraceSpan
 		for _, ref := range span.References {
 			if ref["refType"] == "CHILD_OF" {
-				parentSpanID := ref["spanID"] // TODO: check here @xunzhou24
-				parentSpan, ok := trace.SpanMap[parentSpanID]
-				if !ok {
-					// log.Debug().Msgf("[TraceManager.convertSingleTrace2CallInfos] Parent span not found, parentSpanID: %s", parentSpanID)
-					continue
-				}
-				callInfo := &CallInfo{
-					SourceService:         parentSpan.Process.ServiceName,
-					TargetService:         span.Process.ServiceName,
-					SourceMethodTraceName: parentSpan.OperationName,
-					TargetMethodTraceName: span.OperationName,
-				}
-				res = append(res, callInfo)
+				parentSpanID := ref["spanID"]
+				parentSpan = trace.SpanMap[parentSpanID]
+				break
 			}
 		}
+		if parentSpan == nil {
+			continue
+		}
+		parentSpanID := parentSpan.SpanID
+
+		// retrieve method trace name
+		// Failure to retrieve for some reason would lead to the call being ignored.
+		sourceMethodTraceName, ok := parentSpan.RetrieveCalledMethod()
+		if !ok || sourceMethodTraceName == "" {
+			log.Warn().Msgf("[TraceManager.convertSingleTrace2CallInfos] Failed to retrieve source method trace name, spanID: %s", parentSpanID)
+			continue
+		}
+		targetMethodTraceName, ok := span.RetrieveCalledMethod()
+		if !ok || targetMethodTraceName == "" {
+			log.Warn().Msgf("[TraceManager.convertSingleTrace2CallInfos] Failed to retrieve target method trace name, spanID: %s", span.SpanID)
+			continue
+		}
+
+		callInfo := &CallInfo{
+			SourceService:         parentSpan.Process.ServiceName,
+			TargetService:         span.Process.ServiceName,
+			SourceMethodTraceName: sourceMethodTraceName,
+			TargetMethodTraceName: targetMethodTraceName,
+		}
+		res = append(res, callInfo)
 	}
 	return res, nil
 }

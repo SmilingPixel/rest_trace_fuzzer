@@ -1,9 +1,11 @@
 package trace
 
 import (
+	"strings"
 	"time"
 
 	"github.com/bytedance/sonic"
+	"github.com/rs/zerolog/log"
 )
 
 // SimplifiedTrace represents a simplified version of a trace model.
@@ -23,11 +25,12 @@ type SimplifiedTraceSpan struct {
 	ParentID      string              `json:"parentID"`      // Unique identifier for the parent span
 	OperationName string              `json:"operationName"` // Name of the operation
 	SpanKind      SpanKindType        `json:"spanKind"`      // Kind of the span
+	SemanticConvention SemanticConventionType `json:"semanticConvention"` // Semantic convention of the span
 	References    []map[string]string `json:"references"`    // References to other spans
 	StartTime     time.Time           `json:"startTime"`     // Start time of the span
 	Duration      int64               `json:"duration"`      // Duration of the span, in microseconds
-	Tags          []TagEntry          `json:"tags"`          // Tags associated with the span
-	Process       ProcessValueEntry   `json:"process"`       // Process information
+	TagMap         map[string]TagEntry          `json:"tagMap"`     // Tags associated with the span, map from tag key to tag entry
+	Process       *ProcessValueEntry  `json:"process"`       // Process information
 	Logs          []LogEntry          `json:"logs"`          // Log entries associated with the span
 	ChildrenIDs   []string            `json:"childrenIDs"`   // Children spans' IDs
 }
@@ -95,6 +98,82 @@ func (s *SpanKindType) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// SemanticConventionType represents the type of a semantic convention.
+// See [OpenTelemetry specification](https://opentelemetry.io/docs/specs/semconv/) for more details.
+type SemanticConventionType string
+
+const (
+	// SemanticConventionTypeHTTP represents the HTTP semantic convention.
+	SemanticConventionTypeHTTP SemanticConventionType = "SEMANTIC_CONVENTION_HTTP"
+
+	// SemanticConventionTypeRPC represents the RPC semantic convention.
+	SemanticConventionTypeRPC SemanticConventionType = "SEMANTIC_CONVENTION_RPC"
+
+	// SemanticConventionTypeMessaging represents the messaging system semantic convention.
+	SemanticConventionTypeMessaging SemanticConventionType = "SEMANTIC_CONVENTION_MESSAGING"
+
+	// TODO: add more semantic conventions @xunzhou24
+
+	// SemanticConventionTypeUnknown represents an unknown semantic convention.
+	SemanticConventionTypeUnknown SemanticConventionType = "SEMANTIC_CONVENTION_UNKNOWN"
+)
+
+func (s SemanticConventionType) String() string {
+	return string(s)
+}
+
+func (s SemanticConventionType) MarshalJSON() ([]byte, error) {
+	return sonic.Marshal(string(s))
+}
+
+func (s *SemanticConventionType) UnmarshalJSON(data []byte) error {
+	*s = SemanticConventionType(string(data))
+	return nil
+}
+
+// RetrieveCalledMethod retrieves the called method that the span represents.
+// For example, if service A called method 'f' of service B, this method returns 'f'.
+// The second returned value indicates whether the method exists (or can be found).
+func (s *SimplifiedTraceSpan) RetrieveCalledMethod() (string, bool) {
+	method, ok := "", false
+
+	// For now, we only consider invocation between services.
+	// So internal spans are ignored.
+	if s.SpanKind == INTERNAL {
+		return method, ok
+	}
+
+	// For different semantic conventions, we have different ways to retrieve the called method.
+	switch s.SemanticConvention {
+
+	// For HTTP, the span name is '{method} {target}' or '{method}'， and we directly get the target.
+	// The target is http.route or url.template.
+	// See [OpenTelemetry specification](https://opentelemetry.io/docs/specs/semconv/http/http-spans/) for more details.
+	// Note that HTTP method (GET, POST, etc.) is different from the method name we want (e.g., 'f').
+	case SemanticConventionTypeHTTP:
+		operationNameParts := strings.Split(s.OperationName, " ")
+		if len(operationNameParts) >= 2 {
+			return operationNameParts[1], true
+		}
+		return "", false
+
+	// For RPC, the span name is '$package.$service/$method' (e.g., 'grpc.test.EchoService/Echo').
+	// We split the operation name by '/' and get the last part.
+	// See [OpenTelemetry specification](https://opentelemetry.io/docs/specs/semconv/rpc/rpc-spans/) for more details.
+	case SemanticConventionTypeRPC:
+		operationNameParts := strings.Split(s.OperationName, "/")
+		if len(operationNameParts) >= 2 {
+			return operationNameParts[len(operationNameParts)-1], true
+		}
+		return "", false
+
+	// TODO: support more semantic conventions @xunzhou24
+	default:
+		log.Warn().Msgf("[SimplifiedTraceSpan.RetrieveCalledMethod] Unsupported semantic convention: %s", s.SemanticConvention)
+		return "", false
+	}
+}
+
 // convertTraceTagValueToSpanKind converts a trace tag value to a SpanKindType.
 // If the tag value is not recognized, it returns UNSPECIFIED.
 func convertTraceTagValueToSpanKind(tagValue string) SpanKindType {
@@ -117,7 +196,7 @@ func convertTraceTagValueToSpanKind(tagValue string) SpanKindType {
 type JaegerTrace struct {
 	TraceID   string                       `json:"traceID"`
 	Spans     []JaegerTraceSpan            `json:"spans"`
-	Processes map[string]ProcessValueEntry `json:"processes"`
+	Processes map[string]*ProcessValueEntry `json:"processes"`
 }
 
 // JaegerTraceSpan represents a span in a Jaeger trace.
@@ -154,7 +233,7 @@ func (j *JaegerTrace) ToSimplifiedTrace() *SimplifiedTrace {
 
 // ToSimplifiedTraceSpan converts a JaegerTraceSpan to a SimplifiedTraceSpan.
 // For most fields, it's a direct copy. For fields like the SpanKind, they are parsed from the tags.
-func (j *JaegerTraceSpan) ToSimplifiedTraceSpan(processMap map[string]ProcessValueEntry) *SimplifiedTraceSpan {
+func (j *JaegerTraceSpan) ToSimplifiedTraceSpan(processMap map[string]*ProcessValueEntry) *SimplifiedTraceSpan {
 	span := &SimplifiedTraceSpan{
 		TraceID:       j.TraceID,
 		SpanID:        j.SpanID,
@@ -166,7 +245,10 @@ func (j *JaegerTraceSpan) ToSimplifiedTraceSpan(processMap map[string]ProcessVal
 	}
 
 	// copy tags, references, and logs
-	span.Tags = append(span.Tags, j.Tags...)
+	span.TagMap = make(map[string]TagEntry)
+	for _, tag := range j.Tags {
+		span.TagMap[tag.Key] = tag
+	}
 	span.References = append(span.References, j.References...)
 	for _, log := range j.Logs {
 		span.Logs = append(span.Logs, LogEntry{
@@ -177,12 +259,23 @@ func (j *JaegerTraceSpan) ToSimplifiedTraceSpan(processMap map[string]ProcessVal
 
 	// parse span kind
 	spanKind := UNSPECIFIED
-	for _, tag := range j.Tags {
-		if tag.Key == "span.kind" {
-			spanKind = convertTraceTagValueToSpanKind(tag.Value.(string))
-			break
-		}
+	if spandKindValue, exist := span.TagMap["span.kind"]; exist {
+		spanKind = convertTraceTagValueToSpanKind(spandKindValue.Value.(string))
 	}
 	span.SpanKind = spanKind
+
+	// parse semantic convention
+	// We use required tags that are specific to the semantic conventions to determine the semantic convention.
+	// See [OpenTelemetry specification](https://opentelemetry.io/docs/specs/semconv/) for more details.
+	semanticConvention := SemanticConventionTypeUnknown
+	if _, exist := span.TagMap["http.request.method"]; exist {
+		semanticConvention = SemanticConventionTypeHTTP
+	} else if _, exist := span.TagMap["rpc.system"]; exist {
+		semanticConvention = SemanticConventionTypeRPC
+	} else if _, exist := span.TagMap["messaging.system"]; exist {
+		semanticConvention = SemanticConventionTypeMessaging
+	}
+	span.SemanticConvention = semanticConvention
+
 	return span
 }

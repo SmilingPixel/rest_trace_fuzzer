@@ -188,11 +188,16 @@ func (p *JaegerTraceFetcher) fetchTraceByIDFromRemote(traceID string) (*Simplifi
 	}
 
 	var jaegerTraceResp struct {
-		Data JaegerTrace `json:"data"`
+		Data []JaegerTrace `json:"data"`
 	}
 	if err := sonic.Unmarshal(respBytes, &jaegerTraceResp); err != nil {
 		log.Err(err).Msgf("[JaegerTraceFetcher.FetchTraceByIDFromRemote] Failed to unmarshal Jaeger trace response")
 		return nil, err
 	}
-	return jaegerTraceResp.Data.ToSimplifiedTrace(), nil
+	if len(jaegerTraceResp.Data) == 0 {
+		err := fmt.Errorf("trace not found: %s", traceID)
+		log.Err(err).Msgf("[JaegerTraceFetcher.FetchTraceByIDFromRemote] Failed to fetch trace")
+		return nil, err
+	}
+	return jaegerTraceResp.Data[0].ToSimplifiedTrace(), nil
 }
