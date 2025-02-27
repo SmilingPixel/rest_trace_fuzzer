@@ -19,15 +19,16 @@ def load_config(config_path: str) -> List[Dict[str, Any]]:
     with open(config_path) as f:
         return json.load(f)
 
-def to_camel_case(snake_str: str) -> str:
+def to_camel_case(snake_str: str, upper_first: bool = False) -> str:
     """
-    Convert a snake_case string to CamelCase.
+    Convert a snake_case string to CamelCase or camelCase.
 
     Args:
         snake_str (str): The snake_case string.
+        upper_first (bool): Whether to make the first letter uppercase.
 
     Returns:
-        str: The CamelCase string.
+        str: The CamelCase or camelCase string.
     """
     components = snake_str.split('_')
     for i in range(len(components)):
@@ -37,6 +38,8 @@ def to_camel_case(snake_str: str) -> str:
             components[i] = 'OpenAPI'
         else:
             components[i] = components[i].title()
+    if not upper_first:
+        components[0] = components[0][0].lower() + components[0][1:]
     return ''.join(components)
 
 def to_upper_snake_case(snake_str: str) -> str:
@@ -112,13 +115,13 @@ def generate_arg_parse_code(config: List[Dict[str, Any]]) -> str:
         go_type = to_go_type(arg["type"])
 
         if go_type == "time.Duration":
-            arg_parse_code_lines.append(f'flag.DurationVar(&GlobalConfig.{to_camel_case(config_name)}, "{arg_name}", {default_value}, "{description}")')
+            arg_parse_code_lines.append(f'flag.DurationVar(&GlobalConfig.{to_camel_case(config_name, True)}, "{arg_name}", {default_value}, "{description}")')
         elif go_type == "int":
-            arg_parse_code_lines.append(f'flag.IntVar(&GlobalConfig.{to_camel_case(config_name)}, "{arg_name}", {default_value}, "{description}")')
+            arg_parse_code_lines.append(f'flag.IntVar(&GlobalConfig.{to_camel_case(config_name, True)}, "{arg_name}", {default_value}, "{description}")')
         elif go_type == "bool":
-            arg_parse_code_lines.append(f'flag.BoolVar(&GlobalConfig.{to_camel_case(config_name)}, "{arg_name}", {"true" if default_value else "false"}, "{description}")')
+            arg_parse_code_lines.append(f'flag.BoolVar(&GlobalConfig.{to_camel_case(config_name, True)}, "{arg_name}", {"true" if default_value else "false"}, "{description}")')
         else:
-            arg_parse_code_lines.append(f'flag.StringVar(&GlobalConfig.{to_camel_case(config_name)}, "{arg_name}", "{default_value}", "{description}")')
+            arg_parse_code_lines.append(f'flag.StringVar(&GlobalConfig.{to_camel_case(config_name, True)}, "{arg_name}", "{default_value}", "{description}")')
 
     arg_parse_code_lines.append("flag.Parse()")
     arg_parse_code_lines.append(BLANK_LINE)
@@ -152,17 +155,17 @@ def generate_arg_parse_code(config: List[Dict[str, Any]]) -> str:
             arg_parse_code_lines.append("if err != nil {")
             arg_parse_code_lines.append('log.Err(err).Msgf("[ParseCmdArgs] Failed to parse duration: %s", err)')
             arg_parse_code_lines.append("}")
-            arg_parse_code_lines.append(f'GlobalConfig.{to_camel_case(config_name)} = envValDuration')
+            arg_parse_code_lines.append(f'GlobalConfig.{to_camel_case(config_name, True)} = envValDuration')
         elif go_type == "int":
             arg_parse_code_lines.append(f'envValInt, err := strconv.Atoi(envVal)')
             arg_parse_code_lines.append("if err != nil {")
             arg_parse_code_lines.append('log.Err(err).Msgf("[ParseCmdArgs] Failed to parse int: %s", err)')
             arg_parse_code_lines.append("}")
-            arg_parse_code_lines.append(f'GlobalConfig.{to_camel_case(config_name)} = envValInt')
+            arg_parse_code_lines.append(f'GlobalConfig.{to_camel_case(config_name, True)} = envValInt')
         elif go_type == "bool":
-            arg_parse_code_lines.append(f'GlobalConfig.{to_camel_case(config_name)} = true')
+            arg_parse_code_lines.append(f'GlobalConfig.{to_camel_case(config_name, True)} = true')
         else:  
-            arg_parse_code_lines.append(f'GlobalConfig.{to_camel_case(config_name)} = envVal')
+            arg_parse_code_lines.append(f'GlobalConfig.{to_camel_case(config_name, True)} = envVal')
         arg_parse_code_lines.append("}")
     arg_parse_code_lines.append(BLANK_LINE)
 
@@ -199,7 +202,7 @@ def generate_config_code(config: List[Dict[str, Any]]) -> str:
         go_type = to_go_type(arg["type"])
 
         config_code_lines.append(f'{generate_godoc(description)}')
-        config_code_lines.append(f'{to_camel_case(config_name)} {go_type} `json:"{config_name}"`')
+        config_code_lines.append(f'{to_camel_case(config_name, True)} {go_type} `json:"{to_camel_case(config_name, False)}"`')
         config_code_lines.append(BLANK_LINE)
     config_code_lines.append("}")
 

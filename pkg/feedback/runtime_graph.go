@@ -11,7 +11,7 @@ import (
 type RuntimeEdge struct {
 	Source   *static.APIDataflowNode `json:"source"`
 	Target   *static.APIDataflowNode `json:"target"`
-	HitCount int 				   `json:"hit_count"`
+	HitCount int 				   `json:"hitCount"`
 }
 
 // RuntimeGraph represents the runtime graph. It includes a list of edges.
@@ -42,7 +42,6 @@ func (g *RuntimeGraph) UpdateFromCallInfos(callInfos []*trace.CallInfo) error {
 	// The source service in callInfo is not the completely same as the source service in runtimeGraph, they may be in different cases.
 	// For example, callInfo.SourceService = "cartservice", but runtimeGraph.SourceService = "CartService".
 	// We handle it by converting both names into standard cases, and compare them.
-	// TODO: why not save standard case in the first place? @xunzhou24
 	service2CallInfos := make(map[string][]*trace.CallInfo)
 	for _, callInfo := range callInfos {
 		sourceService := utils.ConvertToStandardCase(callInfo.SourceService)
@@ -55,11 +54,9 @@ func (g *RuntimeGraph) UpdateFromCallInfos(callInfos []*trace.CallInfo) error {
 		for _, callInfo := range service2CallInfos[sourceService] {
 			// TODO: A more graceful name matching strategy. @xunzhou24
 			// TODO: handle: edge in callInfo is not included in parsed runtimeGraph. @xunzhou24
-			// Method or operation name in trace may contain other information, e.g., /oteldemo.CartService/GetCart
-			// We extract the last segment of the method name, and compare it with the method name in runtimeGraph.
 			if utils.ConvertToStandardCase(callInfo.TargetService) == utils.ConvertToStandardCase(edge.Target.ServiceName) &&
-				utils.ExtractLastSegment(callInfo.TargetMethodTraceName, "./") == (edge.Target.SimpleAPIMethod.Method) &&
-				utils.ExtractLastSegment(callInfo.SourceMethodTraceName, "./") == (edge.Source.SimpleAPIMethod.Method) {
+				callInfo.TargetMethodTraceName == edge.Target.SimpleAPIMethod.Method &&
+				callInfo.SourceMethodTraceName == edge.Source.SimpleAPIMethod.Method {
 				edge.HitCount++
 			}
 		}

@@ -16,42 +16,42 @@ import (
 // Part 2 and 3 will be re-filled each time the test case is executed.
 type OperationCase struct {
 	// APIMethod is the definition of the API method being tested.
-	APIMethod static.SimpleAPIMethod `json:"api_method"`
+	APIMethod static.SimpleAPIMethod `json:"APIMethod"`
 
 	// Operation is the OpenAPI operation definition.
 	Operation *openapi3.Operation `json:"operation"`
 
 	// RequestHeaders contains the headers to be sent with the request.
-	RequestHeaders map[string]string `json:"request_headers"`
+	RequestHeaders map[string]string `json:"requestHeaders"`
 
 	// RequestPathParams contains the path parameters to be sent with the request.
-	RequestPathParams map[string]string `json:"request_path_params"`
+	RequestPathParams map[string]string `json:"requestPathParams"`
 
 	// RequestQueryParams contains the query parameters to be sent with the request.
-	RequestQueryParams map[string]string `json:"request_query_params"`
+	RequestQueryParams map[string]string `json:"requestQueryParams"`
 
 	// RequestBody contains the body to be sent with the request.
 	// It is a json object.
-	RequestBody interface{} `json:"request_body"`
+	RequestBody interface{} `json:"requestBody"`
 
 	// ResponseHeaders contains the expected headers in the response.
-	ResponseHeaders map[string]string `json:"response_headers"`
+	ResponseHeaders map[string]string `json:"responseHeaders"`
 
 	// ResponseStatusCode is the expected status code of the response.
-	ResponseStatusCode int `json:"response_status_code"`
+	ResponseStatusCode int `json:"responseStatusCode"`
 
 	// ResponseBody contains the expected body of the response.
 	// It is a json object.
-	ResponseBody interface{} `json:"response_body"`
+	ResponseBody interface{} `json:"responseBody"`
 }
 
 // A TestScenario is a sequence of [resttracefuzzer/pkg/casemanager/OperationCase].
 type TestScenario struct {
 	// OperationCases is a sequence of [resttracefuzzer/pkg/casemanager/OperationCase].
-	OperationCases []*OperationCase `json:"operation_cases"`
+	OperationCases []*OperationCase `json:"operationCases"`
 
 	// ExecutedTimes is the number of times this test scenario has been executed
-	ExecutedTimes int `json:"executed_times"`
+	ExecutedTimes int `json:"executedTimes"`
 }
 
 // NewTestScenario creates a new TestScenario.

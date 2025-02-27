@@ -10,8 +10,8 @@ import (
 
 // APIDataflowNode represents a node in the dataflow graph of the internal APIs.
 type APIDataflowNode struct {
-	ServiceName     string          `json:"service_name"`
-	SimpleAPIMethod SimpleAPIMethod `json:"simple_api_method"`
+	ServiceName     string          `json:"serviceName"`
+	SimpleAPIMethod SimpleAPIMethod `json:"simpleAPIMethod"`
 }
 
 // APIDataflowEdge represents an edge in the dataflow graph of the internal APIs.
@@ -22,8 +22,8 @@ type APIDataflowNode struct {
 type APIDataflowEdge struct {
 	Source         *APIDataflowNode  `json:"source"`
 	Target         *APIDataflowNode  `json:"target"`
-	SourceProperty SimpleAPIProperty `json:"source_property"`
-	TargetProperty SimpleAPIProperty `json:"target_property"`
+	SourceProperty SimpleAPIProperty `json:"sourceProperty"`
+	TargetProperty SimpleAPIProperty `json:"targetProperty"`
 }
 
 // APIDataflowGraph represents the dataflow graph of the internal APIs.

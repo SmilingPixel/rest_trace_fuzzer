@@ -29,16 +29,16 @@ type SimplifiedTraceSpan struct {
 	References    []map[string]string `json:"references"`    // References to other spans
 	StartTime     time.Time           `json:"startTime"`     // Start time of the span
 	Duration      int64               `json:"duration"`      // Duration of the span, in microseconds
-	TagMap         map[string]TagEntry          `json:"tagMap"`     // Tags associated with the span, map from tag key to tag entry
+	TagMap        map[string]TagEntry `json:"tagMap"`       // Tags associated with the span, map from tag key to tag entry
 	Process       *ProcessValueEntry  `json:"process"`       // Process information
 	Logs          []LogEntry          `json:"logs"`          // Log entries associated with the span
-	ChildrenIDs   []string            `json:"childrenIDs"`   // Children spans' IDs
+	ChildrenIDs   []string            `json:"childrenIDs"`  // Children spans' IDs
 }
 
 // ProcessValueEntry represents the process information in a trace.
 type ProcessValueEntry struct {
 	ServiceName string     `json:"serviceName"` // Name of the service
-	Tags        []TagEntry `json:"tags"`        // Tags associated with the process
+	Tags        []TagEntry `json:"tags"`         // Tags associated with the process
 }
 
 // LogEntry represents a log entry in a trace.
