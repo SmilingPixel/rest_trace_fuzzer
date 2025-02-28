@@ -7,7 +7,6 @@ import (
 	"resttracefuzzer/pkg/strategy"
 	"strings"
 
-	"github.com/bytedance/sonic"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/rs/zerolog/log"
 )
@@ -172,12 +171,17 @@ func (m *CaseManager) initTestcasesFromDoc() error {
 }
 
 // generateRequestBodyFromSchema generates a request body from a schema.
-// It returns a json object, and error if any.
-func (m *CaseManager) generateRequestBodyFromSchema(requestBodyRef *openapi3.RequestBodyRef) (interface{}, error) {
+// It returns a json object as a byte array and error if any.
+func (m *CaseManager) generateRequestBodyFromSchema(requestBodyRef *openapi3.RequestBodyRef) ([]byte, error) {
 	if requestBodyRef == nil || requestBodyRef.Value == nil {
 		return nil, fmt.Errorf("request body is nil")
 	}
-	return m.FuzzStrategist.GenerateValueForSchema(requestBodyRef.Value.Content.Get("application/json").Schema)
+	generatedValue, err := m.FuzzStrategist.GenerateValueForSchema(requestBodyRef.Value.Content.Get("application/json").Schema)
+	if err != nil {
+		log.Err(err).Msgf("[CaseManager.generateRequestBodyFromSchema] Failed to generate object from schema %v", requestBodyRef.Value.Content.Get("application/json").Schema)
+		return nil, err
+	}
+	return []byte(generatedValue.String()), nil
 }
 
 // generateRequestParamsFromSchema generates request params from a schema.
@@ -199,23 +203,15 @@ func (m *CaseManager) generateRequestParamsFromSchema(params []*openapi3.Paramet
 		var valueStr string
 		// For array type, we need to convert the array to string.
 		// For example, if the array is [1, 2, 3], we convert it to "1,2,3", instead of json-style (e.g., "[1,2,3]").
-		if generatedArray, ok := generatedValue.([]interface{}); ok {
+		if generatedValue.Typ() == static.SimpleAPIPropertyTypeArray {
 			valueList := make([]string, 0)
-			for _, v := range generatedArray {
-				vStr, err := sonic.MarshalString(v)
-				if err != nil {
-					log.Err(err).Msgf("[CaseManager.generateRequestParamsFromSchema] Failed to marshal object to string %v", v)
-					return nil, nil, err
-				}
+			for _, v := range generatedValue.(*resource.ResourceArray).Value { // updated to use generatedValue
+				vStr := v.String()
 				valueList = append(valueList, vStr)
 			}
 			valueStr = strings.Join(valueList, ",")
 		} else {
-			valueStr, err = sonic.MarshalString(generatedValue)
-			if err != nil {
-				log.Err(err).Msgf("[CaseManager.generateRequestParamsFromSchema] Failed to marshal object to string %v", generatedValue)
-				return nil, nil, err
-			}
+			valueStr = generatedValue.String()
 		}
 		
 		if param.Value.In == "path" {

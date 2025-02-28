@@ -1,6 +1,8 @@
 package trace
 
 import (
+	"regexp"
+	"resttracefuzzer/pkg/utils"
 	"strings"
 	"time"
 
@@ -112,7 +114,7 @@ const (
 	// SemanticConventionTypeMessaging represents the messaging system semantic convention.
 	SemanticConventionTypeMessaging SemanticConventionType = "SEMANTIC_CONVENTION_MESSAGING"
 
-	// TODO: add more semantic conventions @xunzhou24
+	// TODO: support more semantic conventions @xunzhou24
 
 	// SemanticConventionTypeUnknown represents an unknown semantic convention.
 	SemanticConventionTypeUnknown SemanticConventionType = "SEMANTIC_CONVENTION_UNKNOWN"
@@ -146,16 +148,25 @@ func (s *SimplifiedTraceSpan) RetrieveCalledMethod() (string, bool) {
 	// For different semantic conventions, we have different ways to retrieve the called method.
 	switch s.SemanticConvention {
 
-	// For HTTP, the span name is '{method} {target}' or '{method}'， and we directly get the target.
+	// For HTTP, the span name is '{method} {target}' or '{method}'， and we can directly get the target.
 	// The target is http.route or url.template.
 	// See [OpenTelemetry specification](https://opentelemetry.io/docs/specs/semconv/http/http-spans/) for more details.
 	// Note that HTTP method (GET, POST, etc.) is different from the method name we want (e.g., 'f').
+	//
+	// For some frameworks, gRPC call would probably be recorded as HTTP spans when gRPC is over HTTP/2.
+	// In this case, we notice that the operation name is in the format of 'POST {RPC Operation Name}'. For example, 'POST /grpc.test.EchoService/Echo'.
+	// We split the operation name by '/' and get the last part.
 	case SemanticConventionTypeHTTP:
 		operationNameParts := strings.Split(s.OperationName, " ")
+		var targetName string
 		if len(operationNameParts) >= 2 {
-			return operationNameParts[1], true
+			targetName = operationNameParts[1]
 		}
-		return "", false
+		// gRPC over HTTP/2
+		if grpcMethod, exist := s.TagMap["grpc.method"]; exist {
+			targetName = utils.ExtractLastSegment("/", grpcMethod.Value.(string))
+		}
+		return targetName, (targetName != "")
 
 	// For RPC, the span name is '$package.$service/$method' (e.g., 'grpc.test.EchoService/Echo').
 	// We split the operation name by '/' and get the last part.
@@ -265,17 +276,33 @@ func (j *JaegerTraceSpan) ToSimplifiedTraceSpan(processMap map[string]*ProcessVa
 	span.SpanKind = spanKind
 
 	// parse semantic convention
-	// We use required tags that are specific to the semantic conventions to determine the semantic convention.
-	// See [OpenTelemetry specification](https://opentelemetry.io/docs/specs/semconv/) for more details.
-	semanticConvention := SemanticConventionTypeUnknown
-	if _, exist := span.TagMap["http.request.method"]; exist {
-		semanticConvention = SemanticConventionTypeHTTP
-	} else if _, exist := span.TagMap["rpc.system"]; exist {
-		semanticConvention = SemanticConventionTypeRPC
-	} else if _, exist := span.TagMap["messaging.system"]; exist {
-		semanticConvention = SemanticConventionTypeMessaging
-	}
-	span.SemanticConvention = semanticConvention
+	span.SemanticConvention = j.InferSemanticConvention()
 
 	return span
+}
+
+// InferSemanticConvention infers the semantic convention of a JaegerTraceSpan.
+// Unsupported semantic conventions are returned as SemanticConventionTypeUnknown.
+// Note: the result may not be accurate, as it's based on the tags and name format.
+// We use required tags and name format that are specific to the semantic conventions to determine the semantic convention.
+// See [OpenTelemetry specification](https://opentelemetry.io/docs/specs/semconv/) for more details.
+// TODO: support more semantic conventions @xunzhou24
+func (j *JaegerTraceSpan) InferSemanticConvention() SemanticConventionType {
+	// For HTTP, the span name is '{method} {target}' or '{method}'
+	httpOperationNameRegex := `^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS|TRACE)(?:\s+(\S+))?$`
+	if matched, _ := regexp.MatchString(httpOperationNameRegex, j.OperationName); matched {
+		return SemanticConventionTypeHTTP
+	}
+
+	// For RPC and Messaging system, tags are used to determine the semantic convention.
+	for _, tag := range j.Tags {
+		if tag.Key == "rpc.system" {
+			return SemanticConventionTypeRPC
+		}
+		if tag.Key == "messaging.system" {
+			return SemanticConventionTypeMessaging
+		}
+	}
+
+	return SemanticConventionTypeUnknown
 }

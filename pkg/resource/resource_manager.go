@@ -48,7 +48,7 @@ func (m *ResourceManager) GetSingleResourceBySchemaType(schema *openapi3.Types) 
 	case schema.Includes("string"):
 		return m.GetSingleResourceByType(static.SimpleAPIPropertyTypeString)
 	case schema.Includes("number"):
-		return m.GetSingleResourceByType(static.SimpleAPIPropertyTypeNumber)
+		return m.GetSingleResourceByType(static.SimpleAPIPropertyTypeFloat)
 	case schema.Includes("integer"):
 		return m.GetSingleResourceByType(static.SimpleAPIPropertyTypeInteger)
 	case schema.Includes("boolean"):
@@ -71,18 +71,20 @@ func (m *ResourceManager) GetSingleResourceByName(resourceName string) Resource 
 
 // LoadFromExternalDict loads resources from an external dictionary.
 // The dictionary should be a json file with the following format:
-//  [
-//      {
-//          "name": "resource1",
-//          "type": "string",
-//          "value": "value1"
-//      },
-//      {
-//          "name": "resource2",
-//          "type": "number",
-//          "value": 1.0
-//      }
-//  ]
+//
+//	[
+//	    {
+//	        "name": "resource1",
+//	        "type": "string",
+//	        "value": "value1"
+//	    },
+//	    {
+//	        "name": "resource2",
+//	        "type": "number",
+//	        "value": 1.0
+//	    }
+//	]
+//
 // The type should be one of "string", "number", "integer", "boolean".
 // It returns an error if any.
 func (m *ResourceManager) LoadFromExternalDictFile(filePath string) error {
@@ -118,7 +120,7 @@ func (m *ResourceManager) LoadFromExternalDictFile(filePath string) error {
 	succCnt := 0
 	for _, dictValue := range dictValues {
 		// parse value and create a new resource
-		resource, err := NewResource(dictValue.Name, dictValue.Value)
+		resource, err := NewResourceFromValue(dictValue.Name, dictValue.Value)
 		if err != nil {
 			log.Warn().Msgf("[ResourceManager.LoadFromExternalDictFile] Failed to create resource: %s, err: %v", dictValue.Name, err)
 			continue
@@ -130,4 +132,3 @@ func (m *ResourceManager) LoadFromExternalDictFile(filePath string) error {
 	log.Info().Msgf("[ResourceManager.LoadFromExternalDictFile] Loaded %d resources", succCnt)
 	return nil
 }
-	

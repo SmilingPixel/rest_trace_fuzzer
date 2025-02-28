@@ -31,8 +31,8 @@ type OperationCase struct {
 	RequestQueryParams map[string]string `json:"requestQueryParams"`
 
 	// RequestBody contains the body to be sent with the request.
-	// It is a json object.
-	RequestBody interface{} `json:"requestBody"`
+	// It is a json object as a byte array.
+	RequestBody []byte `json:"requestBody"`
 
 	// ResponseHeaders contains the expected headers in the response.
 	ResponseHeaders map[string]string `json:"responseHeaders"`
@@ -41,8 +41,8 @@ type OperationCase struct {
 	ResponseStatusCode int `json:"responseStatusCode"`
 
 	// ResponseBody contains the expected body of the response.
-	// It is a json object.
-	ResponseBody interface{} `json:"responseBody"`
+	// It is a json object as a byte array.
+	ResponseBody []byte `json:"responseBody"`
 }
 
 // A TestScenario is a sequence of [resttracefuzzer/pkg/casemanager/OperationCase].

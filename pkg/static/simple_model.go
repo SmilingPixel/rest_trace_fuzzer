@@ -37,11 +37,11 @@ func (t *SimpleAPIPropertyType) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// Name2SimpleAPIMethodType converts a string to a SimpleAPIMethodType.
+// Name2SimpleAPIPropertyType converts a string to a SimpleAPIPropertyType.
 func Name2SimpleAPIPropertyType(name string) SimpleAPIPropertyType {
 	switch name {
-	case "number":
-		return SimpleAPIPropertyTypeNumber
+	case "float":
+		return SimpleAPIPropertyTypeFloat
 	case "integer":
 		return SimpleAPIPropertyTypeInteger
 	case "string":
@@ -63,8 +63,10 @@ func DeterminePropertyType(value interface{}) SimpleAPIPropertyType {
 	switch value.(type) {
 	case string:
 		return SimpleAPIPropertyTypeString
-	case int64:
-		return SimpleAPIPropertyTypeNumber
+	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+		return SimpleAPIPropertyTypeInteger
+	case float32, float64:
+		return SimpleAPIPropertyTypeFloat
 	case bool:
 		return SimpleAPIPropertyTypeBoolean
 	case map[string]interface{}:
@@ -84,8 +86,8 @@ const (
 	SimpleAPIMethodTypeGRPC SimpleAPIMethodType = "gRPC"
 	// TODO: Add more types if needed, such as MessageQueue, etc. @xunzhou24
 
-	// SimpleAPIPropertyTypeNumber
-	SimpleAPIPropertyTypeNumber SimpleAPIPropertyType = "number"
+	// SimpleAPIPropertyTypeFloat
+	SimpleAPIPropertyTypeFloat SimpleAPIPropertyType = "float"
 
 	SimpleAPIPropertyTypeInteger SimpleAPIPropertyType = "integer"
 
@@ -103,7 +105,6 @@ const (
 
 	// Unkown
 	SimpleAPIPropertyTypeUnknown SimpleAPIPropertyType = "unknown"
-
 )
 
 // SimpleAPIMethod represents an API method on a specific endpoint.

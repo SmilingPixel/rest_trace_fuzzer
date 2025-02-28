@@ -58,8 +58,8 @@ func NewSchemaToValueStrategy(resourceManager *resource.ResourceManager) *Schema
 	}
 }
 
-// GenerateValueForSchema generates a value for a given schema.
-func (s *SchemaToValueStrategy) GenerateValueForSchema(schema *openapi3.SchemaRef) (interface{}, error) {
+// GenerateValueForSchema generates a resource value for a given schema.
+func (s *SchemaToValueStrategy) GenerateValueForSchema(schema *openapi3.SchemaRef) (resource.Resource, error) {
 	// Try to apply value source.
 	value, generated, err := s.preCheckAndTryApplyValueSource(schema)
 	if err != nil {
@@ -83,10 +83,10 @@ func (s *SchemaToValueStrategy) GenerateValueForSchema(schema *openapi3.SchemaRe
 	}
 }
 
-// generateObjectValueForSchema generates a json object value from a schema.
-// It returns a json object, and error if any.
-// The returned object is of type map[string]interface{} if it is generated from resource pool, otherwise is a stringified json.
-func (s *SchemaToValueStrategy) generateObjectValueForSchema(schema *openapi3.SchemaRef) (interface{}, error) {
+// generateObjectValueForSchema generates a json object resource value from a schema.
+// It returns a json object resource, and error if any.
+// The returned object is of type ResourceObject.
+func (s *SchemaToValueStrategy) generateObjectValueForSchema(schema *openapi3.SchemaRef) (resource.Resource, error) {
 	// Try to apply value source.
 	value, generated, err := s.preCheckAndTryApplyValueSource(schema)
 	if err != nil {
@@ -100,22 +100,22 @@ func (s *SchemaToValueStrategy) generateObjectValueForSchema(schema *openapi3.Sc
 		return nil, fmt.Errorf("schema is nil")
 	}
 
-	result := make(map[string]interface{})
+	result := resource.NewResourceObject(make(map[string]resource.Resource))
 
 	for propName, propSchema := range schema.Value.Properties {
 		propValue, err := s.GenerateValueForSchema(propSchema)
 		if err != nil {
 			return nil, err
 		}
-		result[propName] = propValue
+		result.Value[propName] = propValue
 	}
 	return result, nil
 }
 
-// generateArrayValueForSchema generates a json array value from a schema.
-// It returns a json array, and error if any.
-// The returned array is of type []interface{} if it is generated from resource pool, otherwise is a stringified json.
-func (s *SchemaToValueStrategy) generateArrayValueForSchema(schema *openapi3.SchemaRef) (interface{}, error) {
+// generateArrayValueForSchema generates a json array resource value from a schema.
+// It returns a json array resource, and error if any.
+// The returned array is of type *ResourceArray.
+func (s *SchemaToValueStrategy) generateArrayValueForSchema(schema *openapi3.SchemaRef) (resource.Resource, error) {
 	// Try to apply value source.
 	value, generated, err := s.preCheckAndTryApplyValueSource(schema)
 	if err != nil {
@@ -129,7 +129,7 @@ func (s *SchemaToValueStrategy) generateArrayValueForSchema(schema *openapi3.Sch
 		return nil, fmt.Errorf("schema is nil")
 	}
 
-	result := make([]interface{}, 0)
+	result := resource.NewResourceArray(make([]resource.Resource, 0))
 
 	// TODO: control the array size @xunzhou24
 	// For now, we generate an array with one element.
@@ -137,15 +137,15 @@ func (s *SchemaToValueStrategy) generateArrayValueForSchema(schema *openapi3.Sch
 	if err != nil {
 		return nil, err
 	}
-	result = append(result, elementValue)
+	result.Value = append(result.Value, elementValue)
 
 	return result, nil
 }
 
-// generatePrimitiveValueForSchema generates a primitive value from a schema.
-// It returns a primitive value, and error if any.
-// The returned value is of type interface{} if it is generated from resource pool, otherwise is a stringified json.
-func (s *SchemaToValueStrategy) generatePrimitiveValueForSchema(schema *openapi3.SchemaRef) (interface{}, error) {
+// generatePrimitiveValueForSchema generates a primitive resource value from a schema.
+// It returns a primitive value resource, and error if any.
+// The returned value is of type *ResourceNumber, *ResourceString, etc.
+func (s *SchemaToValueStrategy) generatePrimitiveValueForSchema(schema *openapi3.SchemaRef) (resource.Resource, error) {
 	// Try to apply value source.
 	value, generated, err := s.preCheckAndTryApplyValueSource(schema)
 	if err != nil {
@@ -158,7 +158,12 @@ func (s *SchemaToValueStrategy) generatePrimitiveValueForSchema(schema *openapi3
 	if schema == nil || schema.Value == nil {
 		return nil, fmt.Errorf("schema is nil")
 	}
-	return utils.GenerateDefaultValueForPrimitiveSchemaType(schema.Value.Type), nil
+	defaultValue := utils.GenerateDefaultValueForPrimitiveSchemaType(schema.Value.Type)
+	result, err := resource.NewResourceFromValue("", defaultValue)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 
@@ -168,7 +173,7 @@ func (s *SchemaToValueStrategy) generatePrimitiveValueForSchema(schema *openapi3
 //  2. A boolean indicating whether the value is generated, if successful.
 //  3. An error, if any.
 // The method is inserted into each of the generate methods.
-func (s *SchemaToValueStrategy) preCheckAndTryApplyValueSource(schema *openapi3.SchemaRef) (interface{}, bool, error) {
+func (s *SchemaToValueStrategy) preCheckAndTryApplyValueSource(schema *openapi3.SchemaRef) (resource.Resource, bool, error) {
 	if schema == nil || schema.Value == nil {
 		return nil, false, fmt.Errorf("schema is nil")
 	}
@@ -181,14 +186,19 @@ func (s *SchemaToValueStrategy) preCheckAndTryApplyValueSource(schema *openapi3.
 		if !utils.IncludePrimitiveType(schema.Value.Type) {
 			return nil, false, nil
 		}
-		return utils.GenerateRandomValueForPrimitiveSchemaType(schema.Value.Type), true, nil
+		randomValue := utils.GenerateRandomValueForPrimitiveSchemaType(schema.Value.Type)
+		result, err := resource.NewResourceFromValue("", randomValue)
+		if err != nil {
+			return nil, false, err
+		}
+		return result, true, nil
 	case VALUE_SOURCE_RESOURCE_POOL:
 		resource := s.ResourceManager.GetSingleResourceBySchemaType(schema.Value.Type)
 		// resource of a specific type is not found
 		if resource == nil {
 			return nil, false, nil
 		}
-		return resource.String(), true, nil
+		return resource, true, nil
 	case VALUE_SOURCE_MUTATION: // TODO: implement mutation @xunzhou24
 		return nil, false, nil
 	default:

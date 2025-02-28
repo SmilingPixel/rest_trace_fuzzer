@@ -23,6 +23,6 @@ func NewFuzzStrategist(
 }
 
 // GenerateValueForSchema generates a value for a given schema.
-func (s *FuzzStrategist) GenerateValueForSchema(schema *openapi3.SchemaRef) (interface{}, error) {
+func (s *FuzzStrategist) GenerateValueForSchema(schema *openapi3.SchemaRef) (resource.Resource, error) {
 	return s.SchemaToValueStrategy.GenerateValueForSchema(schema)
 }
