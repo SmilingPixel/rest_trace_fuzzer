@@ -45,6 +45,7 @@ To install the tool, follow these steps:
 2. Prepare a protobuf file for all RPC which internal services use.
   - We use [protoc-gen-openapi](https://github.com/google/gnostic/tree/main/cmd/protoc-gen-openapi) to convert protobuf to openapi.
   - You should annotate the proto file, and you can refer to this [issue](https://github.com/google/gnostic/issues/412).
+3. Ensure that your service includes a unique trace ID in the headers of each response. You can configure the header key in the settings.
 
 ## Usage
 
@@ -63,6 +64,11 @@ To use the tool, follow these steps:
 3. Clean the project:
     ```sh
     make clean
+    ```
+    Or you can clean build and output files separately:
+    ```sh
+    make clean-build
+    make clean-output
     ```
 
 In addition, we provide vscode tasks to use the tool. You can build, run and clean the project by selecting the task `Run` in vscode. See the [.vscode/tasks.json](.vscode/tasks.json) file for more details.
@@ -86,6 +92,7 @@ The tool can be configured using command-line arguments and environment variable
 - `--extra-headers`: Extra headers to be added to the request, in the format of stringified JSON, e.g., '{"header1": "value1", "header2": "value2"}'.
 - `--fuzz-value-dict-file`: Path to the file containing the dictionary of fuzz values, in the format of a JSON list. Each element in the list is a dictionary with two key-value pairs, one is `name` (value is of type string) and the other is `value` (value can be any JSON).
 - `--log-to-file`: Should log to file.
+- `--trace-id-header-key`: The response header key to be used for trace ID.
 
 ## License
 
