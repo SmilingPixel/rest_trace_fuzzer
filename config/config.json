@@ -4,6 +4,7 @@
     "fuzzValueDictFilePath": "./config/fuzz_value_dict.json",
     "fuzzerBudget": 5,
     "fuzzerType": "Basic",
+    "HTTPMiddlewareScriptPath": "./config/http_middleware.starlark",
     "internalServiceOpenAPIPath": "../openapi/otel_demo/internal_service_oas.yaml",
     "logLevel": "debug",
     "logToFile": true,

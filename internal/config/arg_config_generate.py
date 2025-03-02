@@ -32,7 +32,7 @@ def to_camel_case(snake_str: str, upper_first: bool = False) -> str:
     """
     components = snake_str.split('_')
     for i in range(len(components)):
-        if components[i].lower() in ('url', 'id'):
+        if components[i].lower() in ('url', 'id', 'http', 'https'):
             components[i] = components[i].upper()
         elif components[i].lower() == 'openapi':
             components[i] = 'OpenAPI'
@@ -40,6 +40,10 @@ def to_camel_case(snake_str: str, upper_first: bool = False) -> str:
             components[i] = components[i].title()
     if not upper_first:
         components[0] = components[0][0].lower() + components[0][1:]
+        if components[0].lower() in ('url', 'id', 'http', 'https'):
+            components[0] = components[0].upper()
+        elif components[0].lower() == 'openapi':
+            components[0] = 'OpenAPI'
     return ''.join(components)
 
 def to_upper_snake_case(snake_str: str) -> str:

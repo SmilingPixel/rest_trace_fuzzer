@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"resttracefuzzer/internal/config"
-	"resttracefuzzer/pkg/utils"
+	"resttracefuzzer/pkg/utils/http"
 
 	"github.com/bytedance/sonic"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
@@ -38,14 +38,14 @@ type TraceFetcher interface {
 // JaegerTraceFetcher represents a fetcher for Jaeger traces.
 type JaegerTraceFetcher struct {
 	// FetcherClient is the HTTP client for fetching traces.
-	FetcherClient *utils.HTTPClient
+	FetcherClient *http.HTTPClient
 }
 
 // NewJaegerTraceFetcher creates a new JaegerTraceFetcher.
 // See [official Jaeger API doc](https://www.jaegertracing.io/docs/2.3/apis/#query-json-over-http)
 func NewJaegerTraceFetcher() *JaegerTraceFetcher {
 	jaegerBackendURL := config.GlobalConfig.TraceBackendURL
-	httpClient := utils.NewHTTPClient(jaegerBackendURL, []string{})
+	httpClient := http.NewHTTPClient(jaegerBackendURL, []string{}, http.EmptyHTTPClientMiddlewareSlice())
 	return &JaegerTraceFetcher{
 		FetcherClient: httpClient,
 	}
@@ -125,7 +125,7 @@ func (p *JaegerTraceFetcher) fetchAllServicesFromRemote() ([]string, error) {
 		log.Err(err).Msgf("[JaegerTraceFetcher.FetchAllServicesFromRemote] Failed to fetch services")
 		return nil, err
 	}
-	if utils.GetStatusCodeClass(statusCode) != consts.StatusOK {
+	if http.GetStatusCodeClass(statusCode) != consts.StatusOK {
 		log.Err(err).Msgf("[JaegerTraceFetcher.FetchAllServicesFromRemote] Failed to fetch services, statusCode: %d", statusCode)
 		return nil, err
 	}
@@ -153,7 +153,7 @@ func (p *JaegerTraceFetcher) fetchServiceTracesFromRemote(serviceName string) ([
 		log.Err(err).Msgf("[JaegerTraceFetcher.FetchServiceTracesFromRemote] Failed to fetch traces, path: %s, query params: %v", path, queryParams)
 		return nil, err
 	}
-	if utils.GetStatusCodeClass(statusCode) != consts.StatusOK {
+	if http.GetStatusCodeClass(statusCode) != consts.StatusOK {
 		log.Err(err).Msgf("[JaegerTraceFetcher.FetchServiceTracesFromRemote] Failed to fetch traces, statusCode: %d, path: %s, query params: %v", statusCode, path, queryParams)
 		return nil, err
 	}
@@ -182,7 +182,7 @@ func (p *JaegerTraceFetcher) fetchTraceByIDFromRemote(traceID string) (*Simplifi
 		log.Err(err).Msgf("[JaegerTraceFetcher.FetchTraceByIDFromRemote] Failed to fetch trace, path: %s", path)
 		return nil, err
 	}
-	if utils.GetStatusCodeClass(statusCode) != consts.StatusOK {
+	if http.GetStatusCodeClass(statusCode) != consts.StatusOK {
 		log.Err(err).Msgf("[JaegerTraceFetcher.FetchTraceByIDFromRemote] Failed to fetch trace, statusCode: %d, path: %s", statusCode, path)
 		return nil, err
 	}

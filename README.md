@@ -93,6 +93,22 @@ The tool can be configured using command-line arguments and environment variable
 - `--fuzz-value-dict-file`: Path to the file containing the dictionary of fuzz values, in the format of a JSON list. Each element in the list is a dictionary with two key-value pairs, one is `name` (value is of type string) and the other is `value` (value can be any JSON).
 - `--log-to-file`: Should log to file.
 - `--trace-id-header-key`: The response header key to be used for trace ID.
+- `http-middleware-script`: Path to the script file that contains the HTTP middleware functions, see [HTTP Middleware Script](#about-http-middleware-script).
+
+## About HTTP Middleware Script
+
+The HTTP Middleware Script allows you to intercept and modify HTTP requests and responses using a Starlark script. The script can modify headers, path parameters, query parameters, and the body of the request.
+
+Here is an example of a Starlark script that modifies the headers, path parameters, query parameters, and body of the request:
+```python
+# Example Starlark script
+headers = {"Authorization": "Bearer new_token"}
+pathParams = {"id": "123"}
+queryParams = {"search": "new_query"}
+body = "[1, 2, 3]"
+```
+
+For more information on Starlark, see the [Starlark documentation](https://github.com/google/starlark-go/blob/master/doc/spec.md).
 
 ## License
 

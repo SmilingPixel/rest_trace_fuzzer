@@ -2,7 +2,7 @@ package casemanager
 
 import (
 	"resttracefuzzer/pkg/static"
-	"resttracefuzzer/pkg/utils"
+	"resttracefuzzer/pkg/utils/http"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/rs/zerolog/log"
@@ -94,7 +94,7 @@ func (ts *TestScenario) Reset() {
 // IsExecutedSuccessfully checks whether the operation case is executed successfully.
 // It only checks the response status code for now.
 func (oc *OperationCase) IsExecutedSuccessfully() bool {
-	return utils.IsStatusCodeSuccess(oc.ResponseStatusCode)
+	return http.IsStatusCodeSuccess(oc.ResponseStatusCode)
 }
 
 // Copy creates a deep copy of the operation case.

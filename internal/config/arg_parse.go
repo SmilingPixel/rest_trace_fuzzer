@@ -16,6 +16,7 @@ func ParseCmdArgs() {
 	flag.StringVar(&GlobalConfig.FuzzValueDictFilePath, "fuzz-value-dict-file", "", "Path to the file containing the dictionary of fuzz values, in the format of a JSON list. Each element in the list is a dictionary with two key-value pairs, one is `name` (value is of type string) and the other is `value` (value can be any json).")
 	flag.IntVar(&GlobalConfig.FuzzerBudget, "fuzzer-budget", 5, "The maximum time the fuzzer can run, in seconds")
 	flag.StringVar(&GlobalConfig.FuzzerType, "fuzzer-type", "Basic", "Type of the fuzzer. Currently only support 'Basic'")
+	flag.StringVar(&GlobalConfig.HTTPMiddlewareScriptPath, "http-middleware-script", "", "Script for HTTP middleware handling.")
 	flag.StringVar(&GlobalConfig.InternalServiceOpenAPIPath, "internal-service-openapi-spec", "", "Path to internal service openapi spec file, json format")
 	flag.StringVar(&GlobalConfig.LogLevel, "log-level", "info", "Log level: debug, info, warn, error, fatal, panic")
 	flag.BoolVar(&GlobalConfig.LogToFile, "log-to-file", false, "Should log to file")
@@ -68,6 +69,9 @@ func ParseCmdArgs() {
 	}
 	if envVal, ok := os.LookupEnv("FUZZER_TYPE"); ok && envVal != "" {
 		GlobalConfig.FuzzerType = envVal
+	}
+	if envVal, ok := os.LookupEnv("HTTP_MIDDLEWARE_SCRIPT_PATH"); ok && envVal != "" {
+		GlobalConfig.HTTPMiddlewareScriptPath = envVal
 	}
 	if envVal, ok := os.LookupEnv("INTERNAL_SERVICE_OPENAPI_PATH"); ok && envVal != "" {
 		GlobalConfig.InternalServiceOpenAPIPath = envVal

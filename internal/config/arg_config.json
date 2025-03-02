@@ -56,6 +56,14 @@
         "default": "Basic"
     },
     {
+        "arg_name": "http-middleware-script",
+        "config_name": "http_middleware_script_path",
+        "description": "Script for HTTP middleware handling.",
+        "type": "string",
+        "required": false,
+        "default": ""
+    },
+    {
         "arg_name": "internal-service-openapi-spec",
         "config_name": "internal_service_openapi_path",
         "description": "Path to internal service openapi spec file, json format",

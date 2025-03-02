@@ -25,6 +25,9 @@ type RuntimeConfig struct {
 	// Type of the fuzzer. Currently only support 'Basic'
 	FuzzerType string `json:"fuzzerType"`
 
+	// Script for HTTP middleware handling.
+	HTTPMiddlewareScriptPath string `json:"hTTPMiddlewareScriptPath"`
+
 	// Path to internal service openapi spec file, json format
 	InternalServiceOpenAPIPath string `json:"internalServiceOpenAPIPath"`
 

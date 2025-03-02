@@ -1,16 +1,14 @@
-package utils
+package http
 
 import (
 	"context"
 	"strings"
 
-	"github.com/bytedance/sonic"
 	"github.com/cloudwego/hertz/pkg/app/client"
 	"github.com/cloudwego/hertz/pkg/protocol"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 	"github.com/rs/zerolog/log"
 )
-
 
 // HTTPClient is an HTTP client.
 // It has a base URL and a client based on Hertz.
@@ -23,11 +21,14 @@ type HTTPClient struct {
 
 	// Client is the underlying Hertz client used to make HTTP requests.
     Client                   *client.Client
+
+	// Middlewares are the middlewares used to process the request and response.
+	Middlewares              []HTTPClientMiddleware
 }
 
 // NewHTTPClient creates a new HTTPClient.
-// It takes a baseURL as a parameter and returns an instance of HTTPClient.
-func NewHTTPClient(baseURL string, headersToCapture []string) *HTTPClient {
+// It takes a baseURL and headersToCapture, and middlewares as parameters and returns an instance of HTTPClient.
+func NewHTTPClient(baseURL string, headersToCapture []string, middlewares []HTTPClientMiddleware) *HTTPClient {
 	c, err := client.NewClient()
 	if err != nil {
 		panic(err)
@@ -37,6 +38,7 @@ func NewHTTPClient(baseURL string, headersToCapture []string) *HTTPClient {
 		Client:          c,
 		BaseURL:        baseURL,
 		HeadersToCapture: headersToCapture,
+		Middlewares:     middlewares,
 	}
 }
 
@@ -44,11 +46,11 @@ func NewHTTPClient(baseURL string, headersToCapture []string) *HTTPClient {
 // It retries the request up to maxRetry times if a timeout error occurs.
 // If the request fails for any other reason, it returns the error immediately.
 // If all retry attempts fail due to timeout, it logs an error and returns the last error encountered.
-func (c *HTTPClient) PerformRequestWithRetry(path, method string, headers map[string]string, pathParams, queryParams map[string]string, body interface{}, maxRetry int) (int, map[string]string, []byte, error) {
+func (c *HTTPClient) PerformRequestWithRetry(path, method string, headers map[string]string, pathParams, queryParams map[string]string, body []byte, maxRetry int) (int, map[string]string, []byte, error) {
 	// If maxRetry is invalid, fallback to 1
 	if maxRetry <= 0 {
 		log.Warn().Msgf("[HTTPClient.PerformRequestWithRetry] Invalid max retry: %d, fallback to 1", maxRetry)
-		return c.PerformRequest(path, method, headers, pathParams, queryParams, body)
+		maxRetry = 1
 	}
 
 	// Retry only when timeout
@@ -71,7 +73,14 @@ func (c *HTTPClient) PerformRequestWithRetry(path, method string, headers map[st
 
 // PerformRequest performs an HTTP request.
 // It returns the status code, headers that we care about, the response body in bytes, and an error if any.
-func (c *HTTPClient) PerformRequest(path, method string, headers map[string]string, pathParams, queryParams map[string]string, body interface{}) (int, map[string]string, []byte, error) {
+func (c *HTTPClient) PerformRequest(path, method string, headers map[string]string, pathParams, queryParams map[string]string, body []byte) (int, map[string]string, []byte, error) {
+	// Apply middlewares on request
+	for _, middleware := range c.Middlewares {
+		// errors are ignored here, as we do not want to stop the request if a middleware fails
+		// You can see logs for errors in the middleware itself
+		path, method, headers, pathParams, queryParams, body, _ = middleware.HandleRequest(path, method, headers, pathParams, queryParams, body)
+	}
+	
 	req, resp := protocol.AcquireRequest(), protocol.AcquireResponse()
 	requestURL := c.BaseURL + path
 	req.SetRequestURI(requestURL)
@@ -88,15 +97,10 @@ func (c *HTTPClient) PerformRequest(path, method string, headers map[string]stri
 		requestURL = strings.ReplaceAll(requestURL, "{"+k+"}", v)
 	}
 
-	bodyBytes, err := sonic.Marshal(body)
-	if err != nil {
-		log.Err(err).Msgf("[HTTPClient.PerformRequest] Failed to marshal request body, URL: %s, method: %s", requestURL, method)
-		return 0, nil, nil, err
-	}
-	req.SetBody(bodyBytes)
+	req.SetBody(body)
 
-	log.Debug().Msgf("[HTTPClient.PerformRequest] Perform request, URL: %s, method: %s, headers: %v, query params: %v, body: %v", requestURL, method, headers, queryParams, body)
-	err = c.Client.Do(context.Background(), req, resp)
+	log.Debug().Msgf("[HTTPClient.PerformRequest] Perform request, URL: %s, method: %s, headers: %v, query params: %v, body: %s", requestURL, method, headers, queryParams, string(body))
+	err := c.Client.Do(context.Background(), req, resp)
 	if err != nil {
 		log.Err(err).Msgf("[HTTPClient.PerformRequest] Failed to perform request, URL: %s, method: %s", requestURL, method)
 		return 0, nil, nil, err
@@ -106,15 +110,15 @@ func (c *HTTPClient) PerformRequest(path, method string, headers map[string]stri
 		log.Err(err).Msgf("[HTTPClient.PerformRequest] Failed to get response body, URL: %s, method: %s", requestURL, method)
 		return 0, nil, nil, err
 	}
+	// we do not log whole response body, for some responses may be too large
 	statusCode := resp.StatusCode()
-	log.Debug().Msgf("[HTTPClient.PerformRequest] Response, status code: %d", statusCode) // we do not log response body, for some responses may be too large
-
-	// retrive headers that we care about
-	retrivedHeaders := make(map[string]string)
+	log.Debug().Msgf("[HTTPClient.PerformRequest] Response, status code: %d, response body (64 bytes at most): %s", statusCode, string(respBodyBytes[:min(64, len(respBodyBytes))]))
+	// retrieve headers that we care about
+	retrievedHeaders := make(map[string]string)
 	for _, headerKey := range c.HeadersToCapture {
-		retrivedHeaders[headerKey] = resp.Header.Get(headerKey)
+		retrievedHeaders[headerKey] = resp.Header.Get(headerKey)
 	}
-	return statusCode, retrivedHeaders, respBodyBytes, nil
+	return statusCode, retrievedHeaders, respBodyBytes, nil
 }
 
 // PerformGet performs an HTTP GET request.

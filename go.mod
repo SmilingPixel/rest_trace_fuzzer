@@ -9,6 +9,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/rs/zerolog v1.33.0
 	github.com/stretchr/testify v1.9.0
+	go.starlark.net v0.0.0-20250225190231-0d3f41d403af
 )
 
 require (

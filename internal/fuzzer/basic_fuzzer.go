@@ -6,7 +6,7 @@ import (
 	"resttracefuzzer/pkg/feedback"
 	"resttracefuzzer/pkg/feedback/trace"
 	"resttracefuzzer/pkg/static"
-	"resttracefuzzer/pkg/utils"
+	"resttracefuzzer/pkg/utils/http"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -33,7 +33,7 @@ type BasicFuzzer struct {
 	Budget time.Duration
 
 	// HTTPClient is the HTTP client.
-	HTTPClient *utils.HTTPClient
+	HTTPClient *http.HTTPClient
 
 	// FuzzingSnapshot is the snapshot of the fuzzing process.
 	FuzzingSnapshot *FuzzingSnapshot
@@ -47,9 +47,14 @@ func NewBasicFuzzer(
 	traceManager *trace.TraceManager,
 	runtimeGraph *feedback.RuntimeGraph,
 ) *BasicFuzzer {
-	httpClient := utils.NewHTTPClient(
+	httpClientMiddles := make([]http.HTTPClientMiddleware, 0)
+	if config.GlobalConfig.HTTPMiddlewareScriptPath != "" {
+		httpClientMiddles = append(httpClientMiddles, http.NewHTTPClientScriptMiddleware(config.GlobalConfig.HTTPMiddlewareScriptPath))
+	}
+	httpClient := http.NewHTTPClient(
 		config.GlobalConfig.ServerBaseURL,
 		[]string{config.GlobalConfig.TraceIDHeaderKey},
+		httpClientMiddles,
 	)
 	fuzzingSnapshot := NewFuzzingSnapshot()
 	return &BasicFuzzer{
