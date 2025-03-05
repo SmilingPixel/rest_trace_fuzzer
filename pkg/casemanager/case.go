@@ -2,10 +2,26 @@ package casemanager
 
 import (
 	"resttracefuzzer/pkg/static"
+	"resttracefuzzer/pkg/utils"
 	"resttracefuzzer/pkg/utils/http"
+
+	"maps"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/rs/zerolog/log"
+)
+
+const (
+	// When increasing or decreasing the energy of a test scenario by a random value (normal distribution),
+	// the mean and standard deviation of the normal distribution.
+	EnergyIncrMean = 5
+	EnergyIncrStdDev = 2
+	EnergyDecrMean = 3
+	EnergyDecrStdDev = 1
+
+	// Maximal and minimal values for the energy of a test scenario.
+	MaxEnergy = 20
+	MinEnergy = 0
 )
 
 // An OperationCase includes 3 parts:
@@ -50,15 +66,21 @@ type TestScenario struct {
 	// OperationCases is a sequence of [resttracefuzzer/pkg/casemanager/OperationCase].
 	OperationCases []*OperationCase `json:"operationCases"`
 
-	// ExecutedTimes is the number of times this test scenario has been executed
-	ExecutedTimes int `json:"executedTimes"`
+	// ExecutedCount is the number of times the test scenario is executed.
+	ExecutedCount int `json:"executedCount"`
+
+	// Energy is the energy of the test scenario.
+	// It is used to prioritize the test scenarios.
+	// The higher the energy, the higher the priority.
+	Energy int `json:"energy"`
 }
 
 // NewTestScenario creates a new TestScenario.
 func NewTestScenario(operationCases []*OperationCase) *TestScenario {
 	return &TestScenario{
 		OperationCases: operationCases,
-		ExecutedTimes:  0,
+		ExecutedCount:  0,
+		Energy:         0,
 	}
 }
 
@@ -73,6 +95,18 @@ func (ts *TestScenario) IsExecutedSuccessfully() bool {
 	return lastOperationCase.ResponseStatusCode == 200
 }
 
+// IncreaseEnergyByRandom increases the energy of the test scenario by a random value (normal distribution).
+func (ts *TestScenario) IncreaseEnergyByRandom() {
+	added := max(0, int(utils.NormInt64(EnergyIncrMean, EnergyIncrStdDev)))
+	ts.Energy = min(ts.Energy + added, MaxEnergy)
+}
+
+// DecreaseEnergyByRandom decreases the energy of the test scenario by a random value (normal distribution).
+func (ts *TestScenario) DecreaseEnergyByRandom() {
+	subtracted := max(0, int(utils.NormInt64(EnergyDecrMean, EnergyDecrStdDev)))
+	ts.Energy = max(ts.Energy - subtracted, MinEnergy)
+}
+
 // Copy creates a deep copy of the test scenario.
 func (ts *TestScenario) Copy() *TestScenario {
 	operationCases := make([]*OperationCase, len(ts.OperationCases))
@@ -81,14 +115,16 @@ func (ts *TestScenario) Copy() *TestScenario {
 	}
 	return &TestScenario{
 		OperationCases: operationCases,
-		ExecutedTimes:  ts.ExecutedTimes,
+		ExecutedCount:  ts.ExecutedCount,
+		Energy:         ts.Energy,
 	}
 }
 
 // Reset resets the test scenario.
-// It sets the executed times to 0.
+// It resets the executed count and energy to 0.
 func (ts *TestScenario) Reset() {
-	ts.ExecutedTimes = 0
+	ts.ExecutedCount = 0
+	ts.Energy = 0
 }
 
 // IsExecutedSuccessfully checks whether the operation case is executed successfully.
@@ -101,19 +137,15 @@ func (oc *OperationCase) IsExecutedSuccessfully() bool {
 // TODO: deep copy the request and response body. @xunzhou24
 func (oc *OperationCase) Copy() *OperationCase {
 	requestHeaders := make(map[string]string)
-	for k, v := range oc.RequestHeaders {
-		requestHeaders[k] = v
-	}
+	maps.Copy(requestHeaders, oc.RequestHeaders)
 	requestParams := make(map[string]string)
-	for k, v := range oc.RequestQueryParams {
-		requestParams[k] = v
-	}
-	requestBody := oc.RequestBody
+	maps.Copy(requestParams, oc.RequestQueryParams)
+	requestBody := make([]byte, len(oc.RequestBody))
+	copy(requestBody, oc.RequestBody)
 	responseHeaders := make(map[string]string)
-	for k, v := range oc.ResponseHeaders {
-		responseHeaders[k] = v
-	}
-	responseBody := oc.ResponseBody
+	maps.Copy(responseHeaders, oc.ResponseHeaders)
+	responseBody := make([]byte, len(oc.ResponseBody))
+	copy(responseBody, oc.ResponseBody)
 	return &OperationCase{
 		APIMethod:          oc.APIMethod,
 		Operation:          oc.Operation,

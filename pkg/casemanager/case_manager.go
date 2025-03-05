@@ -5,6 +5,7 @@ import (
 	"resttracefuzzer/pkg/resource"
 	"resttracefuzzer/pkg/static"
 	"resttracefuzzer/pkg/strategy"
+	"sort"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -12,8 +13,11 @@ import (
 )
 
 const (
-	// MaxExecutedTimes is the default maximum executed times of a test scenario.
-	MaxExecutedTimes = 3
+	// MaxAllowedExecutedCount is the default maximum executed times of a test scenario.
+	MaxAllowedExecutedCount = 3
+
+	// MaxAllowedScenarios is the default maximum number of test scenarios in the queue.
+	MaxAllowedScenarios = 114
 )
 
 // CaseManager manages the test cases.
@@ -40,10 +44,10 @@ type CaseManager struct {
 func NewCaseManager(APIManager *static.APIManager, resourceManager *resource.ResourceManager, fuzzStrategist *strategy.FuzzStrategist, globalExtraHeaders map[string]string) *CaseManager {
 	testScenarios := make([]*TestScenario, 0)
 	m := &CaseManager{
-		APIManager:      APIManager,
-		ResourceManager: resourceManager,
-		FuzzStrategist:  fuzzStrategist,
-		TestScenarios:   testScenarios,
+		APIManager:         APIManager,
+		ResourceManager:    resourceManager,
+		FuzzStrategist:     fuzzStrategist,
+		TestScenarios:      testScenarios,
 		GlobalExtraHeaders: globalExtraHeaders,
 	}
 	m.initTestcasesFromDoc()
@@ -109,22 +113,45 @@ func (m *CaseManager) PopAndPopulate() (*TestScenario, error) {
 	return testScenario, nil
 }
 
-// Push adds a test case to the case manager.
-func (m *CaseManager) Push(testcase *TestScenario) {
+// pushAndSort pushes a test scenario to the case manager and sorts the test scenarios by energy.
+// It also culls the test scenarios if there are too many.
+func (m *CaseManager) pushAndSort(testcase *TestScenario) {
+	m.push(testcase)
+	m.sortAndCullByEnergy()
+}
+
+// push adds a test case to the case manager.
+func (m *CaseManager) push(testcase *TestScenario) {
 	m.TestScenarios = append(m.TestScenarios, testcase)
 }
 
+// sortAndCullByEnergy sorts the test scenarios by energy and culls the test scenarios if there are too many.
+func (m *CaseManager) sortAndCullByEnergy() {
+	sort.Slice(m.TestScenarios, func(i, j int) bool {
+		return m.TestScenarios[i].Energy > m.TestScenarios[j].Energy
+	})
+
+	if len(m.TestScenarios) > MaxAllowedScenarios {
+		m.TestScenarios = m.TestScenarios[:MaxAllowedScenarios]
+	}
+}
+
 // EvaluateScenarioAndTryUpdate evaluates the given metrics for the given test scenario that has been executed,
-// determines whether to put the scenario back to the queue, and processes the scenario to generate a new one if needed.
+// determines whether to put the scenario back to the queue, and expand the scenario with an operation to a new scenario if needed.
 // It returns an error if any.
 func (m *CaseManager) EvaluateScenarioAndTryUpdate(hasAchieveNewCoverage bool, executedScenario *TestScenario) error {
-	// Update the executed times
-	executedScenario.ExecutedTimes++
+	// Update the executed count and energy
+	executedScenario.ExecutedCount++
+	if hasAchieveNewCoverage {
+		executedScenario.IncreaseEnergyByRandom()
+	} else {
+		executedScenario.DecreaseEnergyByRandom()
+	}
 
 	// Put the scenario back to the queue if it has achieved new coverage or has not been executed for enough times
-	if hasAchieveNewCoverage || executedScenario.ExecutedTimes < MaxExecutedTimes {
+	if hasAchieveNewCoverage || executedScenario.ExecutedCount < MaxAllowedExecutedCount {
 		// Put the scenario back to the queue
-		m.Push(executedScenario)
+		m.pushAndSort(executedScenario)
 	}
 
 	// Process the scenario to generate a new one
@@ -134,7 +161,7 @@ func (m *CaseManager) EvaluateScenarioAndTryUpdate(hasAchieveNewCoverage bool, e
 		return err
 	}
 	if newScenario != nil {
-		m.Push(newScenario)
+		m.pushAndSort(newScenario)
 	}
 
 	return nil
@@ -165,7 +192,7 @@ func (m *CaseManager) initTestcasesFromDoc() error {
 			APIMethod: method,
 		}
 		testcase := NewTestScenario([]*OperationCase{&operationCase})
-		m.Push(testcase)
+		m.pushAndSort(testcase)
 	}
 	return nil
 }
@@ -213,7 +240,7 @@ func (m *CaseManager) generateRequestParamsFromSchema(params []*openapi3.Paramet
 		} else {
 			valueStr = generatedValue.String()
 		}
-		
+
 		if param.Value.In == "path" {
 			pathParams[param.Value.Name] = valueStr
 		} else if param.Value.In == "query" {

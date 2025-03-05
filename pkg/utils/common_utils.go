@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"math"
 	"math/rand/v2"
 
 	"github.com/rs/zerolog/log"
@@ -120,4 +121,14 @@ func ConvertFloatTo64BitType(num interface{}) float64 {
         log.Warn().Msgf("[ConvertFloatTo64BitType] Unknown type: %T", num)
         return 0.0
     }
+}
+
+
+// NormInt64 generates a normally distributed random int64 value.
+// It accepts two parameters:
+// - mean: the mean value of the distribution
+// - stdDev: the standard deviation of the distribution
+// The function returns a normally distributed random int64 value.
+func NormInt64(mean, stdDev int64) int64 {
+    return int64(math.Round(rand.NormFloat64()*float64(stdDev) + float64(mean)))
 }
