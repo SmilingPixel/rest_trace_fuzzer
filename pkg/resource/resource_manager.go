@@ -1,10 +1,12 @@
 package resource
 
 import (
+	"encoding/json"
 	"io"
 	"math/rand/v2"
 	"os"
 	"resttracefuzzer/pkg/static"
+	"resttracefuzzer/pkg/utils"
 
 	"github.com/bytedance/sonic"
 	"github.com/getkin/kin-openapi/openapi3"
@@ -43,6 +45,7 @@ func (m *ResourceManager) GetSingleResourceByType(propertyType static.SimpleAPIP
 }
 
 // GetSingleResourceByType gets a resource from pool by the schema type(s).
+// Only supports primitive types: string, number, integer, boolean.
 func (m *ResourceManager) GetSingleResourceBySchemaType(schema *openapi3.Types) Resource {
 	switch {
 	case schema.Includes("string"):
@@ -75,18 +78,16 @@ func (m *ResourceManager) GetSingleResourceByName(resourceName string) Resource 
 //	[
 //	    {
 //	        "name": "resource1",
-//	        "type": "string",
 //	        "value": "value1"
 //	    },
 //	    {
 //	        "name": "resource2",
-//	        "type": "number",
 //	        "value": 1.0
 //	    }
 //	]
 //
-// The type should be one of "string", "number", "integer", "boolean".
 // It returns an error if any.
+// Note: for resources loaded from external dictionary, we do not store sub-resources.
 func (m *ResourceManager) LoadFromExternalDictFile(filePath string) error {
 	// Open the file
 	file, err := os.Open(filePath)
@@ -120,15 +121,101 @@ func (m *ResourceManager) LoadFromExternalDictFile(filePath string) error {
 	succCnt := 0
 	for _, dictValue := range dictValues {
 		// parse value and create a new resource
-		resource, err := NewResourceFromValue(dictValue.Name, dictValue.Value)
+		resourceName := dictValue.Name
+		resourceValue := dictValue.Value
+		resource, err := NewResourceFromValue(resourceValue)
 		if err != nil {
-			log.Warn().Msgf("[ResourceManager.LoadFromExternalDictFile] Failed to create resource: %s, err: %v", dictValue.Name, err)
+			log.Warn().Msgf("[ResourceManager.LoadFromExternalDictFile] Failed to create resource: %s, err: %v", resourceName, err)
 			continue
 		}
-		m.ResourceTypeMap[resource.Typ()] = append(m.ResourceTypeMap[resource.Typ()], resource)
-		m.ResourceNameMap[dictValue.Name] = append(m.ResourceNameMap[dictValue.Name], resource)
+		m.storeResource(resource, resourceName, false) // For resources loaded from external dictionary, we do not store sub-resources.
 		succCnt++
 	}
 	log.Info().Msgf("[ResourceManager.LoadFromExternalDictFile] Loaded %d resources", succCnt)
 	return nil
+}
+
+
+// StoreResourcesFromRawObjectBytes stores resources from raw object bytes.
+// It returns an error if any.
+// The raw object bytes should be a JSON object.
+//
+// Parameter `shouldStoreSubResources` indicates whether to store sub-resources.
+// For example, if the raw object is:
+//
+//	{
+//	    "name": "hi1",
+//	    "value": {
+//	        "name2": "hi2"
+//	    }
+//	}
+//
+// If `shouldStoreSubResources` is true, the resource "hi2" with name "name2" will be stored.
+// In specific:
+//  - for object type, all values from the object key-value pairs will be stored;
+//  - for array type, all elements in the array will be stored.
+func (m *ResourceManager) StoreResourcesFromRawObjectBytes(rawObjectBytes []byte, shouldStoreSubResources bool) error {
+	var jsonObject interface{}
+	err := json.Unmarshal(rawObjectBytes, &jsonObject)
+	if err != nil {
+		log.Err(err).Msg("[ResourceManager.StoreResourcesFromRawObjectBytes] Failed to unmarshal JSON")
+		return err
+	}
+	// Parse the object into a resource, for the convenience of post-processing.
+	rootResource, err := NewResourceFromValue(jsonObject)
+	if err != nil {
+		log.Err(err).Msg("[ResourceManager.StoreResourcesFromRawObjectBytes] Failed to create resource from JSON object")
+		return err
+	}
+
+	// Store the root resource.
+	// TODO: Name of the root resource is empty. We may need to add a name to the root resource. @xunzhou24
+	m.storeResource(rootResource, "", shouldStoreSubResources)
+	return nil
+}
+
+// storeResource stores a resource in the resource manager.
+// If the resource name is not empty, it will not be stored in the resource name map, i.e., we cannot get it by name.
+// Parameter `shouldStoreSubResources` indicates whether to store sub-resources.
+// For example, if the raw object is:
+//
+//	{
+//	    "name": "hi1",
+//	    "value": {
+//	        "name2": "hi2"
+//	    }
+//	}
+//
+// If `shouldStoreSubResources` is true, the resource "hi2" with name "name2" will be stored.
+// In specific:
+//  - for object type, all values from the object key-value pairs will be stored (resource name is the key);
+//  - for array type, all elements in the array will be stored (heuristic rules are applied to current `resourceName` to get the name, e.g., "names" -> "name").
+func (m *ResourceManager) storeResource(resource Resource, resourceName string, shouldStoreSubResources bool) {
+	if resource == nil {
+		log.Warn().Msg("[ResourceManager.storeResource] Resource is nil")
+		return
+	}
+	// Store the resource in the resource manager.
+	m.ResourceTypeMap[resource.Typ()] = append(m.ResourceTypeMap[resource.Typ()], resource)
+	if resourceName != "" {
+		m.ResourceNameMap[resourceName] = append(m.ResourceNameMap[resourceName], resource)
+	}
+
+	if !shouldStoreSubResources {
+		return
+	}
+	switch resource.Typ() {
+	case static.SimpleAPIPropertyTypeObject:
+		for field, subResource := range resource.(*ResourceObject).Value {
+			m.storeResource(subResource, field, shouldStoreSubResources)
+		}
+	case static.SimpleAPIPropertyTypeArray:
+		// Heuristic rules to get the name of the array elements.
+		arrayElementName := utils.GetArrayElementNameHeuristic(resourceName)
+		for _, subResource := range resource.(*ResourceArray).Value {
+			m.storeResource(subResource, arrayElementName, shouldStoreSubResources)
+		}
+	default:
+		// Do nothing for primitive types.
+	}
 }

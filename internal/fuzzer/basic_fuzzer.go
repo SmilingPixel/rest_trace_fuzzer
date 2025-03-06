@@ -20,8 +20,8 @@ type BasicFuzzer struct {
 	// CaseManager is the case manager.
 	CaseManager *casemanager.CaseManager
 
-	// ResponseChecker checks the response, and records the hit count of the status code.
-	ResponseChecker *feedback.ResponseChecker
+	// ResponseProcesser checks and processes the response.
+	ResponseProcesser *feedback.ResponseProcesser
 
 	// TraceManager manages traces.
 	TraceManager *trace.TraceManager
@@ -43,13 +43,16 @@ type BasicFuzzer struct {
 func NewBasicFuzzer(
 	APIManager *static.APIManager,
 	caseManager *casemanager.CaseManager,
-	responseChecker *feedback.ResponseChecker,
+	responseProcesser *feedback.ResponseProcesser,
 	traceManager *trace.TraceManager,
 	runtimeGraph *feedback.RuntimeGraph,
 ) *BasicFuzzer {
 	httpClientMiddles := make([]http.HTTPClientMiddleware, 0)
 	if config.GlobalConfig.HTTPMiddlewareScriptPath != "" {
-		httpClientMiddles = append(httpClientMiddles, http.NewHTTPClientScriptMiddleware(config.GlobalConfig.HTTPMiddlewareScriptPath))
+		middleware := http.NewHTTPClientScriptMiddleware(config.GlobalConfig.HTTPMiddlewareScriptPath)
+		if middleware != nil {
+			httpClientMiddles = append(httpClientMiddles, http.NewHTTPClientScriptMiddleware(config.GlobalConfig.HTTPMiddlewareScriptPath))
+		}
 	}
 	httpClient := http.NewHTTPClient(
 		config.GlobalConfig.ServerBaseURL,
@@ -60,7 +63,7 @@ func NewBasicFuzzer(
 	return &BasicFuzzer{
 		APIManager:      APIManager,
 		CaseManager:     caseManager,
-		ResponseChecker: responseChecker,
+		ResponseProcesser: responseProcesser,
 		TraceManager:    traceManager,
 		Budget:          time.Duration(config.GlobalConfig.FuzzerBudget) * time.Second, // Convert seconds to nanoseconds.
 		HTTPClient:      httpClient,
@@ -103,7 +106,7 @@ func (f *BasicFuzzer) Start() error {
 }
 
 // ExecuteTestScenario executes a test scenario (a sequence of operation cases).
-// This method makes HTTP calls, checks the response, and updates the runtime graph.
+// This method makes HTTP calls, processes the response, and updates the runtime graph.
 // If the analysers conclude that the test scenario is interesting, the case manager will be updated (e.g., add the test scenario back to queue).
 func (f *BasicFuzzer) ExecuteTestScenario(testScenario *casemanager.TestScenario) error {
 	for _, operationCase := range testScenario.OperationCases {
@@ -112,11 +115,12 @@ func (f *BasicFuzzer) ExecuteTestScenario(testScenario *casemanager.TestScenario
 			log.Err(err).Msg("[BasicFuzzer.ExecuteTestScenario] Failed to execute operation")
 		}
 		statusCode := operationCase.ResponseStatusCode
+		responseBody := operationCase.ResponseBody
 
-		// Check the response.
-		err = f.ResponseChecker.CheckResponse(operationCase.APIMethod, statusCode)
+		// Process the response.
+		err = f.ResponseProcesser.ProcessResponse(operationCase.APIMethod, statusCode, responseBody)
 		if err != nil {
-			log.Err(err).Msg("[BasicFuzzer.ExecuteTestScenario] Failed to check response")
+			log.Err(err).Msg("[BasicFuzzer.ExecuteTestScenario] Failed to process response")
 			return err
 		}
 
@@ -149,9 +153,9 @@ func (f *BasicFuzzer) ExecuteTestScenario(testScenario *casemanager.TestScenario
 
 	hasAchieveNewCoverage := f.FuzzingSnapshot.Update(
 		f.RunTimeGraph.GetEdgeCoverage(),
-		f.ResponseChecker.GetCoveredStatusCodeCount(),
+		f.ResponseProcesser.GetCoveredStatusCodeCount(),
 	)
-	log.Info().Msgf("[BasicFuzzer.ExecuteTestScenario] Finish execute current test scenario, Edge coverage: %f, covered status code count: %d, hasAchieveNewCoverage: %v", f.RunTimeGraph.GetEdgeCoverage(), f.ResponseChecker.GetCoveredStatusCodeCount(), hasAchieveNewCoverage)
+	log.Info().Msgf("[BasicFuzzer.ExecuteTestScenario] Finish execute current test scenario, Edge coverage: %f, covered status code count: %d, hasAchieveNewCoverage: %v", f.RunTimeGraph.GetEdgeCoverage(), f.ResponseProcesser.GetCoveredStatusCodeCount(), hasAchieveNewCoverage)
 
 	// Pass the scenario and the result back to the case manager,
 	// and decide whether to put the scenario back to the queue and to generate a new one.

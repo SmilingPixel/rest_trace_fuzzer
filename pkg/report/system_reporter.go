@@ -28,10 +28,10 @@ func NewSystemReporter(APIManager *static.APIManager) *SystemReporter {
 
 // GenerateSystemReport generates the system-level report.
 // The report includes the coverage of the Endpoints and Status Codes.
-func (r *SystemReporter) GenerateSystemReport(responseChecker *feedback.ResponseChecker, outputPath string) error {
-	if responseChecker == nil {
-		log.Error().Msg("[SystemReporter.GenerateSystemReport] The response checker is nil.")
-		return fmt.Errorf("responseChecker is nil")
+func (r *SystemReporter) GenerateSystemReport(responseProcesser *feedback.ResponseProcesser, outputPath string) error {
+	if responseProcesser == nil {
+		log.Error().Msg("[SystemReporter.GenerateSystemReport] responseProcesser is nil.")
+		return fmt.Errorf("responseProcesser is nil")
 	}
 
 	systemTestReport := SystemTestReport{}
@@ -45,7 +45,7 @@ func (r *SystemReporter) GenerateSystemReport(responseChecker *feedback.Response
 	}
 
 	// Calculate the hit count of the status codes.
-	statusHitCount := responseChecker.StatusHitCount
+	statusHitCount := responseProcesser.StatusHitCount
 	totalHitStatusCount := 0
 	for _, statusCount := range statusHitCount {
 		for _, count := range statusCount {

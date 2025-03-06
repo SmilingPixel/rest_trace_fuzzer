@@ -44,7 +44,7 @@ The architecture diagram is powered by [draw.io](https://app.diagrams.net/).
 | Testcase Scheduler  | 根据 ODG, DFG, Runtime Info Graph 等，调度接口的执行顺序                        | 输入：数据持久化模块中的数据 输出：本次预计执行的接口序列         |
 | Operation Population | 根据接口定义，填充参数，实例化接口                           | 输入：接口定义，资源池数据 输出：接口请求实例                           |
 | Test Driver          | 执行接口请求，记录执行结果，处理反馈，更新数据持久化模块中的数据 |                                                                      |
-| Response Checker       | 收集系统响应，存储测试结果        |                                                                      |
+| Response Processer       | 收集系统响应，存储测试结果        |                                                                      |
 | Trace Analyser       | 收集 Trace，同步更新 RuntimeInfo Graph 的状态        |                                                                      |
 
 
@@ -100,7 +100,7 @@ The architecture diagram is powered by [draw.io](https://app.diagrams.net/).
 │   │   ├── case.go          # Case structure and methods
 │   │   └── case_manager.go  # Case manager implementation
 │   ├── feedback            # Feedback handling logic
-│   │   ├── response_check.go # Response checking logic
+│   │   ├── response_process.go # Response processing logic
 │   │   ├── runtime_graph.go  # Runtime graph handling
 │   │   └── trace           # Trace handling logic
 │   │       ├── model.go      # Trace model definitions

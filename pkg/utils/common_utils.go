@@ -58,7 +58,7 @@ func MutateRandBytesForString(s string, mutationProbability float64, maxMutation
 
 
 // ConvertIntTo64BitType converts a given integer to its 64-bit equivalent type.
-// It accepts an interface{} as input and returns an int64 as output.
+// It accepts an integer as input and returns an int64 as output.
 // The function handles various integer types and converts them to int64.
 // If the input type is not recognized, it logs a warning and returns 0.
 //
@@ -67,15 +67,15 @@ func MutateRandBytesForString(s string, mutationProbability float64, maxMutation
 // - int64 -> no conversion
 //
 // Example usage:
-//     var num interface{} = 42
+//     var num = 42
 //     result := ConvertIntTo64BitType(num) // result will be int64(42)
 //
 // Parameters:
-// - num: the integer to be converted, of type interface{}
+// - num: the integer to be converted, of type any
 //
 // Returns:
 // - the converted integer as an int64, or 0 if the input type is not recognized.
-func ConvertIntTo64BitType(num interface{}) int64 {
+func ConvertIntTo64BitType(num any) int64 {
     switch num2 := num.(type) {
     case int:
         return int64(num2)
@@ -94,7 +94,7 @@ func ConvertIntTo64BitType(num interface{}) int64 {
 }
 
 // ConvertFloatTo64BitType converts a given float to its 64-bit equivalent type.
-// It accepts an interface{} as input and returns a float64 as output.
+// It accepts an float number as input and returns a float64 as output.
 // The function handles various float types and converts them to float64.
 // If the input type is not recognized, it logs a warning and returns 0.0.
 //
@@ -103,15 +103,15 @@ func ConvertIntTo64BitType(num interface{}) int64 {
 // - float64 -> no conversion
 //
 // Example usage:
-//     var num interface{} = float32(42.0)
+//     var num = float32(42.0)
 //     result := ConvertFloatTo64BitType(num) // result will be float64(42.0)
 //
 // Parameters:
-// - num: the float to be converted, of type interface{}
+// - num: the float to be converted, of type any
 //
 // Returns:
 // - the converted float as a float64, or 0.0 if the input type is not recognized.
-func ConvertFloatTo64BitType(num interface{}) float64 {
+func ConvertFloatTo64BitType(num any) float64 {
     switch num2 := num.(type) {
     case float32:
         return float64(num2)

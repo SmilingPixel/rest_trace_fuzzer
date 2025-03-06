@@ -85,7 +85,7 @@ func NewTestScenario(operationCases []*OperationCase) *TestScenario {
 }
 
 // IsExecutedSuccessfully checks whether the test scenario is executed successfully.
-// It only checks the last operation for now.
+// It only checks whether the last operation is successful for now.
 func (ts *TestScenario) IsExecutedSuccessfully() bool {
 	if len(ts.OperationCases) == 0 {
 		log.Warn().Msg("[TestScenario.IsExecutedSuccessfully] Test scenario is empty")

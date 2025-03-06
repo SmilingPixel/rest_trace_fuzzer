@@ -169,6 +169,7 @@ func (j *JaccardSimilarityCalculator) CalculateSimilarity(str1, str2 string) flo
 // (e.g., camelCase, snake_case, snake-case) into a standardized lowercase format
 // without any separators. This function is useful for ensuring uniform processing
 // and comparison of variable names across different conventions.
+// For example, 'petStore', 'pet_store', and 'pet-store' would all be converted to 'petstore'.
 func ConvertToStandardCase(input string) string {
 	// Remove underscores and hyphens
 	removedSeparators := strings.ReplaceAll(strings.ReplaceAll(input, "_", ""), "-", "")
@@ -202,4 +203,30 @@ func ExtractLastSegment(input, delimiters string) string {
 	}
 
 	return lastSegment
+}
+
+// GetArrayElementNameHeuristic returns a singular form of an array name by applying simple heuristics.
+//  - At a basic level, it removes the trailing 's' or 'es' character(s) from the array name if present.
+//  - If the arrayName ends with 'List', 'Array', or 'Collection', it removes the suffix.
+func GetArrayElementNameHeuristic(arrayName string) string {
+	if arrayName == "" {
+		return arrayName
+	}
+	// handle "es" before "s" to avoid incorrect removal
+	if strings.HasSuffix(arrayName, "es") {
+		return strings.TrimSuffix(arrayName, "s")
+	}
+	if strings.HasSuffix(arrayName, "s") {
+		return strings.TrimSuffix(arrayName, "s")
+	}
+	if strings.HasSuffix(arrayName, "List") {
+		return strings.TrimSuffix(arrayName, "List")
+	}
+	if strings.HasSuffix(arrayName, "Array") {
+		return strings.TrimSuffix(arrayName, "Array")
+	}
+	if strings.HasSuffix(arrayName, "Collection") {
+		return strings.TrimSuffix(arrayName, "Collection")
+	}
+	return arrayName
 }

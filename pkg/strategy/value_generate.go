@@ -159,7 +159,7 @@ func (s *SchemaToValueStrategy) generatePrimitiveValueForSchema(schema *openapi3
 		return nil, fmt.Errorf("schema is nil")
 	}
 	defaultValue := utils.GenerateDefaultValueForPrimitiveSchemaType(schema.Value.Type)
-	result, err := resource.NewResourceFromValue("", defaultValue)
+	result, err := resource.NewResourceFromValue(defaultValue)
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +187,7 @@ func (s *SchemaToValueStrategy) preCheckAndTryApplyValueSource(schema *openapi3.
 			return nil, false, nil
 		}
 		randomValue := utils.GenerateRandomValueForPrimitiveSchemaType(schema.Value.Type)
-		result, err := resource.NewResourceFromValue("", randomValue)
+		result, err := resource.NewResourceFromValue(randomValue)
 		if err != nil {
 			return nil, false, err
 		}

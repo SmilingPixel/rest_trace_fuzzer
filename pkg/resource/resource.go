@@ -13,8 +13,10 @@ import (
 // Resource represents a resource in the system.
 // It is an interface that can be implemented by different types of resources.
 type Resource interface {
+
 	// String returns the string representation of the resource.
 	String() string
+
 	// Typ returns the type of the resource.
 	Typ() static.SimpleAPIPropertyType
 }
@@ -150,7 +152,7 @@ func (r *ResourceArray) Typ() static.SimpleAPIPropertyType {
 
 // NewResourceFromValue creates a new resource.
 // For non-primitive types, it recursively creates sub-resources.
-func NewResourceFromValue(name string, value interface{}) (Resource, error) {
+func NewResourceFromValue(value any) (Resource, error) {
 	propertyType := static.DeterminePropertyType(value)
 	switch propertyType {
 	case static.SimpleAPIPropertyTypeString:
@@ -175,7 +177,7 @@ func NewResourceFromValue(name string, value interface{}) (Resource, error) {
 			Value: make(map[string]Resource),
 		}
 		for key, val := range objectValue {
-			subResource, err := NewResourceFromValue(key, val)
+			subResource, err := NewResourceFromValue(val)
 			if err != nil {
 				return nil, err
 			}
@@ -187,8 +189,8 @@ func NewResourceFromValue(name string, value interface{}) (Resource, error) {
 		resource := &ResourceArray{
 			Value: make([]Resource, 0, len(arrayValue)),
 		}
-		for i, val := range arrayValue {
-			subResource, err := NewResourceFromValue(fmt.Sprintf("%s[%d]", name, i), val)
+		for _, val := range arrayValue {
+			subResource, err := NewResourceFromValue(val)
 			if err != nil {
 				return nil, err
 			}

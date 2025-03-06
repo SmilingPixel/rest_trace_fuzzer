@@ -59,7 +59,7 @@ func Name2SimpleAPIPropertyType(name string) SimpleAPIPropertyType {
 
 // DeterminePropertyType determines the type of a property.
 // It uses reflection to determine the type of the value.
-func DeterminePropertyType(value interface{}) SimpleAPIPropertyType {
+func DeterminePropertyType(value any) SimpleAPIPropertyType {
 	switch value.(type) {
 	case string:
 		return SimpleAPIPropertyTypeString
