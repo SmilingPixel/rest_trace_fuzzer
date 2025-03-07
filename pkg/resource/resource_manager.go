@@ -7,6 +7,7 @@ import (
 	"os"
 	"resttracefuzzer/pkg/static"
 	"resttracefuzzer/pkg/utils"
+	"strings"
 
 	"github.com/bytedance/sonic"
 	"github.com/getkin/kin-openapi/openapi3"
@@ -19,18 +20,24 @@ type ResourceManager struct {
 
 	// Value set of all map below should be the same.
 	// ResourceTypeMap is a map from the property type to the list of resources.
-	ResourceTypeMap map[static.SimpleAPIPropertyType][]Resource
+	// type map is not json serialized, as its key is a struct.
+	ResourceTypeMap map[static.SimpleAPIPropertyType][]Resource `json:"-"`
 	// ResourceNameMap is a map from the resource name to the resource.
-	ResourceNameMap map[string][]Resource
+	ResourceNameMap map[string][]Resource `json:"resourceNameMap"`
+
+	// ResourceHashSet is used to store the hashcode of resources, preventing duplicate resources.
+	ResourceHashSet map[uint64]struct{} `json:"-"`
 }
 
 // NewResourceManager creates a new ResourceManager.
 func NewResourceManager() *ResourceManager {
 	resourceTypeMap := make(map[static.SimpleAPIPropertyType][]Resource)
 	resourceNameMap := make(map[string][]Resource)
+	resourceHashSet := make(map[uint64]struct{})
 	return &ResourceManager{
 		ResourceTypeMap: resourceTypeMap,
 		ResourceNameMap: resourceNameMap,
+		ResourceHashSet: resourceHashSet,
 	}
 }
 
@@ -63,12 +70,27 @@ func (m *ResourceManager) GetSingleResourceBySchemaType(schema *openapi3.Types) 
 }
 
 // GetSingleResourceByName gets a resource from pool by the resource name.
+// Heuristic rules are applied to get the resource for names like "xxxIds", "xxxNames", "xxxValues", etc.
 func (m *ResourceManager) GetSingleResourceByName(resourceName string) Resource {
 	resources := m.ResourceNameMap[resourceName]
+
+	// if resource ends with "Ids", "Names", "Values", etc., apply heuristic rules to get the resource.
+	// For example, if the resource name is "userIds", "userNames", "userValues", etc., we can get the resource by "id", "name", "value".
+	namesToApplyHeuristic := []string{"id", "name", "value"}
+	for _, name := range namesToApplyHeuristic {
+		if strings.HasSuffix(strings.ToLower(resourceName), name) || strings.HasSuffix(strings.ToLower(resourceName), name+"s") {
+			resources = m.ResourceNameMap[name]
+			if len(resources) > 0 {
+				break
+			}
+		}
+	}
+
 	if len(resources) == 0 {
 		log.Warn().Msgf("[ResourceManager.GetRandomResourceByName] No resource of name %s", resourceName)
 		return nil
 	}
+
 	return resources[rand.IntN(len(resources))]
 }
 
@@ -139,6 +161,7 @@ func (m *ResourceManager) LoadFromExternalDictFile(filePath string) error {
 // StoreResourcesFromRawObjectBytes stores resources from raw object bytes.
 // It returns an error if any.
 // The raw object bytes should be a JSON object.
+// The root resource name is the name of the root resource. It would be ignored if it is empty.
 //
 // Parameter `shouldStoreSubResources` indicates whether to store sub-resources.
 // For example, if the raw object is:
@@ -154,7 +177,7 @@ func (m *ResourceManager) LoadFromExternalDictFile(filePath string) error {
 // In specific:
 //  - for object type, all values from the object key-value pairs will be stored;
 //  - for array type, all elements in the array will be stored.
-func (m *ResourceManager) StoreResourcesFromRawObjectBytes(rawObjectBytes []byte, shouldStoreSubResources bool) error {
+func (m *ResourceManager) StoreResourcesFromRawObjectBytes(rawObjectBytes []byte, rootResourceName string, shouldStoreSubResources bool) error {
 	var jsonObject interface{}
 	err := json.Unmarshal(rawObjectBytes, &jsonObject)
 	if err != nil {
@@ -169,8 +192,7 @@ func (m *ResourceManager) StoreResourcesFromRawObjectBytes(rawObjectBytes []byte
 	}
 
 	// Store the root resource.
-	// TODO: Name of the root resource is empty. We may need to add a name to the root resource. @xunzhou24
-	m.storeResource(rootResource, "", shouldStoreSubResources)
+	m.storeResource(rootResource, rootResourceName, shouldStoreSubResources)
 	return nil
 }
 
@@ -195,6 +217,14 @@ func (m *ResourceManager) storeResource(resource Resource, resourceName string, 
 		log.Warn().Msg("[ResourceManager.storeResource] Resource is nil")
 		return
 	}
+
+	// Check if the resource is duplicate.
+	hashcode := resource.Hashcode()
+	if _, ok := m.ResourceHashSet[hashcode]; ok {
+		return
+	}
+	m.ResourceHashSet[hashcode] = struct{}{}
+	
 	// Store the resource in the resource manager.
 	m.ResourceTypeMap[resource.Typ()] = append(m.ResourceTypeMap[resource.Typ()], resource)
 	if resourceName != "" {

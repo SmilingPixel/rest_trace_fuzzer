@@ -48,7 +48,7 @@ func NewSchemaToValueStrategy(resourceManager *resource.ResourceManager) *Schema
 	valueSourceWeightMap := NewConstantWeightMapStrategy(
 		map[string]int{
 			VALUE_SOURCE_RANDOM:       1,
-			VALUE_SOURCE_RESOURCE_POOL: 1,
+			VALUE_SOURCE_RESOURCE_POOL: 4,
 			VALUE_SOURCE_MUTATION:     1,
 		},
 	)

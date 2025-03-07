@@ -2,12 +2,18 @@ package resource
 
 import (
 	"fmt"
+	"hash/fnv"
+	"math"
 	"resttracefuzzer/pkg/static"
 	"resttracefuzzer/pkg/utils"
 	"strconv"
 
 	"github.com/bytedance/sonic"
 	"github.com/rs/zerolog/log"
+)
+
+var (
+	hasher = fnv.New64a()
 )
 
 // Resource represents a resource in the system.
@@ -19,6 +25,10 @@ type Resource interface {
 
 	// Typ returns the type of the resource.
 	Typ() static.SimpleAPIPropertyType
+
+	// Hashcode returns the hashcode of the resource.
+	// It is used to compare resources (not precisely).
+	Hashcode() uint64
 }
 
 // ResourceInteger represents a integer resource.
@@ -40,6 +50,11 @@ func (r *ResourceInteger) Typ() static.SimpleAPIPropertyType {
 	return static.SimpleAPIPropertyTypeFloat
 }
 
+func (r *ResourceInteger) Hashcode() uint64 {
+	// As int64 and uint64 have the same scope, we can directly convert int64 to uint64.
+	return uint64(r.Value)
+}
+
 // ResourceFloat represents a float resource.
 type ResourceFloat struct {
 	Value float64
@@ -59,6 +74,10 @@ func (r *ResourceFloat) Typ() static.SimpleAPIPropertyType {
 	return static.SimpleAPIPropertyTypeFloat
 }
 
+func (r *ResourceFloat) Hashcode() uint64 {
+	return math.Float64bits(r.Value)
+}
+
 // ResourceString represents a string resource.
 type ResourceString struct {
 	Value string
@@ -76,6 +95,11 @@ func (r *ResourceString) String() string {
 
 func (r *ResourceString) Typ() static.SimpleAPIPropertyType {
 	return static.SimpleAPIPropertyTypeString
+}
+
+func (r *ResourceString) Hashcode() uint64 {
+	hasher.Write([]byte(r.Value))
+	return hasher.Sum64()
 }
 
 // ResourceBoolean represents a boolean resource.
@@ -102,6 +126,14 @@ func (r *ResourceBoolean) Typ() static.SimpleAPIPropertyType {
 	return static.SimpleAPIPropertyTypeBoolean
 }
 
+func (r *ResourceBoolean) Hashcode() uint64 {
+	if r.Value {
+		return 1
+	} else {
+		return 0
+	}
+}
+
 // ResourceObject represents an object resource.
 type ResourceObject struct {
 	Value map[string]Resource
@@ -126,6 +158,16 @@ func (r *ResourceObject) Typ() static.SimpleAPIPropertyType {
 	return static.SimpleAPIPropertyTypeObject
 }
 
+func (r *ResourceObject) Hashcode() uint64 {
+	var res = uint64(len(r.Value))
+	for key, v := range r.Value {
+		hasher.Write([]byte(key))
+		keyHash := hasher.Sum64()
+		res = (res * 17 + keyHash + v.Hashcode())
+	}
+	return res
+}
+
 // ResourceArray represents an array resource.
 type ResourceArray struct {
 	Value []Resource
@@ -148,6 +190,14 @@ func (r *ResourceArray) String() string {
 
 func (r *ResourceArray) Typ() static.SimpleAPIPropertyType {
 	return static.SimpleAPIPropertyTypeArray
+}
+
+func (r *ResourceArray) Hashcode() uint64 {
+	var res = uint64(len(r.Value))
+	for _, v := range r.Value {
+		res = (res * 17 + v.Hashcode())
+	}
+	return res
 }
 
 // NewResourceFromValue creates a new resource.

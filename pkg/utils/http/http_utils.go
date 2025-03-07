@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"net/url"
 	"strings"
 
 	"github.com/cloudwego/hertz/pkg/app/client"
@@ -72,8 +73,20 @@ func (c *HTTPClient) PerformRequestWithRetry(path, method string, headers map[st
 }
 
 // PerformRequest performs an HTTP request.
+// You do not have to encode the path params and query params, just pass them as a map. The function will do the encoding for you.
 // It returns the status code, headers that we care about, the response body in bytes, and an error if any.
 func (c *HTTPClient) PerformRequest(path, method string, headers map[string]string, pathParams, queryParams map[string]string, body []byte) (int, map[string]string, []byte, error) {
+	// In case of nil values, initialize them
+	if headers == nil {
+		headers = make(map[string]string)
+	}
+	if pathParams == nil {
+		pathParams = make(map[string]string)
+	}
+	if queryParams == nil {
+		queryParams = make(map[string]string)
+	}
+
 	// Apply middlewares on request
 	for _, middleware := range c.Middlewares {
 		// errors are ignored here, as we do not want to stop the request if a middleware fails
@@ -83,20 +96,20 @@ func (c *HTTPClient) PerformRequest(path, method string, headers map[string]stri
 	
 	req, resp := protocol.AcquireRequest(), protocol.AcquireResponse()
 	requestURL := c.BaseURL + path
-	req.SetRequestURI(requestURL)
-	req.SetHeaders(headers)
-	req.SetMethod(method)
-
+	
 	// Set path params
 	if len(queryParams) > 0 {
 		req.SetQueryString(paramDict2QueryStr(queryParams))
 	}
-
+	
 	// Set path params, replacing the path params in the URL
 	for k, v := range pathParams {
-		requestURL = strings.ReplaceAll(requestURL, "{"+k+"}", v)
+		requestURL = strings.ReplaceAll(requestURL, "{"+k+"}", url.PathEscape(v))
 	}
-
+	
+	req.SetRequestURI(requestURL)
+	req.SetHeaders(headers)
+	req.SetMethod(method)
 	req.SetBody(body)
 
 	log.Debug().Msgf("[HTTPClient.PerformRequest] Perform request, URL: %s, method: %s, headers: %v, query params: %v, body: %s", requestURL, method, headers, queryParams, string(body))
@@ -129,13 +142,13 @@ func (c *HTTPClient) PerformGet(path string, headers map[string]string, pathPara
 // paramDict2QueryStr converts a map of parameters to a query string.
 // It returns the query string.
 //
-// For example, if the input is {"a": "1", "b": ["2", "3"]}, the output is "a=1&b=2,3".
+// For example, if the input is {"a": "1", "b": "2"}, the output is "a=1&b=2".
 func paramDict2QueryStr(paramDict map[string]string) string {
-	queryParamsStrList := make([]string, 0)
+	parameters := url.Values{}
 	for k, v := range paramDict {
-		queryParamsStrList = append(queryParamsStrList, k+"="+v)
+		parameters.Add(k, v)
 	}
-	return strings.Join(queryParamsStrList, "&")
+	return parameters.Encode()
 }
 
 // GetStatusCodeClass returns the class of a status code.

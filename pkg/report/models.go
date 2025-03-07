@@ -2,6 +2,7 @@ package report
 
 import (
 	"resttracefuzzer/pkg/feedback"
+	"resttracefuzzer/pkg/resource"
 	"resttracefuzzer/pkg/static"
 )
 
@@ -53,4 +54,12 @@ type InternalServiceTestReport struct {
 
 	// FinalRuntimeGraph is the final runtime graph.
 	FinalRuntimeGraph *feedback.RuntimeGraph `json:"finalRuntimeGraph"`
+}
+
+// FuzzerStateReport is the report of the fuzzer state.
+type FuzzerStateReport struct {
+
+	// ResourcePool is the resource pool.
+	ResourceNameMap map[string][]resource.Resource `json:"resourceNameMap"`
+
 }

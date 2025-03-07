@@ -108,9 +108,9 @@ const (
 )
 
 // SimpleAPIMethod represents an API method on a specific endpoint.
-//
 //   - If the API is an HTTP API, the method is the HTTP method, such as GET, POST, PUT, DELETE, and Endpoint is the URL path.
 //   - If the API is a gRPC API, the method is the gRPC method name.
+// Endpoint is the URL path or the gRPC method name.
 //
 // You should use the struct by value, not by pointer.
 type SimpleAPIMethod struct {
