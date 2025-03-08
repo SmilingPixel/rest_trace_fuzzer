@@ -12,9 +12,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-var (
-	hasher = fnv.New64a()
-)
 
 // Resource represents a resource in the system.
 // It is an interface that can be implemented by different types of resources.
@@ -98,6 +95,7 @@ func (r *ResourceString) Typ() static.SimpleAPIPropertyType {
 }
 
 func (r *ResourceString) Hashcode() uint64 {
+	hasher := fnv.New64a()
 	hasher.Write([]byte(r.Value))
 	return hasher.Sum64()
 }
@@ -159,6 +157,7 @@ func (r *ResourceObject) Typ() static.SimpleAPIPropertyType {
 }
 
 func (r *ResourceObject) Hashcode() uint64 {
+	hasher := fnv.New64a()
 	var res = uint64(len(r.Value))
 	for key, v := range r.Value {
 		hasher.Write([]byte(key))

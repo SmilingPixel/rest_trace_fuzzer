@@ -16,7 +16,8 @@ type StatusHitCountReport struct {
 type SystemTestReport struct {
 
 	// StatusCoverage is the coverage of the status code.
-	StatusCoverage float64 `json:"statusCoverage"`
+	// It maps from status code class (2xx, 3xx, 4xx, 5xx) to coverage.
+	StatusCoverage map[int]float64 `json:"statusCoverage"`
 
 	// statusHitCount is the hit count of the status code.
 	// Ignore this field when marshalling to JSON.

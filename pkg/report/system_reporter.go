@@ -2,10 +2,11 @@ package report
 
 import (
 	"fmt"
-	"math"
 	"os"
 	"resttracefuzzer/pkg/feedback"
 	"resttracefuzzer/pkg/static"
+	"resttracefuzzer/pkg/utils/http"
+	"strconv"
 
 	"github.com/bytedance/sonic"
 	"github.com/rs/zerolog/log"
@@ -39,26 +40,40 @@ func (r *SystemReporter) GenerateSystemReport(responseProcesser *feedback.Respon
 	// TODO: Find reponse status codes that are not defined in the OpenAPI document. @xunzhou24
 
 	// Calculate the total number of status codes in the OpenAPI document.
-	totalStatusCount := 0
+	allStatusCodeClassList := http.GetAllStatusCodeClasses()
+	statusCodeClass2TotalCnt := make(map[int]int)
+	statusCodeClass2Cnt := make(map[int]int)
+	for _, statusCodeClass := range allStatusCodeClassList {
+		statusCodeClass2TotalCnt[statusCodeClass] = 0
+		statusCodeClass2Cnt[statusCodeClass] = 0
+	}
 	for _, operation := range r.APIManager.APIMap {
-		totalStatusCount += len(operation.Responses.Map())
+		for fieldKey := range operation.Responses.Map() {
+			statusCode, err := strconv.Atoi(fieldKey)
+			if err != nil { // Ignore the 'default' field.
+				continue
+			}
+			statusCodeClass2TotalCnt[http.GetStatusCodeClass(statusCode)]++
+		}
 	}
 
 	// Calculate the hit count of the status codes.
 	statusHitCount := responseProcesser.StatusHitCount
-	totalHitStatusCount := 0
 	for _, statusCount := range statusHitCount {
-		for _, count := range statusCount {
+		for statusCode, count := range statusCount {
 			if count > 0 {
-				totalHitStatusCount++
+				statusCodeClass2Cnt[http.GetStatusCodeClass(statusCode)]++
 			}
 		}
 	}
 
 	// Calculate the coverage of the status codes.
-	systemTestReport.StatusCoverage = float64(totalHitStatusCount) / float64(totalStatusCount)
-	if math.IsInf(systemTestReport.StatusCoverage, 0) || math.IsNaN(systemTestReport.StatusCoverage) {
-		return fmt.Errorf("invalid status coverage: %f", systemTestReport.StatusCoverage)
+	systemTestReport.StatusCoverage = make(map[int]float64)
+	for statusCodeClass, totalCnt := range statusCodeClass2TotalCnt {
+		if totalCnt == 0 {
+			continue
+		}
+		systemTestReport.StatusCoverage[statusCodeClass] = float64(statusCodeClass2Cnt[statusCodeClass]) / float64(totalCnt)
 	}
 	systemTestReport.SetStatusHitCountReport(statusHitCount)
 
