@@ -3,6 +3,7 @@ package feedback
 import (
 	"resttracefuzzer/pkg/resource"
 	"resttracefuzzer/pkg/static"
+	"resttracefuzzer/pkg/utils"
 	"resttracefuzzer/pkg/utils/http"
 	"strconv"
 
@@ -64,7 +65,14 @@ func (rc *ResponseProcesser) ProcessResponse(method static.SimpleAPIMethod, stat
 
 	// handle response body
 	if http.GetStatusCodeClass(statusCode) == consts.StatusOK {
-		// TODO
+		// when storing resources, we use the API method as the root resource name.
+		// For example, if the API method is "GET /api/v1/user", the root resource name will be "user".
+		resourceName := utils.ExtractLastSegment(method.Endpoint, "/")
+		err := rc.ResourceManager.StoreResourcesFromRawObjectBytes(responseBody, resourceName, true)
+		if err != nil {
+			log.Err(err).Msg("[ResponseProcesser.ProcessResponse] Failed to store resources")
+			return err
+		}
 	}
 	return nil
 }

@@ -9,7 +9,7 @@ import (
 const (
 	// Time to wait before fetching the trace, as the trace may not be
 	// available immediately after the request.
-	TraceFetchWaitTime = 500 * time.Millisecond
+	TraceFetchWaitTime = 2500 * time.Millisecond
 )
 
 // TraceManager manages traces.
@@ -110,7 +110,7 @@ func (m *TraceManager) BatchConvertTrace2CallInfos(traces []*SimplifiedTrace) ([
 func (m *TraceManager) convertTrace2CallInfos(trace *SimplifiedTrace) ([]*CallInfo, error) {
 	res := make([]*CallInfo, 0)
 	if trace == nil || len(trace.SpanMap) == 0 {
-		log.Warn().Msg("[TraceManager.convertTrace2CallInfos] Invalid trace")
+		log.Warn().Msg("[TraceManager.convertTrace2CallInfos] Invalid trace, trace is nil or has no spans")
 		return res, nil
 	}
 	for _, span := range trace.SpanMap {
@@ -131,24 +131,30 @@ func (m *TraceManager) convertTrace2CallInfos(trace *SimplifiedTrace) ([]*CallIn
 		}
 		parentSpanID := parentSpan.SpanID
 
+		if parentSpan.OperationName == "/oteldemo.ProductCatalogService/ListProducts" {
+			log.Info().Msgf("[TraceManager.convertTrace2CallInfos] parentSpanID: %s, spanID: %s", parentSpanID, span.SpanID)
+		}
+
 		// retrieve method trace name
 		// Failure to retrieve for some reason would lead to the call being ignored.
-		sourceMethodTraceName, ok := parentSpan.RetrieveCalledMethod()
-		if !ok || sourceMethodTraceName == "" {
-			log.Warn().Msgf("[TraceManager.convertSingleTrace2CallInfos] Failed to retrieve source method trace name, spanID: %s", parentSpanID)
+		// At least one of the method trace names from the parent span and the span should be available.
+		sourceMethodTraceName, sourceOk := parentSpan.RetrieveCalledMethod()
+		targetMethodTraceName, targetOk := span.RetrieveCalledMethod()
+		if (!sourceOk && !targetOk) || (sourceMethodTraceName == "" && targetMethodTraceName == "") {
+			log.Warn().Msgf("[TraceManager.convertTrace2CallInfos] Failed to retrieve method trace name, parentSpanID: %s, spanID: %s", parentSpanID, span.SpanID)
 			continue
 		}
-		targetMethodTraceName, ok := span.RetrieveCalledMethod()
-		if !ok || targetMethodTraceName == "" {
-			log.Warn().Msgf("[TraceManager.convertSingleTrace2CallInfos] Failed to retrieve target method trace name, spanID: %s", span.SpanID)
-			continue
+		var methodTraceName string
+		if sourceMethodTraceName != "" {
+			methodTraceName = sourceMethodTraceName
+		} else {
+			methodTraceName = targetMethodTraceName
 		}
 
 		callInfo := &CallInfo{
 			SourceService:         parentSpan.Process.ServiceName,
 			TargetService:         span.Process.ServiceName,
-			SourceMethodTraceName: sourceMethodTraceName,
-			TargetMethodTraceName: targetMethodTraceName,
+			Method: 			  methodTraceName,
 		}
 		res = append(res, callInfo)
 	}

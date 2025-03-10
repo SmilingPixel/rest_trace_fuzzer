@@ -110,43 +110,47 @@ func (f *BasicFuzzer) Start() error {
 // If the analysers conclude that the test scenario is interesting, the case manager will be updated (e.g., add the test scenario back to queue).
 func (f *BasicFuzzer) ExecuteTestScenario(testScenario *casemanager.TestScenario) error {
 	for _, operationCase := range testScenario.OperationCases {
+		// If error occurs during executation of the operation case, stop the whole test scenario.
+		// Otherwise, continue to the next operation case.
 		err := f.ExecuteCaseOperation(operationCase)
 		if err != nil {
 			log.Err(err).Msg("[BasicFuzzer.ExecuteTestScenario] Failed to execute operation")
+			return err
 		}
 		statusCode := operationCase.ResponseStatusCode
 		responseBody := operationCase.ResponseBody
 
 		// Process the response.
+		// This phase would check the response status code and response body.
+		// The body would be stored in the resource manager if the request is successful.
+		// Error in processing the response will not stop the fuzzing process.
 		err = f.ResponseProcesser.ProcessResponse(operationCase.APIMethod, statusCode, responseBody)
 		if err != nil {
 			log.Err(err).Msg("[BasicFuzzer.ExecuteTestScenario] Failed to process response")
-			return err
+			continue // continue to the next operation case instead of stopping the fuzzing process
 		}
-
-		// TODO: parse and validate the response body @xunzhou24
 
 		// fetch the trace from the service, parse it, and update local runtime graph.
 		traceID, exist := operationCase.ResponseHeaders[config.GlobalConfig.TraceIDHeaderKey]
-		if !exist {
+		if !exist || traceID == "" {
 			log.Warn().Msg("[BasicFuzzer.ExecuteTestScenario] No trace ID found in the response headers")
 			continue
 		}
 		newTrace, err := f.TraceManager.PullTraceByIDAndReturn(traceID)
 		if err != nil {
 			log.Err(err).Msg("[BasicFuzzer.ExecuteTestScenario] Failed to pull traces")
-			return err
+			continue
 		}
 		// During the conversion, spans of kind 'internal' would be ignored, as we only care about the calls between services.
 		callInfoList, err := f.TraceManager.BatchConvertTrace2CallInfos([]*trace.SimplifiedTrace{newTrace})
 		if err != nil {
 			log.Err(err).Msg("[BasicFuzzer.ExecuteTestScenario] Failed to get call infos")
-			return err
+			continue
 		}
 		err = f.RunTimeGraph.UpdateFromCallInfos(callInfoList)
 		if err != nil {
 			log.Err(err).Msg("[BasicFuzzer.ExecuteTestScenario] Failed to update runtime graph")
-			return err
+			continue
 		}
 		log.Info().Msg("[BasicFuzzer.ExecuteTestScenario] Operation executed successfully")
 	}

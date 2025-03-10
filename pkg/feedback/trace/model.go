@@ -61,10 +61,8 @@ type CallInfo struct {
 	SourceService string `json:"sourceService"`
 	// TargetService is the name of the target service.
 	TargetService string `json:"targetService"`
-	// SourceMethodTraceName is the name of the source method.
-	SourceMethodTraceName string `json:"sourceMethodTraceName"`
-	// TargetMethodTraceName is the name of the target method.
-	TargetMethodTraceName string `json:"targetMethodTraceName"`
+	// Method is the called method.
+	Method string `json:"method"`
 }
 
 // SpanKindType represents the type of a span.
@@ -173,10 +171,10 @@ func (s *SimplifiedTraceSpan) RetrieveCalledMethod() (string, bool) {
 	// See [OpenTelemetry specification](https://opentelemetry.io/docs/specs/semconv/rpc/rpc-spans/) for more details.
 	case SemanticConventionTypeRPC:
 		operationNameParts := strings.Split(s.OperationName, "/")
-		if len(operationNameParts) >= 2 {
-			return operationNameParts[len(operationNameParts)-1], true
+		if len(operationNameParts) < 2 {
+			return "", false
 		}
-		return "", false
+		return operationNameParts[len(operationNameParts)-1], true
 
 	// TODO: support more semantic conventions @xunzhou24
 	default:
