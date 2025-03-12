@@ -2,10 +2,12 @@ package http
 
 import (
 	"context"
+	"crypto/tls"
 	"net/url"
 	"strings"
 
 	"github.com/cloudwego/hertz/pkg/app/client"
+	"github.com/cloudwego/hertz/pkg/network/standard"
 	"github.com/cloudwego/hertz/pkg/protocol"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 	"github.com/rs/zerolog/log"
@@ -30,7 +32,14 @@ type HTTPClient struct {
 // NewHTTPClient creates a new HTTPClient.
 // It takes a baseURL and headersToCapture, and middlewares as parameters and returns an instance of HTTPClient.
 func NewHTTPClient(baseURL string, headersToCapture []string, middlewares []HTTPClientMiddleware) *HTTPClient {
-	c, err := client.NewClient()
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: true,
+	}
+
+	c, err := client.NewClient(
+		client.WithTLSConfig(tlsConfig),
+		client.WithDialer(standard.NewDialer()),
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -56,7 +65,7 @@ func (c *HTTPClient) PerformRequestWithRetry(path, method string, headers map[st
 
 	// Retry only when timeout
 	var err error
-	for i := 0; i < maxRetry; i++ {
+	for i := range maxRetry {
 		statusCode, headers, respBodyBytes, err := c.PerformRequest(path, method, headers, pathParams, queryParams, body)
 		if err != nil {
 			if strings.Contains(string(err.Error()), "timeout") {
@@ -95,6 +104,10 @@ func (c *HTTPClient) PerformRequest(path, method string, headers map[string]stri
 	}
 	
 	req, resp := protocol.AcquireRequest(), protocol.AcquireResponse()
+	defer func() {
+		protocol.ReleaseRequest(req)
+		protocol.ReleaseResponse(resp)
+	}()
 	requestURL := c.BaseURL + path
 	
 	// Set path params
@@ -182,4 +195,15 @@ func GetStatusCodeClass(statusCode int) int {
 // It returns true if the status code is in the 2xx range, otherwise false.
 func IsStatusCodeSuccess(statusCode int) bool {
 	return GetStatusCodeClass(statusCode) == consts.StatusOK
+}
+
+// GetAllStatusCodeClasses returns all status code classes.
+func GetAllStatusCodeClasses() []int {
+	return []int{
+		consts.StatusContinue,
+		consts.StatusOK,
+		consts.StatusMultipleChoices,
+		consts.StatusBadRequest,
+		consts.StatusInternalServerError,
+	}
 }

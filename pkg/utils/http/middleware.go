@@ -8,6 +8,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"go.starlark.net/starlark"
 	"go.starlark.net/syntax"
+	"maps"
 )
 
 // HTTPClientMiddleware defines the interface for HTTP client middleware.
@@ -96,9 +97,7 @@ func (m *HTTPClientScriptMiddleware) HandleRequest(path, method string, headers 
 				return path, method, headers, pathParams, queryParams, body, err
 			}
 			log.Debug().Msgf("[HTTPClientScriptMiddleware.HandleRequest] Got extra headers: %v", extraHeaders)
-			for k, v := range extraHeaders {
-				headers[k] = v
-			}
+			maps.Copy(headers, extraHeaders)
 		} else {
 			log.Warn().Msg("[HTTPClientScriptMiddleware.HandleRequest] headers is not a map")
 		}
@@ -112,9 +111,7 @@ func (m *HTTPClientScriptMiddleware) HandleRequest(path, method string, headers 
 				return path, method, headers, pathParams, queryParams, body, err
 			}
 			log.Debug().Msgf("[HTTPClientScriptMiddleware.HandleRequest] Got extra path params: %v", extraPathParams)
-			for k, v := range extraPathParams {
-				pathParams[k] = v
-			}
+			maps.Copy(pathParams, extraPathParams)
 		} else {
 			log.Warn().Msg("[HTTPClientScriptMiddleware.HandleRequest] pathParams is not a map")
 		}
@@ -128,9 +125,7 @@ func (m *HTTPClientScriptMiddleware) HandleRequest(path, method string, headers 
 				return path, method, headers, pathParams, queryParams, body, err
 			}
 			log.Debug().Msgf("[HTTPClientScriptMiddleware.HandleRequest] Got extra query params: %v", extraQueryParams)
-			for k, v := range extraQueryParams {
-				queryParams[k] = v
-			}
+			maps.Copy(queryParams, extraQueryParams)
 		} else {
 			log.Warn().Msg("[HTTPClientScriptMiddleware.HandleRequest] queryParams is not a map")
 		}
