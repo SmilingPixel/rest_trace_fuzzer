@@ -126,7 +126,7 @@ func (m *TraceManager) convertTrace2CallInfos(trace *SimplifiedTrace) ([]*CallIn
 				break
 			}
 		}
-		if parentSpan == nil {
+		if parentSpan == nil || parentSpan.SpanKind == INTERNAL {
 			continue
 		}
 		parentSpanID := parentSpan.SpanID

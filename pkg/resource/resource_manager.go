@@ -53,18 +53,18 @@ func (m *ResourceManager) GetSingleResourceByType(propertyType static.SimpleAPIP
 
 // GetSingleResourceByType gets a resource from pool by the schema type(s).
 // Only supports primitive types: string, number, integer, boolean.
-func (m *ResourceManager) GetSingleResourceBySchemaType(schema *openapi3.Types) Resource {
+func (m *ResourceManager) GetSingleResourceBySchemaType(schemaTypes *openapi3.Types) Resource {
 	switch {
-	case schema.Includes("string"):
+	case schemaTypes.Includes(openapi3.TypeString):
 		return m.GetSingleResourceByType(static.SimpleAPIPropertyTypeString)
-	case schema.Includes("number"):
+	case schemaTypes.Includes(openapi3.TypeNumber):
 		return m.GetSingleResourceByType(static.SimpleAPIPropertyTypeFloat)
-	case schema.Includes("integer"):
+	case schemaTypes.Includes(openapi3.TypeInteger):
 		return m.GetSingleResourceByType(static.SimpleAPIPropertyTypeInteger)
-	case schema.Includes("boolean"):
+	case schemaTypes.Includes(openapi3.TypeBoolean):
 		return m.GetSingleResourceByType(static.SimpleAPIPropertyTypeBoolean)
 	default:
-		log.Warn().Msgf("[ResourceManager.GetSingleResourceBySchemaType] No resource of schema type %v", schema)
+		log.Warn().Msgf("[ResourceManager.GetSingleResourceBySchemaType] No resource of schema type %v", schemaTypes)
 		return nil
 	}
 }
@@ -157,7 +157,6 @@ func (m *ResourceManager) LoadFromExternalDictFile(filePath string) error {
 	return nil
 }
 
-
 // StoreResourcesFromRawObjectBytes stores resources from raw object bytes.
 // It returns an error if any.
 // The raw object bytes should be a JSON object.
@@ -175,8 +174,8 @@ func (m *ResourceManager) LoadFromExternalDictFile(filePath string) error {
 //
 // If `shouldStoreSubResources` is true, the resource "hi2" with name "name2" will be stored.
 // In specific:
-//  - for object type, all values from the object key-value pairs will be stored;
-//  - for array type, all elements in the array will be stored.
+//   - for object type, all values from the object key-value pairs will be stored;
+//   - for array type, all elements in the array will be stored.
 func (m *ResourceManager) StoreResourcesFromRawObjectBytes(rawObjectBytes []byte, rootResourceName string, shouldStoreSubResources bool) error {
 	var jsonObject interface{}
 	err := json.Unmarshal(rawObjectBytes, &jsonObject)
@@ -210,8 +209,8 @@ func (m *ResourceManager) StoreResourcesFromRawObjectBytes(rawObjectBytes []byte
 //
 // If `shouldStoreSubResources` is true, the resource "hi2" with name "name2" will be stored.
 // In specific:
-//  - for object type, all values from the object key-value pairs will be stored (resource name is the key);
-//  - for array type, all elements in the array will be stored (heuristic rules are applied to current `resourceName` to get the name, e.g., "names" -> "name").
+//   - for object type, all values from the object key-value pairs will be stored (resource name is the key);
+//   - for array type, all elements in the array will be stored (heuristic rules are applied to current `resourceName` to get the name, e.g., "names" -> "name").
 func (m *ResourceManager) storeResource(resource Resource, resourceName string, shouldStoreSubResources bool) {
 	if resource == nil {
 		log.Warn().Msg("[ResourceManager.storeResource] Resource is nil")
@@ -224,7 +223,7 @@ func (m *ResourceManager) storeResource(resource Resource, resourceName string, 
 		return
 	}
 	m.ResourceHashSet[hashcode] = struct{}{}
-	
+
 	// Store the resource in the resource manager.
 	m.ResourceTypeMap[resource.Typ()] = append(m.ResourceTypeMap[resource.Typ()], resource)
 	if resourceName != "" {

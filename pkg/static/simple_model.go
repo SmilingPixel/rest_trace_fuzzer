@@ -2,6 +2,7 @@ package static
 
 import (
 	"github.com/bytedance/sonic"
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/rs/zerolog/log"
 )
 
@@ -35,6 +36,27 @@ func (t SimpleAPIPropertyType) MarshalJSON() ([]byte, error) {
 func (t *SimpleAPIPropertyType) UnmarshalJSON(data []byte) error {
 	*t = SimpleAPIPropertyType(data)
 	return nil
+}
+
+// OpenAPITypes2SimpleAPIPropertyType converts an OpenAPI schema type to a SimpleAPIPropertyType.
+func OpenAPITypes2SimpleAPIPropertyType(types *openapi3.Types) SimpleAPIPropertyType {
+	switch {
+	case types.Includes(openapi3.TypeString):
+		return SimpleAPIPropertyTypeString
+	case types.Includes(openapi3.TypeInteger):
+		return SimpleAPIPropertyTypeInteger
+	case types.Includes(openapi3.TypeNumber):
+		return SimpleAPIPropertyTypeFloat
+	case types.Includes(openapi3.TypeBoolean):
+		return SimpleAPIPropertyTypeBoolean
+	case types.Includes(openapi3.TypeObject):
+		return SimpleAPIPropertyTypeObject
+	case types.Includes(openapi3.TypeArray):
+		return SimpleAPIPropertyTypeArray
+	default:
+		log.Warn().Msgf("[OpenAPITypes2SimpleAPIPropertyType] Unknown types: %v", types)
+		return SimpleAPIPropertyTypeUnknown
+	}
 }
 
 // Name2SimpleAPIPropertyType converts a string to a SimpleAPIPropertyType.
@@ -110,13 +132,14 @@ const (
 // SimpleAPIMethod represents an API method on a specific endpoint.
 //   - If the API is an HTTP API, the method is the HTTP method, such as GET, POST, PUT, DELETE, and Endpoint is the URL path.
 //   - If the API is a gRPC API, the method is the gRPC method name.
+//
 // Endpoint is the URL path or the gRPC method name.
 //
 // You should use the struct by value, not by pointer.
 type SimpleAPIMethod struct {
 	Endpoint string              `json:"endpoint"`
 	Method   string              `json:"method"`
-	Type     SimpleAPIMethodType `json:"type"`
+	Typ      SimpleAPIMethodType `json:"type"`
 }
 
 // SimpleAPIProperty represents a property of an API.

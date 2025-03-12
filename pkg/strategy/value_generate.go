@@ -47,9 +47,9 @@ type SchemaToValueStrategy struct {
 func NewSchemaToValueStrategy(resourceManager *resource.ResourceManager) *SchemaToValueStrategy {
 	valueSourceWeightMap := NewConstantWeightMapStrategy(
 		map[string]int{
-			VALUE_SOURCE_RANDOM:       1,
+			VALUE_SOURCE_RANDOM:        1,
 			VALUE_SOURCE_RESOURCE_POOL: 4,
-			VALUE_SOURCE_MUTATION:     1,
+			VALUE_SOURCE_MUTATION:      1,
 		},
 	)
 	return &SchemaToValueStrategy{
@@ -67,16 +67,16 @@ func (s *SchemaToValueStrategy) GenerateValueForSchema(schema *openapi3.SchemaRe
 	}
 	if generated {
 		return value, nil
-	}	
-	
+	}
+
 	if schema == nil || schema.Value == nil {
 		return nil, fmt.Errorf("schema is nil")
 	}
 
 	switch {
-	case schema.Value.Type.Includes("object"):
+	case schema.Value.Type.Includes(openapi3.TypeObject):
 		return s.generateObjectValueForSchema(schema)
-	case schema.Value.Type.Includes("array"):
+	case schema.Value.Type.Includes(openapi3.TypeArray):
 		return s.generateArrayValueForSchema(schema)
 	default:
 		return s.generatePrimitiveValueForSchema(schema)
@@ -94,8 +94,8 @@ func (s *SchemaToValueStrategy) generateObjectValueForSchema(schema *openapi3.Sc
 	}
 	if generated {
 		return value, nil
-	}	
-	
+	}
+
 	if schema == nil || schema.Value == nil {
 		return nil, fmt.Errorf("schema is nil")
 	}
@@ -166,12 +166,12 @@ func (s *SchemaToValueStrategy) generatePrimitiveValueForSchema(schema *openapi3
 	return result, nil
 }
 
-
 // preCheckAndTryApplyValueSource checks the schema and applies the value source.
 // It returns:
 //  1. The generated value, if successful.
 //  2. A boolean indicating whether the value is generated, if successful.
 //  3. An error, if any.
+//
 // The method is inserted into each of the generate methods.
 func (s *SchemaToValueStrategy) preCheckAndTryApplyValueSource(schema *openapi3.SchemaRef) (resource.Resource, bool, error) {
 	if schema == nil || schema.Value == nil {

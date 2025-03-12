@@ -37,6 +37,10 @@ func NewRuntimeGraph(APIDataflowGraph *static.APIDataflowGraph) *RuntimeGraph {
 
 // UpdateFromCallInfos updates the runtime graph from the call information.
 func (g *RuntimeGraph) UpdateFromCallInfos(callInfos []*trace.CallInfo) error {
+	if len(callInfos) == 0 {
+		return nil
+	}
+
 	// Group by source service
 	// An issue found during development:
 	// The source service in callInfo is not the completely same as the source service in runtimeGraph, they may be in different cases.
@@ -56,9 +60,9 @@ func (g *RuntimeGraph) UpdateFromCallInfos(callInfos []*trace.CallInfo) error {
 			// TODO: handle: edge in callInfo is not included in parsed runtimeGraph. @xunzhou24
 			// When conditions below are met, we consider the edge is hit:
 			//  1. The source and target service names match (after being converted into standard case).
-			//  2. The method in callInfo (i.e., the method called) must match the method in edge's target (i.e., target of data flow).
+			//  2. The method in callInfo (i.e., the method called) must match the method in edge's source or target (i.e., target of data flow).
 			if formatServiceName(callInfo.TargetService) == formatServiceName(edge.Target.ServiceName) &&
-				callInfo.Method == edge.Target.SimpleAPIMethod.Method {
+				(callInfo.Method == edge.Target.SimpleAPIMethod.Method || callInfo.Method == edge.Source.SimpleAPIMethod.Method) {
 				edge.HitCount++
 			}
 		}

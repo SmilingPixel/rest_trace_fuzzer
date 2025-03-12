@@ -3,6 +3,8 @@ package utils
 import (
 	"strings"
 	"unicode"
+
+	"github.com/rs/zerolog/log"
 )
 
 // SplitIntoWords takes a variable name formatted in either camelCase or snake_case and
@@ -42,23 +44,46 @@ func SplitIntoWords(name string) []string {
 // matchVariableNames determines if two variable names represent the same concept by
 // comparing their respective word slices. It returns true if they match and false otherwise.
 //
-// Two variable names are considered a match if, after splitting them into words, they yield identical slices.
+// Two variable names are considered a match if, after splitting them into words, they yield "similiar" slices.
 // Comparison is case-insensitive, and underscores are treated as word boundaries.
-func MatchVariableNames(name1, name2 string) bool {
+//
+// In sprcific, we do the following:
+//  1. Convert arrays to singular form using GetArrayElementNameHeuristic.
+//  2. Split the variable names into words using SplitIntoWords. For example, "petStore" -> ["pet", "store"].
+//  3. "Ignore" the prefixes, truncating the longer one if necessary. For example, if name1 and name2 are ["example", "pet", "store"] and ["app", "store"], respectively, we would compare ["pet", "store"] and ["app", "store"].
+//  4. Compare the words in the two slices. If the similiarity reaches a certain threshold, we consider the variable names a match. We use [resttracefuzzer/pkg/utils.SimilarityCalculator] to calculate the similarity.
+//  5. Return true if the average similarity is above the threshold, and false otherwise.
+//
+// Parameters:
+//  - name1: The first variable name to compare.
+//  - name2: The second variable name to compare.
+//  - similarityCalculator: A similarity calculator to use for comparing the words in the two slices. If not provided (nil), the identity similarity calculator is used.
+//  - threshold: The threshold above or equal to which the average similarity is considered a match.
+func MatchVariableNames(name1, name2 string, similarityCalculator SimilarityCalculator, threshold float64) bool {
+	name1 = GetArrayElementNameHeuristic(name1)
+	name2 = GetArrayElementNameHeuristic(name2)
+
 	words1 := SplitIntoWords(name1)
 	words2 := SplitIntoWords(name2)
 
+	// Truncate the longer slice if necessary
 	if len(words1) != len(words2) {
-		return false
+		truncatedLength := min(len(words1), len(words2))
+		words1 = words1[len(words1)-truncatedLength:]
+		words2 = words2[len(words2)-truncatedLength:]
 	}
 
+	// Calculate the average similarity between the two word slices
+	if similarityCalculator == nil {
+		log.Warn().Msg("No similarity calculator provided. Using identity similarity calculator.")
+		similarityCalculator = NewIdentitySimilarityCalculator()
+	}
+	similaritySum := 0.0
 	for i := range words1 {
-		if words1[i] != words2[i] {
-			return false
-		}
+		similaritySum += similarityCalculator.CalculateSimilarity(words1[i], words2[i])
 	}
-
-	return true
+	averageSimilarity := similaritySum / float64(len(words1))
+	return averageSimilarity >= threshold
 }
 
 
@@ -67,6 +92,24 @@ func MatchVariableNames(name1, name2 string) bool {
 type SimilarityCalculator interface {
 	CalculateSimilarity(str1, str2 string) float64
 }
+
+// IdentitySimilarityCalculator implements the calculation of similarity based on identity.
+// It returns 1.0 if the two strings are equal and 0.0 otherwise.
+type IdentitySimilarityCalculator struct{}
+
+// CalculateSimilarity calculates the similarity between two strings based on identity.
+func NewIdentitySimilarityCalculator() *IdentitySimilarityCalculator {
+	return &IdentitySimilarityCalculator{}
+}
+
+// CalculateSimilarity calculates the similarity between two strings based on identity.
+func (i *IdentitySimilarityCalculator) CalculateSimilarity(str1, str2 string) float64 {
+	if str1 == str2 {
+		return 1.0
+	}
+	return 0.0
+}
+
 
 // LevenshteinSimilarityCalculator implements the calculation of Levenshtein distance and similarity.
 type LevenshteinSimilarityCalculator struct{}

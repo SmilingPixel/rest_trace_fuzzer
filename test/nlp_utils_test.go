@@ -30,6 +30,7 @@ func TestSplitIntoWords(t *testing.T) {
 
 // TestMatchVariableNames tests the MatchVariableNames function from the utils package.
 // It verifies that various pairs of variable names are correctly matched based on their similarity.
+// We use the IdentitySimilarityCalculator to calculate the similarity between words, and set the threshold to 1.0.
 func TestMatchVariableNames(t *testing.T) {
 	tests := []struct {
 		name1    string
@@ -43,10 +44,34 @@ func TestMatchVariableNames(t *testing.T) {
 		{"pet_store", "pet_store_example", false},
 	}
 
+	similarityCalculator := utils.NewIdentitySimilarityCalculator()
+	threshold := 1.0
 	for _, test := range tests {
-		result := utils.MatchVariableNames(test.name1, test.name2)
+		result := utils.MatchVariableNames(test.name1, test.name2, similarityCalculator, threshold)
 		assert.Equal(t, test.expected, result)
 	}
+}
+
+// TestIdentitySimilarityCalculator tests the CalculateSimilarity function of the IdentitySimilarityCalculator.
+// It verifies that the similarity between various pairs of strings is correctly calculated based on identity.
+func TestIdentitySimilarityCalculator(t *testing.T) {
+    calculator := utils.NewIdentitySimilarityCalculator()
+
+    tests := []struct {
+        str1     string
+        str2     string
+        expected float64
+    }{
+        {"identical", "identical", 1.0},
+        {"different", "identical", 0.0},
+        {"", "", 1.0},
+        {"", "nonempty", 0.0},
+    }
+
+    for _, test := range tests {
+        result := calculator.CalculateSimilarity(test.str1, test.str2)
+        assert.Equal(t, test.expected, result)
+    }
 }
 
 // TestLevenshteinSimilarityCalculator tests the CalculateSimilarity function of the LevenshteinSimilarityCalculator.
