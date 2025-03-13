@@ -1,9 +1,11 @@
 package report
 
 import (
+	"resttracefuzzer/pkg/casemanager"
 	"resttracefuzzer/pkg/feedback"
 	"resttracefuzzer/pkg/resource"
 	"resttracefuzzer/pkg/static"
+	"time"
 )
 
 type StatusHitCountReport struct {
@@ -63,4 +65,82 @@ type FuzzerStateReport struct {
 	// ResourcePool is the resource pool.
 	ResourceNameMap map[string][]resource.Resource `json:"resourceNameMap"`
 
+}
+
+// OperationCaseForReport stores info of an operation tested during fuzzing.
+// Simplified version of [resttracefuzzer/pkg/casemanager.OperationCase]
+type OperationCaseForReport struct {
+	// APIMethod is the API method.
+	APIMethod          static.SimpleAPIMethod `json:"APIMethod"`
+
+	// RequestHeaders contains the headers to be sent with the request.
+	RequestHeaders map[string]string `json:"requestHeaders"`
+
+	// RequestPathParams contains the path parameters to be sent with the request.
+	RequestPathParams map[string]string `json:"requestPathParams"`
+
+	// RequestQueryParams contains the query parameters to be sent with the request.
+	RequestQueryParams map[string]string `json:"requestQueryParams"`
+
+	// RequestBody contains the body to be sent with the request.
+	// It is a json object as a string.
+	RequestBody string `json:"requestBody"`
+
+	// ResponseStatusCode is the expected status code of the response.
+	ResponseStatusCode int `json:"responseStatusCode"`
+}
+
+// NewReportFromOperationCase creates a new OperationCaseForReport from an OperationCase.
+func NewReportFromOperationCase(operationCase *casemanager.OperationCase) *OperationCaseForReport {
+	return &OperationCaseForReport{
+		APIMethod:          operationCase.APIMethod,
+		RequestHeaders:     operationCase.RequestHeaders,
+		RequestPathParams:  operationCase.RequestPathParams,
+		RequestQueryParams: operationCase.RequestQueryParams,
+		RequestBody:        string(operationCase.RequestBody),
+		ResponseStatusCode: operationCase.ResponseStatusCode,
+	}
+}
+
+// TestScenarioForReport stores info of a test scenario tested during fuzzing.
+// Simplified version of [resttracefuzzer/pkg/casemanager.TestScenario]
+type TestScenarioForReport struct {
+
+	// OperationCases is a sequence of tested operation cases.
+	OperationCases []*OperationCaseForReport `json:"operationCases"`
+
+	// OperationCaseLength is the length of the operation cases.
+	// It is used to improve the readability of the report.
+	OperationCaseLength int `json:"operationCaseLength"`
+	
+	// EndTime is the end time of the test scenario.
+	EndTime time.Time `json:"endTime"`
+}
+
+// NewReportFromTestScenario creates a new TestScenarioForReport from a TestScenario.
+func NewReportFromTestScenario(testScenario *casemanager.TestScenario) *TestScenarioForReport {
+	operationCases := make([]*OperationCaseForReport, 0)
+	for _, operationCase := range testScenario.OperationCases {
+		operationCases = append(operationCases, NewReportFromOperationCase(operationCase))
+	}
+	return &TestScenarioForReport{
+		OperationCases: operationCases,
+		OperationCaseLength: len(operationCases),
+		EndTime:        time.Now(),
+	}
+}
+
+
+// TestLogReport is the report of the test log.
+// It contains the history of testing.
+// To reduce size of the report, it uses a simplified version of the tested scenario.
+type TestLogReport struct {
+	TestedScenarios []*TestScenarioForReport `json:"testedScenarios"`
+}
+
+// NewTestLogReport creates a new TestLogReport.
+func NewTestLogReport() *TestLogReport {
+	return &TestLogReport{
+		TestedScenarios: make([]*TestScenarioForReport, 0),
+	}
 }

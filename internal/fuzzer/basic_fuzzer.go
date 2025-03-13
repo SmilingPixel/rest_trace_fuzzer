@@ -5,6 +5,7 @@ import (
 	"resttracefuzzer/pkg/casemanager"
 	"resttracefuzzer/pkg/feedback"
 	"resttracefuzzer/pkg/feedback/trace"
+	"resttracefuzzer/pkg/report"
 	"resttracefuzzer/pkg/static"
 	"resttracefuzzer/pkg/utils/http"
 	"time"
@@ -37,6 +38,10 @@ type BasicFuzzer struct {
 
 	// FuzzingSnapshot is the snapshot of the fuzzing process.
 	FuzzingSnapshot *FuzzingSnapshot
+
+	// TestLogReporter is responsible for logging the tested operations (with their results),
+	// and generating a report after the fuzzing process.
+	TestLogReporter *report.TestLogReporter
 }
 
 // NewBasicFuzzer creates a new BasicFuzzer.
@@ -46,6 +51,7 @@ func NewBasicFuzzer(
 	responseProcesser *feedback.ResponseProcesser,
 	traceManager *trace.TraceManager,
 	runtimeGraph *feedback.RuntimeGraph,
+	testLogReporter *report.TestLogReporter,
 ) *BasicFuzzer {
 	httpClientMiddles := make([]http.HTTPClientMiddleware, 0)
 	if config.GlobalConfig.HTTPMiddlewareScriptPath != "" {
@@ -69,6 +75,7 @@ func NewBasicFuzzer(
 		HTTPClient:      httpClient,
 		RunTimeGraph:    runtimeGraph,
 		FuzzingSnapshot: fuzzingSnapshot,
+		TestLogReporter: testLogReporter,
 	}
 }
 
@@ -168,6 +175,9 @@ func (f *BasicFuzzer) ExecuteTestScenario(testScenario *casemanager.TestScenario
 		log.Err(err).Msg("[BasicFuzzer.ExecuteTestScenario] Failed to evaluate scenario and try update")
 		return err
 	}
+
+	// Log the tested scenario.
+	f.TestLogReporter.LogTestScenario(testScenario)
 
 	return nil
 }

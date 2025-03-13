@@ -143,6 +143,9 @@ func main() {
 		APIManager.APIDependencyGraph = dependecyGraph
 	}
 
+	// testLogReporter logs the tested operations
+	testLogReporter := report.NewTestLogReporter()
+
 	// start fuzzing loop
 	var mainFuzzer fuzzer.Fuzzer
 	if config.GlobalConfig.FuzzerType == "Basic" {
@@ -152,6 +155,7 @@ func main() {
 			responseProcesser,
 			trace.NewTraceManager(),
 			runTimeGraph,
+			testLogReporter,
 		)
 	} else {
 		log.Err(err).Msgf("[main] Unsupported fuzzer type: %s", config.GlobalConfig.FuzzerType)
@@ -164,34 +168,42 @@ func main() {
 	}
 
 	// generate result report
-	// Reports are named using current timestamp, in RFC3339 format,
+	// Reports are named using current timestamp, in yyyyMMddHHmmss format,
 	// with prefix "system_report_", "internal_service_report_", etc.
+	// We do not use RFC3339 format because it contains colons, which are not allowed in Windows file names.
 	// The reports are saved in the output directory
-	systemReporter := report.NewSystemReporter(APIManager)
+	timeFormat := "20060102150405"
 	// Create the output directory if it does not exist.
 	err = os.MkdirAll(config.GlobalConfig.OutputDir, os.ModePerm)
 	if err != nil {
 		log.Err(err).Msgf("[main] Failed to create the output directory")
 		return
 	}
-	systemReportPath := fmt.Sprintf("%s/system_report_%s.json", config.GlobalConfig.OutputDir, t.Format(time.RFC3339))
+	systemReporter := report.NewSystemReporter(APIManager)
+	systemReportPath := fmt.Sprintf("%s/system_report_%s.json", config.GlobalConfig.OutputDir, t.Format(timeFormat))
 	err = systemReporter.GenerateSystemReport(responseProcesser, systemReportPath)
 	if err != nil {
 		log.Err(err).Msgf("[main] Failed to generate system report")
 		return
 	}
 	internalServiceReporter := report.NewInternalServiceReporter()
-	internalServiceReportPath := fmt.Sprintf("%s/internal_service_report_%s.json", config.GlobalConfig.OutputDir, t.Format(time.RFC3339))
+	internalServiceReportPath := fmt.Sprintf("%s/internal_service_report_%s.json", config.GlobalConfig.OutputDir, t.Format(timeFormat))
 	err = internalServiceReporter.GenerateInternalServiceReport(mainFuzzer.GetRuntimeGraph(), internalServiceReportPath)
 	if err != nil {
 		log.Err(err).Msgf("[main] Failed to generate internal service report")
 		return
 	}
 	fuzzerStateReporter := report.NewFuzzerStateReporter()
-	fuzzerStateReportPath := fmt.Sprintf("%s/fuzzer_state_report_%s.json", config.GlobalConfig.OutputDir, t.Format(time.RFC3339))
+	fuzzerStateReportPath := fmt.Sprintf("%s/fuzzer_state_report_%s.json", config.GlobalConfig.OutputDir, t.Format(timeFormat))
 	err = fuzzerStateReporter.GenerateFuzzerStateReport(resourceManager, fuzzerStateReportPath)
 	if err != nil {
 		log.Err(err).Msgf("[main] Failed to generate fuzzer state report")
+		return
+	}
+	testLogReportPath := fmt.Sprintf("%s/test_log_report_%s.json", config.GlobalConfig.OutputDir, t.Format(timeFormat))
+	err = testLogReporter.GenerateTestLogReport(testLogReportPath)
+	if err != nil {
+		log.Err(err).Msgf("[main] Failed to generate test log report")
 		return
 	}
 
