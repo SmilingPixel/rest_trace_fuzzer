@@ -178,7 +178,14 @@ func (m *CaseManager) extendScenarioIfExecSuccess(existingScenario *TestScenario
 	// copy the existing scenario
 	newScenario := existingScenario.Copy()
 	newScenario.Reset()
-	// TODO: append a new operation to the scenario @xunzhou24
+	// We append a random operation to the scenario for now.
+	// TODO: append an operation based on API dependency @xunzhou24
+	newAPIMethid, newOperation := m.APIManager.GetRandomAPIMethod()
+	newOperationCase := OperationCase{
+		Operation: newOperation,
+		APIMethod: newAPIMethid,
+	}
+	newScenario.OperationCases = append(newScenario.OperationCases, &newOperationCase)
 	return newScenario, nil
 }
 
@@ -203,7 +210,7 @@ func (m *CaseManager) generateRequestBodyFromSchema(requestBodyRef *openapi3.Req
 	if requestBodyRef == nil || requestBodyRef.Value == nil {
 		return nil, fmt.Errorf("request body is nil")
 	}
-	generatedValue, err := m.FuzzStrategist.GenerateValueForSchema(requestBodyRef.Value.Content.Get("application/json").Schema)
+	generatedValue, err := m.FuzzStrategist.GenerateValueForSchema(requestBodyRef.Ref, requestBodyRef.Value.Content.Get("application/json").Schema)
 	if err != nil {
 		log.Err(err).Msgf("[CaseManager.generateRequestBodyFromSchema] Failed to generate object from schema %v", requestBodyRef.Value.Content.Get("application/json").Schema)
 		return nil, err
@@ -211,8 +218,8 @@ func (m *CaseManager) generateRequestBodyFromSchema(requestBodyRef *openapi3.Req
 	return []byte(generatedValue.String()), nil
 }
 
-// generateRequestParamsFromSchema generates request params from a schema.
-// It returns a map of request (path) params, a map of query params, and an error if any.
+// generateRequestParamsFromSchema generates request params (including path and query) from a schema.
+// It returns a map of request path params, a map of query params, and an error if any.
 func (m *CaseManager) generateRequestParamsFromSchema(params []*openapi3.ParameterRef) (map[string]string, map[string]string, error) {
 	pathParams := make(map[string]string)
 	queryParams := make(map[string]string)
@@ -221,7 +228,7 @@ func (m *CaseManager) generateRequestParamsFromSchema(params []*openapi3.Paramet
 			return nil, nil, fmt.Errorf("request param is nil")
 		}
 
-		generatedValue, err := m.FuzzStrategist.GenerateValueForSchema(param.Value.Schema)
+		generatedValue, err := m.FuzzStrategist.GenerateValueForSchema(param.Value.Name, param.Value.Schema)
 		if err != nil {
 			log.Err(err).Msgf("[CaseManager.generateRequestParamsFromSchema] Failed to generate object from schema %v", param.Value.Schema)
 			return nil, nil, err

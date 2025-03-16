@@ -16,12 +16,14 @@ import (
 
 // Resource represents a resource in the resource pool, and ResourceManager manages the resource pool.
 // The resource pool is a set of resources, and several maps are used to index the resources, all of them having consistent data.
+// To improve readability, only ResourceNameMap would be serialized.
 type ResourceManager struct {
 
 	// Value set of all map below should be the same.
 	// ResourceTypeMap is a map from the property type to the list of resources.
-	// type map is not json serialized, as its key is a struct.
+	// Note: ResourceTypeMap only stores resources of primitive types.
 	ResourceTypeMap map[static.SimpleAPIPropertyType][]Resource `json:"-"`
+
 	// ResourceNameMap is a map from the resource name to the resource.
 	ResourceNameMap map[string][]Resource `json:"resourceNameMap"`
 
@@ -51,9 +53,9 @@ func (m *ResourceManager) GetSingleResourceByType(propertyType static.SimpleAPIP
 	return resources[rand.IntN(len(resources))]
 }
 
-// GetSingleResourceByType gets a resource from pool by the schema type(s).
+// GetSingleResourceBySchemaTypes gets a resource from pool by the schema type(s).
 // Only supports primitive types: string, number, integer, boolean.
-func (m *ResourceManager) GetSingleResourceBySchemaType(schemaTypes *openapi3.Types) Resource {
+func (m *ResourceManager) GetSingleResourceBySchemaTypes(schemaTypes *openapi3.Types) Resource {
 	switch {
 	case schemaTypes.Includes(openapi3.TypeString):
 		return m.GetSingleResourceByType(static.SimpleAPIPropertyTypeString)
@@ -64,7 +66,7 @@ func (m *ResourceManager) GetSingleResourceBySchemaType(schemaTypes *openapi3.Ty
 	case schemaTypes.Includes(openapi3.TypeBoolean):
 		return m.GetSingleResourceByType(static.SimpleAPIPropertyTypeBoolean)
 	default:
-		log.Warn().Msgf("[ResourceManager.GetSingleResourceBySchemaType] No resource of schema type %v", schemaTypes)
+		// log.Warn().Msgf("[ResourceManager.GetSingleResourceBySchemaTypes] No resource of schema type %v", schemaTypes)
 		return nil
 	}
 }
@@ -72,6 +74,11 @@ func (m *ResourceManager) GetSingleResourceBySchemaType(schemaTypes *openapi3.Ty
 // GetSingleResourceByName gets a resource from pool by the resource name.
 // Heuristic rules are applied to get the resource for names like "xxxIds", "xxxNames", "xxxValues", etc.
 func (m *ResourceManager) GetSingleResourceByName(resourceName string) Resource {
+	// We do not support an empty resource name.
+	if resourceName == "" {
+		return nil
+	}
+
 	resources := m.ResourceNameMap[resourceName]
 
 	// if resource ends with "Ids", "Names", "Values", etc., apply heuristic rules to get the resource.

@@ -78,3 +78,14 @@ func (m *APIManager) InitFromServiceDoc(doc *openapi3.T) {
 	m.APIDataflowGraph = NewAPIDataflowGraph()
 	m.APIDataflowGraph.ParseFromServiceDocument(m.InternalServiceAPIMap)
 }
+
+// GetRandomAPIMethod returns a random API method from the API manager.
+func (m *APIManager) GetRandomAPIMethod() (SimpleAPIMethod, *openapi3.Operation) {
+	// Golang map iteration order is random.
+	// See [official doc](https://go.dev/blog/maps#iteration-order).
+	for method, operation := range m.APIMap {
+		return method, operation
+	}
+	log.Warn().Msg("[APIManager.GetRandomAPIMethod] No API method found")
+	return SimpleAPIMethod{}, nil
+}

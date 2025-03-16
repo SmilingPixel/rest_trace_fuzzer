@@ -12,49 +12,43 @@ import (
 //
 // TODO: support openapi3 oneOf, anyOf, allOf, etc. @xunzhou24
 func FlattenSchema(schema *openapi3.SchemaRef) (map[string]*openapi3.SchemaRef, error) {
-	schemas := make(map[string]*openapi3.SchemaRef)
+	name2schema := make(map[string]*openapi3.SchemaRef)
 	if schema == nil {
 		log.Info().Msg("Schema is nil")
-		return schemas, nil
+		return name2schema, nil
 	}
 	// schemas = append(schemas, schema)
 
+	type schemaQueueItem struct {
+		name   string
+		schema *openapi3.SchemaRef
+	}
+
 	// BFS
-	// Schemas with an empty title are ignored, as it is meaningless.
-	que := make([]*openapi3.SchemaRef, 0)
-	que = append(que, schema)
+	que := make([]schemaQueueItem, 0)
+	que = append(que, schemaQueueItem{name: schema.Ref, schema: schema})
 	for len(que) > 0 {
-		newQue := make([]*openapi3.SchemaRef, 0)
+		newQue := make([]schemaQueueItem, 0)
 		for _, s := range que {
 			switch {
-			case s.Value.Type.Includes(openapi3.TypeObject):
-				for propName, propSchema := range s.Value.Properties {
-					newQue = append(newQue, propSchema)
-					schemas[propName] = propSchema
+			case s.schema.Value.Type.Includes(openapi3.TypeObject):
+				for propName, propSchema := range s.schema.Value.Properties {
+					newQue = append(newQue, schemaQueueItem{name: propName, schema: propSchema})
+					name2schema[propName] = propSchema
 				}
-			case s.Value.Type.Includes(openapi3.TypeArray):
-				newQue = append(newQue, s.Value.Items)
-				// We do not store array itself, as it is processed before
-				// For example, if the schema is like:
-				//  {
-				//    "XiaomiSu7List": [
-				//      {
-				//        "id": 123
-				//      }
-				//    ]
-				//  }
-				// We have processed and stored "XiaomiSu7List" in the flattened schema, and the array itself does not have a title.
+			case s.schema.Value.Type.Includes(openapi3.TypeArray):
+				// Array element would not be seen as a whole,
+				// so we do not store array itself, just flatten it instead.
+				newQue = append(newQue, schemaQueueItem{name: s.name, schema: s.schema.Value.Items})
 			default:
-				// Array elements do not have titles
-				if s.Value.Title != "" {
-					schemas[s.Value.Title] = s
+				if s.name != "" {
+					name2schema[s.name] = s.schema
 				}
 			}
-
 		}
 		que = newQue
 	}
-	return schemas, nil
+	return name2schema, nil
 }
 
 // IncludePrimitiveType checks if the types include primitive types.

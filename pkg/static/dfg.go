@@ -169,13 +169,25 @@ func (g *APIDataflowGraph) AddEdge(source, target *APIDataflowNode, sourceProp, 
 // extractPropertiesFromSchema extracts the properties from the schema.
 // It returns all properties in the schema in a flattened way.
 func extractPropertiesFromSchema(schema *openapi3.SchemaRef) []SimpleAPIProperty {
-	flattenedSchema, err := utils.FlattenSchema(schema)
+	// Flatten the schema, mapping from the schema name to the schema
+	// For example:
+	//  {
+	//    "name": {
+	//      "type": "string"
+	//      ...
+	//    },
+	//    "age": {
+	//      "type": "integer"
+	//      ...
+	//    }
+	//  }
+	flattenedSchemaMap, err := utils.FlattenSchema(schema)
 	if err != nil {
 		log.Err(err).Msg("[extractPropertiesFromSchema] Failed to flatten schema")
 		return nil
 	}
 	var properties []SimpleAPIProperty
-	for schemaName, schema := range flattenedSchema {
+	for schemaName, schema := range flattenedSchemaMap {
 		simpleAPIProperty := SimpleAPIProperty{
 			Name: schemaName,
 			Typ:  OpenAPITypes2SimpleAPIPropertyType(schema.Value.Type),

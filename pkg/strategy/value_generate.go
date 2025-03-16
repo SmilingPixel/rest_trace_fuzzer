@@ -59,9 +59,11 @@ func NewSchemaToValueStrategy(resourceManager *resource.ResourceManager) *Schema
 }
 
 // GenerateValueForSchema generates a resource value for a given schema.
-func (s *SchemaToValueStrategy) GenerateValueForSchema(schema *openapi3.SchemaRef) (resource.Resource, error) {
+// We want to find a value that can be used to generate a request.
+// name is the name, type or key etc. of the value, and schema is the schema of the value.
+func (s *SchemaToValueStrategy) GenerateValueForSchema(name string, schema *openapi3.SchemaRef) (resource.Resource, error) {
 	// Try to apply value source.
-	value, generated, err := s.preCheckAndTryApplyValueSource(schema)
+	value, generated, err := s.preCheckAndTryApplyValueSource(name, schema)
 	if err != nil {
 		return nil, err
 	}
@@ -75,20 +77,20 @@ func (s *SchemaToValueStrategy) GenerateValueForSchema(schema *openapi3.SchemaRe
 
 	switch {
 	case schema.Value.Type.Includes(openapi3.TypeObject):
-		return s.generateObjectValueForSchema(schema)
+		return s.generateObjectValueForSchema(name, schema)
 	case schema.Value.Type.Includes(openapi3.TypeArray):
-		return s.generateArrayValueForSchema(schema)
+		return s.generateArrayValueForSchema(name, schema)
 	default:
-		return s.generatePrimitiveValueForSchema(schema)
+		return s.generatePrimitiveValueForSchema(name, schema)
 	}
 }
 
 // generateObjectValueForSchema generates a json object resource value from a schema.
 // It returns a json object resource, and error if any.
 // The returned object is of type ResourceObject.
-func (s *SchemaToValueStrategy) generateObjectValueForSchema(schema *openapi3.SchemaRef) (resource.Resource, error) {
+func (s *SchemaToValueStrategy) generateObjectValueForSchema(name string, schema *openapi3.SchemaRef) (resource.Resource, error) {
 	// Try to apply value source.
-	value, generated, err := s.preCheckAndTryApplyValueSource(schema)
+	value, generated, err := s.preCheckAndTryApplyValueSource(name, schema)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +105,7 @@ func (s *SchemaToValueStrategy) generateObjectValueForSchema(schema *openapi3.Sc
 	result := resource.NewResourceObject(make(map[string]resource.Resource))
 
 	for propName, propSchema := range schema.Value.Properties {
-		propValue, err := s.GenerateValueForSchema(propSchema)
+		propValue, err := s.GenerateValueForSchema(propName, propSchema)
 		if err != nil {
 			return nil, err
 		}
@@ -115,15 +117,9 @@ func (s *SchemaToValueStrategy) generateObjectValueForSchema(schema *openapi3.Sc
 // generateArrayValueForSchema generates a json array resource value from a schema.
 // It returns a json array resource, and error if any.
 // The returned array is of type *ResourceArray.
-func (s *SchemaToValueStrategy) generateArrayValueForSchema(schema *openapi3.SchemaRef) (resource.Resource, error) {
-	// Try to apply value source.
-	value, generated, err := s.preCheckAndTryApplyValueSource(schema)
-	if err != nil {
-		return nil, err
-	}
-	if generated {
-		return value, nil
-	}
+func (s *SchemaToValueStrategy) generateArrayValueForSchema(name string, schema *openapi3.SchemaRef) (resource.Resource, error) {
+	// We do not try to apply value source for array, i.e., array is not seen as a whole resource.
+	// Instead, we apply value source to each element in the array.
 
 	if schema == nil || schema.Value == nil {
 		return nil, fmt.Errorf("schema is nil")
@@ -133,7 +129,7 @@ func (s *SchemaToValueStrategy) generateArrayValueForSchema(schema *openapi3.Sch
 
 	// TODO: control the array size @xunzhou24
 	// For now, we generate an array with one element.
-	elementValue, err := s.GenerateValueForSchema(schema.Value.Items)
+	elementValue, err := s.GenerateValueForSchema(name, schema.Value.Items)
 	if err != nil {
 		return nil, err
 	}
@@ -145,9 +141,9 @@ func (s *SchemaToValueStrategy) generateArrayValueForSchema(schema *openapi3.Sch
 // generatePrimitiveValueForSchema generates a primitive resource value from a schema.
 // It returns a primitive value resource, and error if any.
 // The returned value is of type *ResourceNumber, *ResourceString, etc.
-func (s *SchemaToValueStrategy) generatePrimitiveValueForSchema(schema *openapi3.SchemaRef) (resource.Resource, error) {
+func (s *SchemaToValueStrategy) generatePrimitiveValueForSchema(name string, schema *openapi3.SchemaRef) (resource.Resource, error) {
 	// Try to apply value source.
-	value, generated, err := s.preCheckAndTryApplyValueSource(schema)
+	value, generated, err := s.preCheckAndTryApplyValueSource(name, schema)
 	if err != nil {
 		return nil, err
 	}
@@ -166,14 +162,14 @@ func (s *SchemaToValueStrategy) generatePrimitiveValueForSchema(schema *openapi3
 	return result, nil
 }
 
-// preCheckAndTryApplyValueSource checks the schema and applies the value source.
+// preCheckAndTryApplyValueSource checks the schema and applies the value source using name and type.
 // It returns:
 //  1. The generated value, if successful.
 //  2. A boolean indicating whether the value is generated, if successful.
 //  3. An error, if any.
 //
 // The method is inserted into each of the generate methods.
-func (s *SchemaToValueStrategy) preCheckAndTryApplyValueSource(schema *openapi3.SchemaRef) (resource.Resource, bool, error) {
+func (s *SchemaToValueStrategy) preCheckAndTryApplyValueSource(name string, schema *openapi3.SchemaRef) (resource.Resource, bool, error) {
 	if schema == nil || schema.Value == nil {
 		return nil, false, fmt.Errorf("schema is nil")
 	}
@@ -193,12 +189,19 @@ func (s *SchemaToValueStrategy) preCheckAndTryApplyValueSource(schema *openapi3.
 		}
 		return result, true, nil
 	case VALUE_SOURCE_RESOURCE_POOL:
-		resource := s.ResourceManager.GetSingleResourceBySchemaType(schema.Value.Type)
-		// resource of a specific type is not found
-		if resource == nil {
-			return nil, false, nil
+		// First try to get a resource by name.
+		resource := s.ResourceManager.GetSingleResourceByName(name)
+		if resource != nil {
+			return resource, true, nil
 		}
-		return resource, true, nil
+		// If failed, try to get a resource by type.
+		log.Debug().Msgf("[SchemaToValueStrategy.preCheckAndTryApplyValueSource] Cannot find resource by name: %s", name)
+		resource = s.ResourceManager.GetSingleResourceBySchemaTypes(schema.Value.Type)
+		if resource != nil {
+			return resource, true, nil
+		}
+		// still cannot find a resource, return nil
+		return nil, false, nil
 	case VALUE_SOURCE_MUTATION: // TODO: implement mutation @xunzhou24
 		return nil, false, nil
 	default:
@@ -223,6 +226,6 @@ func (s *SchemaToValueStrategy) decideValueSource() string {
 	}
 
 	// As a fallback, return a default source. This line should normally never be reached.
-	log.Warn().Msgf("[SchemaToValueStrategy.DecideValueSource] Fallback to default value source (RANDOM)")
+	log.Error().Msgf("[SchemaToValueStrategy.DecideValueSource] Fallback to default value source (RANDOM)")
 	return VALUE_SOURCE_RANDOM
 }

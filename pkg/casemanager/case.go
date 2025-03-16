@@ -157,3 +157,8 @@ func (oc *OperationCase) Copy() *OperationCase {
 		ResponseBody:       responseBody,
 	}
 }
+
+// AppendOperationCase appends an operation case to the test scenario.
+func (ts *TestScenario) AppendOperationCase(operationCase *OperationCase) {
+	ts.OperationCases = append(ts.OperationCases, operationCase)
+}
