@@ -78,7 +78,8 @@ func NewHTTPClientScriptMiddleware(scriptPath string) *HTTPClientScriptMiddlewar
 // The script can modify the request by returning modified values for headers, path parameters, query parameters, and body.
 // The script should define global variables "headers", "pathParams", "queryParams", and "body" to return the modified values.
 // It returns the modified request path, method, headers, path parameters, query parameters, body, and an error if any.
-func (m *HTTPClientScriptMiddleware) HandleRequest(path, method string, headers map[string]string, pathParams, queryParams map[string]string, body []byte) (resPath, resMethod string, resHeaders map[string]string, resPathParams, resQueryParams map[string]string, resBody []byte, err error) {
+// Note: The parameters headers, pathParams, and queryParams are passed by reference and would be modified directly.
+func (m *HTTPClientScriptMiddleware) HandleRequest(path, method string, headers, pathParams, queryParams map[string]string, body []byte) (string, string, map[string]string, map[string]string, map[string]string, []byte, error) {
 	// Try to run the script
 	thread := &starlark.Thread{Name: "http_middleware_script"}
 	fileOptions := syntax.LegacyFileOptions()

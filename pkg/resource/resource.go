@@ -44,7 +44,7 @@ func (r *ResourceInteger) String() string {
 }
 
 func (r *ResourceInteger) Typ() static.SimpleAPIPropertyType {
-	return static.SimpleAPIPropertyTypeFloat
+	return static.SimpleAPIPropertyTypeInteger
 }
 
 func (r *ResourceInteger) Hashcode() uint64 {

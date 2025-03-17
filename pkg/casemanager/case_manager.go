@@ -10,6 +10,7 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/rs/zerolog/log"
+	"maps"
 )
 
 const (
@@ -80,22 +81,18 @@ func (m *CaseManager) PopAndPopulate() (*TestScenario, error) {
 		log.Debug().Msgf("[CaseManager.PopAndPopulate] Start to populate request for operation %v", operationCase.APIMethod)
 		// fill the request path and query params
 		requestParamsDef := operationCase.Operation.Parameters
-		if requestParamsDef != nil {
-			requestPathParams, requestQueryParams, err := m.generateRequestParamsFromSchema(requestParamsDef)
-			if err != nil {
-				log.Err(err).Msg("[CaseManager.PopAndFillRequest] Failed to generate request params")
-				return nil, err
-			}
-			operationCase.RequestPathParams = requestPathParams
-			operationCase.RequestQueryParams = requestQueryParams
+		requestPathParams, requestQueryParams, err := m.generateRequestParamsFromSchema(requestParamsDef)
+		if err != nil {
+			log.Err(err).Msg("[CaseManager.PopAndFillRequest] Failed to generate request params")
+			return nil, err
 		}
+		operationCase.RequestPathParams = requestPathParams
+		operationCase.RequestQueryParams = requestQueryParams
 
 		// fill the request headers, including global extra headers and operation specific headers
 		requestHeaders := make(map[string]string)
 		// Add global extra headers
-		for k, v := range m.GlobalExtraHeaders {
-			requestHeaders[k] = v
-		}
+		maps.Copy(requestHeaders, m.GlobalExtraHeaders)
 		// Add operation specific headers
 		operationCase.RequestHeaders = requestHeaders
 
@@ -206,9 +203,10 @@ func (m *CaseManager) initTestcasesFromDoc() error {
 
 // generateRequestBodyFromSchema generates a request body from a schema.
 // It returns a json object as a byte array and error if any.
+// If the schema is empty, it returns nil.
 func (m *CaseManager) generateRequestBodyFromSchema(requestBodyRef *openapi3.RequestBodyRef) ([]byte, error) {
 	if requestBodyRef == nil || requestBodyRef.Value == nil {
-		return nil, fmt.Errorf("request body is nil")
+		return nil, nil
 	}
 	generatedValue, err := m.FuzzStrategist.GenerateValueForSchema(requestBodyRef.Ref, requestBodyRef.Value.Content.Get("application/json").Schema)
 	if err != nil {

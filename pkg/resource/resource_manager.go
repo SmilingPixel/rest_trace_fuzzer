@@ -1,15 +1,13 @@
 package resource
 
 import (
-	"encoding/json"
 	"io"
 	"math/rand/v2"
 	"os"
 	"resttracefuzzer/pkg/static"
 	"resttracefuzzer/pkg/utils"
-	"strings"
 
-	"github.com/bytedance/sonic"
+	"github.com/bytedance/sonic/decoder"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/rs/zerolog/log"
 )
@@ -72,25 +70,26 @@ func (m *ResourceManager) GetSingleResourceBySchemaTypes(schemaTypes *openapi3.T
 }
 
 // GetSingleResourceByName gets a resource from pool by the resource name.
-// Heuristic rules are applied to get the resource for names like "xxxIds", "xxxNames", "xxxValues", etc.
+// Heuristic rules are applied to get the resource whose name is similar to the given resource name.
+// See the implementation of GetSingleResourceByName for details.
 func (m *ResourceManager) GetSingleResourceByName(resourceName string) Resource {
 	// We do not support an empty resource name.
 	if resourceName == "" {
 		return nil
 	}
 
+	// try to find a resource by full name
 	resources := m.ResourceNameMap[resourceName]
+	if len(resources) > 0 {
+		return resources[rand.IntN(len(resources))]
+	}
 
-	// if resource ends with "Ids", "Names", "Values", etc., apply heuristic rules to get the resource.
-	// For example, if the resource name is "userIds", "userNames", "userValues", etc., we can get the resource by "id", "name", "value".
-	namesToApplyHeuristic := []string{"id", "name", "value"}
-	for _, name := range namesToApplyHeuristic {
-		if strings.HasSuffix(strings.ToLower(resourceName), name) || strings.HasSuffix(strings.ToLower(resourceName), name+"s") {
-			resources = m.ResourceNameMap[name]
-			if len(resources) > 0 {
-				break
-			}
-		}
+	// try to find a resource that matches in the last part of the name
+	// For example, if the resource name is userName, we can get the resource by "name".
+	resourceNameParts := utils.SplitIntoWords(resourceName)
+	resources = m.ResourceNameMap[resourceNameParts[len(resourceNameParts)-1]]
+	if len(resources) > 0 {
+		return resources[rand.IntN(len(resources))]
 	}
 
 	if len(resources) == 0 {
@@ -136,13 +135,16 @@ func (m *ResourceManager) LoadFromExternalDictFile(filePath string) error {
 	log.Info().Msgf("[ResourceManager.LoadFromExternalDictFile] Loading resources from file: %s", filePath)
 
 	// Parse JSON content
+	// To parse integer values as int64, we need to use the decoder, and set via decoder.UseInt64().
 	var dictValues []struct {
 		Name  string      `json:"name"`
 		Value interface{} `json:"value"`
 	}
-	err = sonic.Unmarshal(bytes, &dictValues)
+	decoder := decoder.NewDecoder(string(bytes))
+	decoder.UseInt64()
+	err = decoder.Decode(&dictValues)
 	if err != nil {
-		log.Error().Err(err).Msg("[ResourceManager.LoadFromExternalDictFile] Failed to unmarshal JSON")
+		log.Error().Err(err).Msg("[ResourceManager.LoadFromExternalDictFile] Failed to decode JSON")
 		return err
 	}
 
@@ -184,8 +186,11 @@ func (m *ResourceManager) LoadFromExternalDictFile(filePath string) error {
 //   - for object type, all values from the object key-value pairs will be stored;
 //   - for array type, all elements in the array will be stored.
 func (m *ResourceManager) StoreResourcesFromRawObjectBytes(rawObjectBytes []byte, rootResourceName string, shouldStoreSubResources bool) error {
+	// To parse integer values as int64, we need to use the decoder, and set via decoder.UseInt64().
 	var jsonObject interface{}
-	err := json.Unmarshal(rawObjectBytes, &jsonObject)
+	decoder := decoder.NewDecoder(string(rawObjectBytes))
+	decoder.UseInt64()
+	err := decoder.Decode(&jsonObject)
 	if err != nil {
 		log.Err(err).Msg("[ResourceManager.StoreResourcesFromRawObjectBytes] Failed to unmarshal JSON")
 		return err
