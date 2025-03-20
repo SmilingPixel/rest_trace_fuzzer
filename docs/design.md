@@ -1,11 +1,9 @@
 # [WIP] 技术方案 trace_rest_test
 
 
-
 # 1. 背景
 
 Repository: [GitHub - SmilingPixel/rest_trace_fuzzer](https://github.com/SmilingPixel/rest_trace_fuzzer)
-
 
 
 # 2. 总体架构
@@ -32,19 +30,19 @@ The architecture diagram is powered by [draw.io](https://app.diagrams.net/).
 | ODG DB         | 存储 ODG                                           | 数据结构：见后面章节                                                   |
 | DFG DB         | 存储 DFG                                           | 数据结构：见后面章节                                                   |
 | Runtime Info Graph         | 存储程序运行时的 DFG 调用和覆盖状态                                          | 数据结构：见后面章节                                                   |
-| Resource Pool  | 存储资源池，目前主要用于存储测试过程中创建的资源       | TODO: 预计参考 foREST 的设计         |
+| Resource Pool  | 存储资源池，目前主要用于存储测试过程中创建的资源       |          |
 | Testcase Queue     | 存储测试用例，优先级队列，根据选取策略的不同，依据各种指标（例如覆盖率提升等）计算优先级 | |
-|Trace Manager   | 存储拉取下来的 trace，便于进一步处理和解析| |
+| Trace Manager   | 拉取、解析和处理 trace | |
 
 
 ## 2.3. 测试执行模块
 
 | Module               | Description                                      | Note                                                                 |
 |----------------------|--------------------------------------------------|----------------------------------------------------------------------|
-| Testcase Scheduler  | 根据 ODG, DFG, Runtime Info Graph 等，调度接口的执行顺序                        | 输入：数据持久化模块中的数据 输出：本次预计执行的接口序列         |
+| Testcase Scheduler  | 根据 ODG, DFG, Runtime Info Graph 等，调度测试用例的优先级                        | 输入：数据持久化模块中的数据 输出：本次预计执行的接口序列         |
 | Operation Population | 根据接口定义，填充参数，实例化接口                           | 输入：接口定义，资源池数据 输出：接口请求实例                           |
 | Test Driver          | 执行接口请求，记录执行结果，处理反馈，更新数据持久化模块中的数据 |                                                                      |
-| Response Processer       | 收集系统响应，存储测试结果        |                                                                      |
+| Response Processer       | 收集系统响应，存储和初步检查测试结果        |                                                                      |
 | Trace Analyser       | 收集 Trace，同步更新 RuntimeInfo Graph 的状态        |                                                                      |
 
 
@@ -64,6 +62,8 @@ The architecture diagram is powered by [draw.io](https://app.diagrams.net/).
 |----------------------|--------------------------------------------------|----------------------------------------------------------------------|
 | Internal Service Reporter | 输出内部接口测试结果，包括覆盖率、错误率等指标 | 输入：测试执行模块中的数据 输出：内部接口测试报告 |
 | System Reporter      | 输出外部接口测试结果，包括覆盖率、错误率等指标 | 输入：测试执行模块中的数据 输出：外部接口测试报告 |
+| Fuzzer State Reporter | 输出 Fuzzer 状态，包括资源池状况等 | 目前主要用于记录执行过程中的详细信息，便于开发和调试 |
+| Test Log Reporter    | 输出测试日志，包括测试用例执行情况、错误信息等 | 需要嵌入在主 fuzzer 中，执行过程中实时记录产生的原始测试用例和执行情况 |
 
 
 # 3. 具体实现方案
@@ -112,9 +112,11 @@ The architecture diagram is powered by [draw.io](https://app.diagrams.net/).
 │   │   ├── dependency_parser.go # Dependency parsing logic
 │   │   └── dependency_restler_parser.go # RESTler dependency parsing logic
 │   ├── report              # Reporting logic
+│   │   ├── fuzzer_state_reporter.go # Fuzzer state reporting
 │   │   ├── internal_service_reporter.go # Internal service reporting
 │   │   ├── models.go        # Report models
-│   │   └── system_reporter.go # System reporting logic
+│   │   ├── system_reporter.go # System reporting logic
+│   │   └── test_log_reporter.go # Test log reporting
 │   ├── resource            # Resource management logic
 │   │   ├── resource.go      # Resource structure and methods
 │   │   └── resource_manager.go # Resource manager implementation
@@ -127,15 +129,26 @@ The architecture diagram is powered by [draw.io](https://app.diagrams.net/).
 │   │   ├── fuzz_strategist.go  # Fuzzing strategist implementation
 │   │   └── value_generate.go   # strategies for value generation
 │   └── utils               # Utility functions
-│       ├── http_utils.go    # HTTP utility functions
+│       ├── http            # HTTP-related utilities
+│       │   ├── http_utils.go  # HTTP utility functions
+│       │   └── middleware.go  # Middleware functions using in http utils
+│       ├── common_utils.go  # Common utility functions
 │       ├── nlp_utils.go     # NLP utility functions
 │       └── openapi_utils.go # OpenAPI utility functions
 ├── README.md               # Project README file
 └── scripts                 # Scripts for various tasks
-  ├── build.sh            # Build script
-  ├── clean_output.sh     # Script to clean output
+  ├── build.sh              # Build script
+  ├── clean_build.sh        # Script to clean build artifacts
+  ├── clean_output.sh       # Script to clean output
   ├── generate_arg_config_code.sh # Script to generate argument configuration code
-  └── run.sh              # Script to run the application
+  ├── include               # Protobuf include files
+  │   └── google
+  │       └── api
+  │           ├── annotations.proto # Protobuf annotations for API
+  │           └── http.proto        # Protobuf definitions for HTTP
+  ├── internal_service_report_visualize.py # Script to visualize internal service reports
+  ├── proto_gen_oas.sh      # Script to generate OpenAPI specs from protobuf
+  └── run.sh                # Script to run the application
 ```
 该工具的主要部分在下面两个文件夹下:
 - `/pkg`: 主要模块设计实现
@@ -180,6 +193,10 @@ Edge， a -> b 表示存在数据流从 a 到 b
 | target_property  | APIProperty | 表示存在流动的（目标）资源（例如某个参数） |
 
 Graph，包含一组 Edge，表示整个系统内部API之间的数据流传递关系。
+
+我们期望 source_property 和 target_property 是一样的，因为我们认为这两个资源是同一个资源，只是在不同的操作中传递。
+
+Note: 由于对于一组 Operation，他们的一对 property 都是来自 request 或 response 的，因此总会有双向的边，即 a -> b 和 b -> a 都会存在。这部分需要更好的处理。@xunzhou24
 
 
 ### 3.2.2. ODG 解析
@@ -233,18 +250,24 @@ if (outputParameter.getNormalizedName().equals(inputParameter.getNormalizedName(
 
 ## 3.3. Resource Pool
 
-一个 resource 为一个类 JSON 结构，可从 json 格式无损转换，即包含 map, array 和几种 primitive type 的类型。
+### 3.3.1. 资源池的设计
+
+一个 resource 为一个类 JSON 结构，可从 json 格式无损转换，即包含 object, array 和几种 primitive type 的类型。
 
 Resource Pool 提供两种类型的查询:
 1. 基于资源名的查询
-2. 基于资源类型的查询
+2. 基于资源类型的查询（仅支持 primitive type）
 例如:
 ```go
 rsc1 := resourceManager.GetSingleResourceByType(SimpleAPIPropertyTypeString)
 rsc2 := resourceManager.GetSingleResourceByName("Capitano")
 ```
 
-注：在目前的实现下，外部输入的预定义字典，作为初始资源加入资源池。
+### 3.3.2. 资源的生成
+
+- 外部输入的字典，作为资源池的初始资源的一部分
+- OpenAPI 中的 example 字段，作为资源池的初始资源的一部分(TODO: @xunzhou24)
+- 测试过程中的 response，包含了请求的资源
 
 
 ## 3.4. Testcase Queue
@@ -258,7 +281,18 @@ rsc2 := resourceManager.GetSingleResourceByName("Capitano")
   - 提高系统外部接口覆盖率（Path, Status Code）的测试用例具有更高的优先级
   - ...
 
-[TODO: 具体细节待定]
+### 3.4.1. 优先级的设计
+
+- 参见[`case_manager.go`](../pkg/casemanager/case_manager.go)，目前优先级的计算主要依赖于*是否产生新的覆盖*（无论是内部服务的覆盖还是系统API的响应状态的覆盖）。
+- 每轮测试执行完毕后，会根据优先级，对队列中的测试用例重新排序。
+
+建议参考的方案：
+- AFL
+  - https://github.com/google/AFL/blob/master/afl-fuzz.c#L8091
+  - https://zhuanlan.zhihu.com/p/624286070
+  - https://www.zhihu.com/question/388240608/answer/1157919593
+- LibFuzzer
+  - https://github.com/llvm/llvm-project/blob/main/compiler-rt/lib/fuzzer/FuzzerLoop.cpp#L723
 
 
 ## 3.5. Test Driver
@@ -268,13 +302,15 @@ rsc2 := resourceManager.GetSingleResourceByName("Capitano")
 
 ## 3.6. Trace Manager
 
-根据 trace 数据，生成预处理反馈，引导测试
+拉取和解析 trace，并根据 trace 数据，生成预处理反馈，引导测试
 
 ### 3.6.1. Trace Fetcher
 
+- 需要提前修改服务，使得我们能够从请求的响应（头或者响应体）中获取 trace ID
 - OpenTelemetry Demo 中，使用 Jaeger 提供的 API 进行 trace 搜集
-- 参考这个 [issue](https://github.com/orgs/jaegertracing/discussions/2876)
-- trace 本地存储，用于查询和去重等（目前粗糙地使用内存内map存储）[TODO: improve it @xunzhou24]
+- 参考这个 [官方文档](https://www.jaegertracing.io/docs/2.4/apis/)
+
+**Note**: 由于服务内部的 trace 收集等需要一定的时间，因此请求完后，我们并不能马上获取到 trace 数据，需要等待几秒钟。
 
 
 ### 3.6.2. Trace 分析
@@ -294,9 +330,21 @@ Edge， a -> b 表示存在数据流从 a 到 b，同时携带了调用次数信
 |------------------|------------|-------------------------------------|
 | source           | Operation  | 表示源 Operation               |
 | target           | Operation  | 表示目标 Operation             |
-| source_property  | APIProperty | 表示存在流动的（源）资源（例如某个参数） |
-| target_property  | APIProperty | 表示存在流动的（目标）资源（例如某个参数） |
 | hit_count       | int        | 表示调用次数                       |
+
+
+## 3.8. 网络相关
+
+### 3.8.1. HTTP 请求的实时修改
+
+目前支持脚本语言 [Starlark](https://github.com/bazelbuild/starlark) 的脚本化支持，用于修改请求的参数，例如鉴权等。
+
+具体实现见 [http client 中间件](../pkg/utils/http/middleware.go)。
+
+
+### 3.8.2 HTTPS 支持
+
+目前通过跳过证书验证的方式，支持 HTTPS 请求。（你就说有没有支持吧）
 
 
 # 4. 子任务排期
@@ -309,6 +357,8 @@ Edge， a -> b 表示存在数据流从 a 到 b，同时携带了调用次数信
 - [x] 基础的 testcase queue 的实现
 - [x] 资源池的基础实现
 - [x] 基础的 fuzzing 循环启动
-- [ ] trace 反馈信息的处理
+- [x] 完善的脚本化支持测试请求的修改，主要用于鉴权等
+- [x] trace 反馈信息的处理
+- [x] testcase queue 的优先级的基础实现
 - [ ] TODO
 
