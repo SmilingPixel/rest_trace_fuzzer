@@ -175,6 +175,8 @@ func (m *CaseManager) extendScenarioIfExecSuccess(existingScenario *TestScenario
 	// copy the existing scenario
 	newScenario := existingScenario.Copy()
 	newScenario.Reset()
+	// The new one will inheret the energy from the existing one.
+	newScenario.Energy = existingScenario.Energy
 	// We append a random operation to the scenario for now.
 	// TODO: append an operation based on API dependency @xunzhou24
 	newAPIMethid, newOperation := m.APIManager.GetRandomAPIMethod()
