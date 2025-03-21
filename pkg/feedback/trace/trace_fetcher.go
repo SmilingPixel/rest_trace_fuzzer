@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	// Threshold for trace age in seconds.
+	// Threshold for trace age.
 	TRACE_FILTER_OUT_AGE = 3 * time.Minute
 
 	// Maximum number of traces in a fetch request. (You can set it via query param "limit")

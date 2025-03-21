@@ -6,6 +6,8 @@ import (
 	"resttracefuzzer/pkg/resource"
 	"resttracefuzzer/pkg/static"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type StatusHitCountReport struct {
@@ -115,6 +117,9 @@ type TestScenarioForReport struct {
 	
 	// EndTime is the end time of the test scenario.
 	EndTime time.Time `json:"endTime"`
+
+	// TestScenarioUUID is the UUID of the test scenario.
+	TestScenarioUUID uuid.UUID `json:"testScenarioUUID"`
 }
 
 // NewReportFromTestScenario creates a new TestScenarioForReport from a TestScenario.
@@ -126,7 +131,8 @@ func NewReportFromTestScenario(testScenario *casemanager.TestScenario) *TestScen
 	return &TestScenarioForReport{
 		OperationCases: operationCases,
 		OperationCaseLength: len(operationCases),
-		EndTime:        time.Now(),
+		EndTime:          time.Now(),
+		TestScenarioUUID: testScenario.UUID,
 	}
 }
 

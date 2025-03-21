@@ -166,7 +166,7 @@ func (f *BasicFuzzer) ExecuteTestScenario(testScenario *casemanager.TestScenario
 		f.RunTimeGraph.GetEdgeCoverage(),
 		f.ResponseProcesser.GetCoveredStatusCodeCount(),
 	)
-	log.Info().Msgf("[BasicFuzzer.ExecuteTestScenario] Finish execute current test scenario, Edge coverage: %f, covered status code count: %d, hasAchieveNewCoverage: %v", f.RunTimeGraph.GetEdgeCoverage(), f.ResponseProcesser.GetCoveredStatusCodeCount(), hasAchieveNewCoverage)
+	log.Info().Msgf("[BasicFuzzer.ExecuteTestScenario] Finish execute current test scenario (UUID: %s), Edge coverage: %f, covered status code count: %d, hasAchieveNewCoverage: %v", testScenario.UUID.String(), f.RunTimeGraph.GetEdgeCoverage(), f.ResponseProcesser.GetCoveredStatusCodeCount(), hasAchieveNewCoverage)
 
 	// Pass the scenario and the result back to the case manager,
 	// and decide whether to put the scenario back to the queue and to generate a new one.

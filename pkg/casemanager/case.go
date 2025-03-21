@@ -9,6 +9,7 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/rs/zerolog/log"
+	"github.com/google/uuid"
 )
 
 const (
@@ -73,14 +74,23 @@ type TestScenario struct {
 	// It is used to prioritize the test scenarios.
 	// The higher the energy, the higher the priority.
 	Energy int `json:"energy"`
+
+	// UUID is the unique identifier of the test scenario.
+	UUID uuid.UUID `json:"uuid"`
 }
 
 // NewTestScenario creates a new TestScenario.
+// Before executing the test scenario, the test scenario should have empty request and response fields.
 func NewTestScenario(operationCases []*OperationCase) *TestScenario {
+	newUUID, err := uuid.NewRandom()
+	if err != nil {
+		log.Err(err).Msg("[NewTestScenario] Failed to generate UUID")
+	}
 	return &TestScenario{
 		OperationCases: operationCases,
 		ExecutedCount:  0,
 		Energy:         0,
+		UUID:           newUUID,
 	}
 }
 
@@ -117,14 +127,20 @@ func (ts *TestScenario) Copy() *TestScenario {
 		OperationCases: operationCases,
 		ExecutedCount:  ts.ExecutedCount,
 		Energy:         ts.Energy,
+		UUID:           ts.UUID,
 	}
 }
 
 // Reset resets the test scenario.
-// It resets the executed count and energy to 0.
+// It resets the executed count and energy to 0, and gives the test scenario a new UUID.
 func (ts *TestScenario) Reset() {
 	ts.ExecutedCount = 0
 	ts.Energy = 0
+	newUUID, err := uuid.NewRandom()
+	if err != nil {
+		log.Err(err).Msg("[TestScenario.Reset] Failed to generate UUID")
+	}
+	ts.UUID = newUUID
 }
 
 // IsExecutedSuccessfully checks whether the operation case is executed successfully.
