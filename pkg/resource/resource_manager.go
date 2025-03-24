@@ -25,19 +25,20 @@ type ResourceManager struct {
 	// ResourceNameMap is a map from the resource name to the resource.
 	ResourceNameMap map[string][]Resource `json:"resourceNameMap"`
 
-	// ResourceHashSet is used to store the hashcode of resources, preventing duplicate resources.
-	ResourceHashSet map[uint64]struct{} `json:"-"`
+	// ResourceName2HashSet is used to store the hashcode of resources, preventing duplicate resources.
+	// It maps resource name to resource set, i.e., we do not allow duplicate resources with the same name.
+	ResourceName2HashSet map[string]map[uint64]struct{} `json:"-"`
 }
 
 // NewResourceManager creates a new ResourceManager.
 func NewResourceManager() *ResourceManager {
 	resourceTypeMap := make(map[static.SimpleAPIPropertyType][]Resource)
 	resourceNameMap := make(map[string][]Resource)
-	resourceHashSet := make(map[uint64]struct{})
+	resourceHashSet := make(map[string]map[uint64]struct{})
 	return &ResourceManager{
 		ResourceTypeMap: resourceTypeMap,
 		ResourceNameMap: resourceNameMap,
-		ResourceHashSet: resourceHashSet,
+		ResourceName2HashSet: resourceHashSet,
 	}
 }
 
@@ -224,17 +225,22 @@ func (m *ResourceManager) StoreResourcesFromRawObjectBytes(rawObjectBytes []byte
 //   - for object type, all values from the object key-value pairs will be stored (resource name is the key);
 //   - for array type, all elements in the array will be stored (heuristic rules are applied to current `resourceName` to get the name, e.g., "names" -> "name").
 func (m *ResourceManager) storeResource(resource Resource, resourceName string, shouldStoreSubResources bool) {
-	if resource == nil {
-		log.Warn().Msg("[ResourceManager.storeResource] Resource is nil")
+	if isResourceEmpty(resource) {
+		log.Warn().Msg("[ResourceManager.storeResource] Resource is empty")
 		return
 	}
 
 	// Check if the resource is duplicate.
+	resourceSet := m.ResourceName2HashSet[resourceName]
+	if resourceSet == nil {
+		resourceSet = make(map[uint64]struct{})
+		m.ResourceName2HashSet[resourceName] = resourceSet
+	}
 	hashcode := resource.Hashcode()
-	if _, ok := m.ResourceHashSet[hashcode]; ok {
+	if _, ok := resourceSet[hashcode]; ok {
 		return
 	}
-	m.ResourceHashSet[hashcode] = struct{}{}
+	resourceSet[hashcode] = struct{}{}
 
 	// Store the resource in the resource manager.
 	m.ResourceTypeMap[resource.Typ()] = append(m.ResourceTypeMap[resource.Typ()], resource)
@@ -258,5 +264,22 @@ func (m *ResourceManager) storeResource(resource Resource, resourceName string, 
 		}
 	default:
 		// Do nothing for primitive types.
+	}
+}
+
+//isResourceEmpty checks if the resource is empty.
+func isResourceEmpty(resource Resource) bool {
+	if resource == nil {
+		return true
+	}
+	switch resource.Typ() {
+	case static.SimpleAPIPropertyTypeString:
+		return resource.(*ResourceString).Value == ""
+	case static.SimpleAPIPropertyTypeObject:
+		return len(resource.(*ResourceObject).Value) == 0
+	case static.SimpleAPIPropertyTypeArray:
+		return len(resource.(*ResourceArray).Value) == 0
+	default:
+		return false
 	}
 }

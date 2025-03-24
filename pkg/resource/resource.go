@@ -20,6 +20,9 @@ type Resource interface {
 	// String returns the string representation of the resource.
 	String() string
 
+	// ToJSONObject returns the JSON object representation of the resource.
+	ToJSONObject() any
+
 	// Typ returns the type of the resource.
 	Typ() static.SimpleAPIPropertyType
 
@@ -41,6 +44,11 @@ func NewResourceInteger(value int64) *ResourceInteger {
 
 func (r *ResourceInteger) String() string {
 	return strconv.FormatInt(r.Value, 10)
+}
+
+
+func (r *ResourceInteger) ToJSONObject() any {
+	return r.Value
 }
 
 func (r *ResourceInteger) Typ() static.SimpleAPIPropertyType {
@@ -67,6 +75,10 @@ func (r *ResourceFloat) String() string {
 	return strconv.FormatFloat(r.Value, 'f', -1, 64)
 }
 
+func (r *ResourceFloat) ToJSONObject() any {
+	return r.Value
+}
+
 func (r *ResourceFloat) Typ() static.SimpleAPIPropertyType {
 	return static.SimpleAPIPropertyTypeFloat
 }
@@ -87,6 +99,10 @@ func NewResourceString(value string) *ResourceString {
 }
 
 func (r *ResourceString) String() string {
+	return r.Value
+}
+
+func (r *ResourceString) ToJSONObject() any {
 	return r.Value
 }
 
@@ -120,6 +136,10 @@ func (r *ResourceBoolean) String() string {
 	return s
 }
 
+func (r *ResourceBoolean) ToJSONObject() any {
+	return r.Value
+}
+
 func (r *ResourceBoolean) Typ() static.SimpleAPIPropertyType {
 	return static.SimpleAPIPropertyTypeBoolean
 }
@@ -144,12 +164,20 @@ func NewResourceObject(value map[string]Resource) *ResourceObject {
 }
 
 func (r *ResourceObject) String() string {
-	s, err := sonic.MarshalString(r.Value)
+	s, err := sonic.MarshalString(r.ToJSONObject())
 	if err != nil {
 		log.Err(err).Msg("[ResourceObject.String] Failed to marshal object resource")
 		return "{}"
 	}
 	return s
+}
+
+func (r *ResourceObject) ToJSONObject() any {
+	result := make(map[string]any)
+	for key, value := range r.Value {
+		result[key] = value.ToJSONObject()
+	}
+	return result
 }
 
 func (r *ResourceObject) Typ() static.SimpleAPIPropertyType {
@@ -179,12 +207,20 @@ func NewResourceArray(value []Resource) *ResourceArray {
 }
 
 func (r *ResourceArray) String() string {
-	s, err := sonic.MarshalString(r.Value)
+	s, err := sonic.MarshalString(r.ToJSONObject())
 	if err != nil {
 		log.Err(err).Msg("[ResourceArray.String] Failed to marshal array resource")
 		return "[]"
 	}
 	return s
+}
+
+func (r *ResourceArray) ToJSONObject() any {
+	result := make([]any, 0, len(r.Value))
+	for _, value := range r.Value {
+		result = append(result, value.ToJSONObject())
+	}
+	return result
 }
 
 func (r *ResourceArray) Typ() static.SimpleAPIPropertyType {
