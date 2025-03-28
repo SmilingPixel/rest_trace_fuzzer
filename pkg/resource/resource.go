@@ -12,9 +12,16 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-
 // Resource represents a resource in the system.
 // It is an interface that can be implemented by different types of resources.
+// You can access value of a resource by access field `Value` directly, or use the `GetRawValue` method.
+// The difference between them are:
+//  - `Value` stores a parsed value, e.g., a map[string]interface{} would be stored as a `map[string]Resource` type.
+//  - `GetRawValue` returns the raw value, e.g., you can get the original map[string]interface{} value by calling `GetRawValue` of a ResourceObject.
+// As to the usage:
+//  - If you want to reduce the overhead (GetRawValue would try to convert the value to the original type), you can use `Value` directly.
+//  - If you do not want to include more dependencies, you can use `GetRawValue` to access the original value.
+// The same with `SetByRawValue` and `Value`.
 type Resource interface {
 
 	// String returns the string representation of the resource.
@@ -29,6 +36,12 @@ type Resource interface {
 	// Hashcode returns the hashcode of the resource.
 	// It is used to compare resources (not precisely).
 	Hashcode() uint64
+
+	// GetRawValue returns the raw value of the resource.
+	GetRawValue() any
+
+	// SetByRawValue sets the value of the resource.
+	SetByRawValue(value any)
 }
 
 // ResourceInteger represents a integer resource.
@@ -46,7 +59,6 @@ func (r *ResourceInteger) String() string {
 	return strconv.FormatInt(r.Value, 10)
 }
 
-
 func (r *ResourceInteger) ToJSONObject() any {
 	return r.Value
 }
@@ -58,6 +70,15 @@ func (r *ResourceInteger) Typ() static.SimpleAPIPropertyType {
 func (r *ResourceInteger) Hashcode() uint64 {
 	// As int64 and uint64 have the same scope, we can directly convert int64 to uint64.
 	return uint64(r.Value)
+}
+
+func (r *ResourceInteger) GetRawValue() any {
+	return r.Value
+}
+
+func (r *ResourceInteger) SetByRawValue(value any) {
+	// We assume the value is int64 type.
+	r.Value = value.(int64)
 }
 
 // ResourceFloat represents a float resource.
@@ -87,6 +108,15 @@ func (r *ResourceFloat) Hashcode() uint64 {
 	return math.Float64bits(r.Value)
 }
 
+func (r *ResourceFloat) GetRawValue() any {
+	return r.Value
+}
+
+func (r *ResourceFloat) SetByRawValue(value any) {
+	// We assume the value is float64 type.
+	r.Value = value.(float64)
+}
+
 // ResourceString represents a string resource.
 type ResourceString struct {
 	Value string
@@ -114,6 +144,14 @@ func (r *ResourceString) Hashcode() uint64 {
 	hasher := fnv.New64a()
 	hasher.Write([]byte(r.Value))
 	return hasher.Sum64()
+}
+
+func (r *ResourceString) GetRawValue() any {
+	return r.Value
+}
+
+func (r *ResourceString) SetByRawValue(value any) {
+	r.Value = value.(string)
 }
 
 // ResourceBoolean represents a boolean resource.
@@ -150,6 +188,15 @@ func (r *ResourceBoolean) Hashcode() uint64 {
 	} else {
 		return 0
 	}
+}
+
+func (r *ResourceBoolean) GetRawValue() any {
+	return r.Value
+}
+
+func (r *ResourceBoolean) SetByRawValue(value any) {
+	// We assume the value is bool type.
+	r.Value = value.(bool)
 }
 
 // ResourceObject represents an object resource.
@@ -190,9 +237,30 @@ func (r *ResourceObject) Hashcode() uint64 {
 	for key, v := range r.Value {
 		hasher.Write([]byte(key))
 		keyHash := hasher.Sum64()
-		res = (res * 17 + keyHash + v.Hashcode())
+		res = (res*17 + keyHash + v.Hashcode())
 	}
 	return res
+}
+
+func (r *ResourceObject) GetRawValue() any {
+	result := make(map[string]interface{})
+	for key, value := range r.Value {
+		result[key] = value.GetRawValue()
+	}
+	return result
+}
+
+func (r *ResourceObject) SetByRawValue(value any) {
+	// We assume the value is map[string]interface{} type.
+	objectValue := value.(map[string]interface{})
+	for key, val := range objectValue {
+		subResource, err := NewResourceFromValue(val)
+		if err != nil {
+			log.Err(err).Msg("[ResourceObject.SetValue] Failed to set value for object resource")
+			return
+		}
+		r.Value[key] = subResource
+	}
 }
 
 // ResourceArray represents an array resource.
@@ -230,9 +298,30 @@ func (r *ResourceArray) Typ() static.SimpleAPIPropertyType {
 func (r *ResourceArray) Hashcode() uint64 {
 	var res = uint64(len(r.Value))
 	for _, v := range r.Value {
-		res = (res * 17 + v.Hashcode())
+		res = (res*17 + v.Hashcode())
 	}
 	return res
+}
+
+func (r *ResourceArray) GetRawValue() any {
+	result := make([]interface{}, 0, len(r.Value))
+	for _, value := range r.Value {
+		result = append(result, value.GetRawValue())
+	}
+	return result
+}
+
+func (r *ResourceArray) SetByRawValue(value any) {
+	// We assume the value is []interface{} type.
+	arrayValue := value.([]interface{})
+	for _, val := range arrayValue {
+		subResource, err := NewResourceFromValue(val)
+		if err != nil {
+			log.Err(err).Msg("[ResourceArray.SetValue] Failed to set value for array resource")
+			return
+		}
+		r.Value = append(r.Value, subResource)
+	}
 }
 
 // NewResourceFromValue creates a new resource.

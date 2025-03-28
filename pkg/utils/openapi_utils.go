@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"math/rand/v2"
+	"reflect"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/rs/zerolog/log"
@@ -56,37 +56,19 @@ func IncludePrimitiveType(types *openapi3.Types) bool {
 	return types.Includes(openapi3.TypeString) || types.Includes(openapi3.TypeNumber) || types.Includes(openapi3.TypeInteger) || types.Includes(openapi3.TypeBoolean)
 }
 
-// GenerateDefaultValueForPrimitiveSchemaType generates a default value for a primitive schema type.
-func GenerateDefaultValueForPrimitiveSchemaType(schemaType *openapi3.Types) interface{} {
-	log.Debug().Msgf("[GenerateDefaultValueForPrimitiveSchemaType] schemaType: %v", schemaType)
+// PrimitiveSchemaType2ReflectKind converts a primitive schema type to a reflect kind.
+func PrimitiveSchemaType2ReflectKind(schemaType *openapi3.Types) reflect.Kind {
+	log.Debug().Msgf("[PrimitiveSchemaType2ReflectKind] schemaType: %v", schemaType)
 	switch {
 	case schemaType.Includes(openapi3.TypeString):
-		return "114-514"
+		return reflect.String
 	case schemaType.Includes(openapi3.TypeNumber):
-		return 114.514
+		return reflect.Float64
 	case schemaType.Includes(openapi3.TypeInteger):
-		return 114514
+		return reflect.Int64
 	case schemaType.Includes(openapi3.TypeBoolean):
-		return true
+		return reflect.Bool
 	default:
-		return nil
-	}
-}
-
-// GenerateRandomValueForPrimitiveSchemaType generates a random value for a primitive schema type.
-func GenerateRandomValueForPrimitiveSchemaType(schemaType *openapi3.Types) interface{} {
-	log.Debug().Msgf("[GenerateRandomValueForPrimitiveSchemaType] schemaType: %v", schemaType)
-	switch {
-	case schemaType.Includes(openapi3.TypeString):
-		randLength := rand.IntN(114) + 1
-		return RandStringBytes(randLength)
-	case schemaType.Includes(openapi3.TypeNumber):
-		return rand.Float64() + float64(rand.IntN(114514))
-	case schemaType.Includes(openapi3.TypeInteger):
-		return rand.IntN(114514)
-	case schemaType.Includes(openapi3.TypeBoolean):
-		return rand.IntN(2) == 1
-	default:
-		return nil
+		return 0
 	}
 }

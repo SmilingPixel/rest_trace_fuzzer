@@ -89,6 +89,10 @@ func (s *SchemaToValueStrategy) GenerateValueForSchema(name string, schema *open
 // It returns a json object resource, and error if any.
 // The returned object is of type ResourceObject.
 func (s *SchemaToValueStrategy) generateObjectValueForSchema(name string, schema *openapi3.SchemaRef) (resource.Resource, error) {
+	if schema == nil || schema.Value == nil {
+		return nil, fmt.Errorf("schema is nil")
+	}
+
 	// Try to apply value source.
 	value, generated, err := s.preCheckAndTryApplyValueSource(name, schema)
 	if err != nil {
@@ -96,10 +100,6 @@ func (s *SchemaToValueStrategy) generateObjectValueForSchema(name string, schema
 	}
 	if generated {
 		return value, nil
-	}
-
-	if schema == nil || schema.Value == nil {
-		return nil, fmt.Errorf("schema is nil")
 	}
 
 	result := resource.NewResourceObject(make(map[string]resource.Resource))
@@ -142,6 +142,10 @@ func (s *SchemaToValueStrategy) generateArrayValueForSchema(name string, schema 
 // It returns a primitive value resource, and error if any.
 // The returned value is of type *ResourceNumber, *ResourceString, etc.
 func (s *SchemaToValueStrategy) generatePrimitiveValueForSchema(name string, schema *openapi3.SchemaRef) (resource.Resource, error) {
+	if schema == nil || schema.Value == nil {
+		return nil, fmt.Errorf("schema is nil")
+	}
+	
 	// Try to apply value source.
 	value, generated, err := s.preCheckAndTryApplyValueSource(name, schema)
 	if err != nil {
@@ -151,10 +155,8 @@ func (s *SchemaToValueStrategy) generatePrimitiveValueForSchema(name string, sch
 		return value, nil
 	}
 
-	if schema == nil || schema.Value == nil {
-		return nil, fmt.Errorf("schema is nil")
-	}
-	defaultValue := utils.GenerateDefaultValueForPrimitiveSchemaType(schema.Value.Type)
+	typeKind := utils.PrimitiveSchemaType2ReflectKind(schema.Value.Type)
+	defaultValue := utils.DefaultValueForPrimitiveTypeKind(typeKind)
 	result, err := resource.NewResourceFromValue(defaultValue)
 	if err != nil {
 		return nil, err
@@ -168,7 +170,7 @@ func (s *SchemaToValueStrategy) generatePrimitiveValueForSchema(name string, sch
 //  2. A boolean indicating whether the value is generated, if successful.
 //  3. An error, if any.
 //
-// The method is inserted into each of the generate methods.
+// The method should be inserted into each of the generate methods.
 func (s *SchemaToValueStrategy) preCheckAndTryApplyValueSource(name string, schema *openapi3.SchemaRef) (resource.Resource, bool, error) {
 	if schema == nil || schema.Value == nil {
 		return nil, false, fmt.Errorf("schema is nil")
@@ -182,7 +184,9 @@ func (s *SchemaToValueStrategy) preCheckAndTryApplyValueSource(name string, sche
 		if !utils.IncludePrimitiveType(schema.Value.Type) {
 			return nil, false, nil
 		}
-		randomValue := utils.GenerateRandomValueForPrimitiveSchemaType(schema.Value.Type)
+		
+		typeKind := utils.PrimitiveSchemaType2ReflectKind(schema.Value.Type)
+		randomValue := utils.RandomValueForPrimitiveTypeKind(typeKind)
 		result, err := resource.NewResourceFromValue(randomValue)
 		if err != nil {
 			return nil, false, err

@@ -1,6 +1,9 @@
 package static
 
 import (
+	"math/rand/v2"
+	"resttracefuzzer/pkg/utils"
+
 	"github.com/bytedance/sonic"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/rs/zerolog/log"
@@ -98,6 +101,51 @@ func DeterminePropertyType(value any) SimpleAPIPropertyType {
 	default:
 		log.Warn().Msgf("[DeterminePropertyType] Unknown type: %T", value)
 		return SimpleAPIPropertyTypeUnknown
+	}
+}
+
+// DefaultValueForPrimitiveSimpleAPIPropertyType returns the default value for a primitive SimpleAPIPropertyType.
+func DefaultValueForPrimitiveSimpleAPIPropertyType(typ SimpleAPIPropertyType) any {
+	switch typ {
+	case SimpleAPIPropertyTypeString:
+		return "114-514"
+	case SimpleAPIPropertyTypeInteger:
+		return 114514
+	case SimpleAPIPropertyTypeFloat:
+		return 114.514
+	case SimpleAPIPropertyTypeBoolean:
+		return true
+	default:
+		log.Warn().Msgf("[DefaultValueForPrimitiveSimpleAPIPropertyType] Unknown type or non-primitive type: %v", typ)
+		return nil
+	}
+}
+
+// RandomValueForPrimitiveSimpleAPIPropertyType generates a random value for a SimpleAPIPropertyType.
+func RandomValueForPrimitiveSimpleAPIPropertyType(typ SimpleAPIPropertyType) any {
+	switch typ {
+	case SimpleAPIPropertyTypeString:
+		randLength := rand.IntN(114) + 1
+		return utils.RandStringBytes(randLength)
+	case SimpleAPIPropertyTypeInteger:
+		return rand.IntN(114514)
+	case SimpleAPIPropertyTypeFloat:
+		return rand.Float64() + float64(rand.IntN(114514))
+	case SimpleAPIPropertyTypeBoolean:
+		return rand.IntN(2) == 1
+	default:
+		log.Warn().Msgf("[RandomValueForPrimitiveSimpleAPIPropertyType] Unknown type or non-primitive type: %v", typ)
+		return nil
+	}
+}
+
+// IsPrimitiveSimpleAPIPropertyType returns whether a SimpleAPIPropertyType is a primitive type.
+func IsPrimitiveSimpleAPIPropertyType(typ SimpleAPIPropertyType) bool {
+	switch typ {
+	case SimpleAPIPropertyTypeString, SimpleAPIPropertyTypeInteger, SimpleAPIPropertyTypeFloat, SimpleAPIPropertyTypeBoolean:
+		return true
+	default:
+		return false
 	}
 }
 

@@ -3,6 +3,7 @@ package utils
 import (
 	"math"
 	"math/rand/v2"
+	"reflect"
 
 	"github.com/rs/zerolog/log"
 )
@@ -131,4 +132,43 @@ func ConvertFloatTo64BitType(num any) float64 {
 // The function returns a normally distributed random int64 value.
 func NormInt64(mean, stdDev int64) int64 {
     return int64(math.Round(rand.NormFloat64()*float64(stdDev) + float64(mean)))
+}
+
+// DefaultValueForPrimitiveTypeKind returns the default value for a given primitive type kind.
+// A primitive type is a basic data type that is not composed of other types, such as integers, floats, strings, and booleans.
+// We assume integer types are int64, and float types are float64.
+func DefaultValueForPrimitiveTypeKind(kind reflect.Kind) any {
+    switch kind {
+    case reflect.Int64:
+        return int64(114514)
+    case reflect.Float64:
+        return 114.514
+    case reflect.Bool:
+        return true
+    case reflect.String:
+        return "114-514"
+    default:
+        log.Warn().Msgf("[DefaultValueForPrimitiveTypeKind] Unsupported type: %v", kind)
+        return nil
+    }
+}
+
+// RandomValueForPrimitiveTypeKind generates a random value for a given primitive type.
+// A primitive type is a basic data type that is not composed of other types, such as integers, floats, strings, and booleans.
+// We assume integer types are int64, and float types are float64.
+func RandomValueForPrimitiveTypeKind(kind reflect.Kind) any {
+    switch kind {
+    case reflect.Int64:
+        return rand.IntN(114514)
+    case reflect.Float64:
+        return rand.Float64() + float64(rand.IntN(114514))
+    case reflect.Bool:
+        return rand.IntN(2) == 1
+    case reflect.String:
+        randLength := rand.IntN(114) + 1
+		return RandStringBytes(randLength)
+    default:
+        log.Warn().Msgf("[RandomValueForPrimitiveTypeKind] Unsupported type: %v", kind)
+        return nil
+    }
 }
