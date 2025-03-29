@@ -172,3 +172,29 @@ func RandomValueForPrimitiveTypeKind(kind reflect.Kind) any {
         return nil
     }
 }
+
+// EdgeCaseValueForPrimitiveTypeKind generates an edge case value for a given primitive type.
+// A primitive type is a basic data type that is not composed of other types, such as integers, floats, strings, and booleans.
+// We assume integer types are int64, and float types are float64.
+// The function returns a value that is close to the edge of the type's range.
+func EdgeCaseValueForPrimitiveTypeKind(kind reflect.Kind) any {
+    var (
+        intEdgeCase = []int64{0, 1, -1, math.MaxInt64, math.MinInt64, math.MaxInt32, math.MinInt32}
+        floatEdgeCase = []float64{0.0, 1.0, -1.0, math.MaxFloat64, math.SmallestNonzeroFloat64, math.MaxFloat32, math.SmallestNonzeroFloat32}
+        stringEdgeCase = []string{"", " ", "%20", ".*"}
+        boolEdgeCase = []bool{true, false}
+    )
+    switch kind {
+    case reflect.Int64:
+        return intEdgeCase[rand.IntN(len(intEdgeCase))]
+    case reflect.Float64:
+        return floatEdgeCase[rand.IntN(len(floatEdgeCase))]
+    case reflect.Bool:
+        return boolEdgeCase[rand.IntN(len(boolEdgeCase))]
+    case reflect.String:
+        return stringEdgeCase[rand.IntN(len(stringEdgeCase))]
+    default:
+        log.Warn().Msgf("[EdgeCaseValueForPrimitiveTypeKind] Unsupported type: %v", kind)
+        return nil
+    }
+}

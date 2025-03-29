@@ -20,6 +20,9 @@ const (
 	// MutationPlanRandom is the key for random mutation plan.
 	MutationPlanRandom = "RANDOM"
 
+	// MutationPlanEdgeCase is the key for edge case mutation plan.
+	MutationPlanEdgeCase = "EDGE_CASE"
+
 	// MutationPlanStructure is the key for structure mutation plan.
 	MutationPlanStructure = "STRUCTURE"
 
@@ -35,7 +38,7 @@ type ResourceMutateStrategy struct {
 
 	// MutationPlanWeightMap is the weight map for different mutation plans.
 	// It determines whether to mutate, which type of mutation to apply.
-	// It must have 3 keys (RANDOM, STRUCTURE, NONE) with non-negative integer weights.
+	// It must have 4 keys (RANDOM, STRUCTURE, EDGE_CASE, NONE) with non-negative integer weights.
 	MutationPlanWeightMap WeightMapStrategy
 }
 
@@ -48,6 +51,7 @@ func NewResourceMutateStrategy() *ResourceMutateStrategy {
 		MutationPlanWeightMap: NewConstantWeightMapStrategy(
 			map[string]int{
 				MutationPlanRandom:    1,
+				MutationPlanEdgeCase:  1,
 				MutationPlanStructure: 0,
 				NoMutationPlan:        3,
 			},
@@ -168,6 +172,29 @@ func (s *ResourceMutateStrategy) mutatePrimitiveResourceByRandom(resrc resource.
 	return resrc, nil
 }
 
+// mutatePrimitiveResourceByEdgeCase mutates a primitive resource.
+// It will generate a new value for the resource based on the edge case strategy.
+func (s *ResourceMutateStrategy) mutatePrimitiveResourceByEdgeCase(resrc resource.Resource) (resource.Resource, error) {
+	switch resrc.Typ() {
+	case static.SimpleAPIPropertyTypeInteger:
+		newValue := utils.EdgeCaseValueForPrimitiveTypeKind(reflect.Int64)
+		resrc.SetByRawValue(newValue)
+	case static.SimpleAPIPropertyTypeFloat:
+		newValue := utils.EdgeCaseValueForPrimitiveTypeKind(reflect.Float64)
+		resrc.SetByRawValue(newValue)
+	case static.SimpleAPIPropertyTypeBoolean:
+		newValue := utils.EdgeCaseValueForPrimitiveTypeKind(reflect.Bool)
+		resrc.SetByRawValue(newValue)
+	case static.SimpleAPIPropertyTypeString:
+		newValue := utils.EdgeCaseValueForPrimitiveTypeKind(reflect.String)
+		resrc.SetByRawValue(newValue)
+	default:
+		// We do not support other types.
+		return nil, fmt.Errorf("unsupported type: %v", resrc.Typ())
+	}
+	return resrc, nil
+}
+
 // mutateObjectResourceStructure mutates the structure of an object resource.
 // It will change the structure of the object resource, e.g., add or remove fields.
 func (s *ResourceMutateStrategy) mutateObjectResourceStructure(resrc resource.Resource) (resource.Resource, error) {
@@ -187,10 +214,10 @@ func (s *ResourceMutateStrategy) precheckAndTryApplyMutationPlan(resrc resource.
 	}
 
 	// decide the mutation plan
-	// Primitive resources can only be mutated by random mutation, object resources can only be mutated by structure mutation,
+	// Primitive resources can only be mutated by random or edge case mutation, object resources can only be mutated by structure mutation,
 	// and array resources cannot be mutated (but we should continue to check elements of the array).
 	mutationPlan := s.decideMutationPlan()
-	if static.IsPrimitiveSimpleAPIPropertyType(resrc.Typ()) && mutationPlan != MutationPlanRandom {
+	if static.IsPrimitiveSimpleAPIPropertyType(resrc.Typ()) && (mutationPlan != MutationPlanRandom && mutationPlan != MutationPlanEdgeCase) {
 		return resrc, false, nil
 	}
 	if resrc.Typ() == static.SimpleAPIPropertyTypeObject && mutationPlan != MutationPlanStructure {
@@ -203,6 +230,12 @@ func (s *ResourceMutateStrategy) precheckAndTryApplyMutationPlan(resrc resource.
 	switch mutationPlan {
 	case MutationPlanRandom:
 		mutatedResrc, err := s.mutatePrimitiveResourceByRandom(resrc)
+		if err != nil {
+			return nil, false, err
+		}
+		return mutatedResrc, true, nil
+	case MutationPlanEdgeCase:
+		mutatedResrc, err := s.mutatePrimitiveResourceByEdgeCase(resrc)
 		if err != nil {
 			return nil, false, err
 		}
