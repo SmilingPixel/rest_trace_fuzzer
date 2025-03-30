@@ -1,23 +1,25 @@
 package casemanager
 
 import (
+	"resttracefuzzer/pkg/resource"
 	"resttracefuzzer/pkg/static"
 	"resttracefuzzer/pkg/utils"
 	"resttracefuzzer/pkg/utils/http"
+	"strings"
 
 	"maps"
 
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/rs/zerolog/log"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
 
 const (
 	// When increasing or decreasing the energy of a test scenario by a random value (normal distribution),
 	// the mean and standard deviation of the normal distribution.
-	EnergyIncrMean = 5
+	EnergyIncrMean   = 5
 	EnergyIncrStdDev = 2
-	EnergyDecrMean = 3
+	EnergyDecrMean   = 3
 	EnergyDecrStdDev = 1
 
 	// Maximal and minimal values for the energy of a test scenario.
@@ -60,6 +62,21 @@ type OperationCase struct {
 	// ResponseBody contains the expected body of the response.
 	// It is a json object as a byte array.
 	ResponseBody []byte `json:"responseBody"`
+
+	// RequestPathParamResources is the resource representation of the path parameters.
+	// It is used to generate or mutate the request path parameters.
+	// The field would not be json encoded.
+	RequestPathParamResources map[string]resource.Resource `json:"-"`
+
+	// RequestQueryParamResources is the resource representation of the query parameters.
+	// It is used to generate or mutate the request query parameters.
+	// The field would not be json encoded.
+	RequestQueryParamResources map[string]resource.Resource `json:"-"`
+
+	// RequestBodyResource is the resource representation of the request body.
+	// It is used to generate or mutate the request body.
+	// The field would not be json encoded.
+	RequestBodyResource resource.Resource `json:"-"`
 }
 
 // A TestScenario is a sequence of [resttracefuzzer/pkg/casemanager/OperationCase].
@@ -108,13 +125,13 @@ func (ts *TestScenario) IsExecutedSuccessfully() bool {
 // IncreaseEnergyByRandom increases the energy of the test scenario by a random value (normal distribution).
 func (ts *TestScenario) IncreaseEnergyByRandom() {
 	added := max(0, int(utils.NormInt64(EnergyIncrMean, EnergyIncrStdDev)))
-	ts.Energy = min(ts.Energy + added, MaxEnergy)
+	ts.Energy = min(ts.Energy+added, MaxEnergy)
 }
 
 // DecreaseEnergyByRandom decreases the energy of the test scenario by a random value (normal distribution).
 func (ts *TestScenario) DecreaseEnergyByRandom() {
 	subtracted := max(0, int(utils.NormInt64(EnergyDecrMean, EnergyDecrStdDev)))
-	ts.Energy = max(ts.Energy - subtracted, MinEnergy)
+	ts.Energy = max(ts.Energy-subtracted, MinEnergy)
 }
 
 // Copy creates a deep copy of the test scenario.
@@ -143,6 +160,17 @@ func (ts *TestScenario) Reset() {
 	ts.UUID = newUUID
 }
 
+// NewOperationCase creates a new OperationCase.
+func NewOperationCase(
+	apiMethod static.SimpleAPIMethod,
+	operation *openapi3.Operation,
+) *OperationCase {
+	return &OperationCase{
+		APIMethod: apiMethod,
+		Operation: operation,
+	}
+}
+
 // IsExecutedSuccessfully checks whether the operation case is executed successfully.
 // It only checks the response status code for now.
 func (oc *OperationCase) IsExecutedSuccessfully() bool {
@@ -152,26 +180,114 @@ func (oc *OperationCase) IsExecutedSuccessfully() bool {
 // Copy creates a deep copy of the operation case.
 // TODO: deep copy the request and response body. @xunzhou24
 func (oc *OperationCase) Copy() *OperationCase {
+	// Copy the request and response headers, path parameters, query parameters, and body.
 	requestHeaders := make(map[string]string)
 	maps.Copy(requestHeaders, oc.RequestHeaders)
-	requestParams := make(map[string]string)
-	maps.Copy(requestParams, oc.RequestQueryParams)
+	requestPathParams := make(map[string]string)
+	maps.Copy(requestPathParams, oc.RequestPathParams)
+	requestQueryParams := make(map[string]string)
+	maps.Copy(requestQueryParams, oc.RequestQueryParams)
 	requestBody := make([]byte, len(oc.RequestBody))
 	copy(requestBody, oc.RequestBody)
 	responseHeaders := make(map[string]string)
 	maps.Copy(responseHeaders, oc.ResponseHeaders)
 	responseBody := make([]byte, len(oc.ResponseBody))
 	copy(responseBody, oc.ResponseBody)
+
+	// Copy resources.
+	requestPathParamResources := make(map[string]resource.Resource)
+	for k, v := range oc.RequestPathParamResources {
+		requestPathParamResources[k] = v.Copy()
+	}
+	requestQueryParamResources := make(map[string]resource.Resource)
+	for k, v := range oc.RequestQueryParamResources {
+		requestQueryParamResources[k] = v.Copy()
+	}
+	var requestBodyResources resource.Resource
+	if oc.RequestBodyResource != nil {
+		requestBodyResources = oc.RequestBodyResource.Copy()
+	} else {
+		requestBodyResources = nil
+	}
+
 	return &OperationCase{
 		APIMethod:          oc.APIMethod,
 		Operation:          oc.Operation,
 		RequestHeaders:     requestHeaders,
-		RequestQueryParams: requestParams,
+		RequestPathParams:  requestPathParams,
+		RequestQueryParams: requestQueryParams,
 		RequestBody:        requestBody,
 		ResponseHeaders:    responseHeaders,
 		ResponseStatusCode: oc.ResponseStatusCode,
 		ResponseBody:       responseBody,
+
+		RequestPathParamResources:  requestPathParamResources,
+		RequestQueryParamResources: requestQueryParamResources,
+		RequestBodyResource:        requestBodyResources,
 	}
+}
+
+// SetRequestPathParamsByResources sets the request path parameters by the given resources.
+// It stores the resources in the RequestPathParamResources field,
+// and sets the RequestPathParams field to the string representation of the resources.
+func (oc *OperationCase) SetRequestPathParamsByResources(resources map[string]resource.Resource) {
+	requestPathParams := make(map[string]string)
+	for key, resrc := range resources {
+		var valueStr string
+		// For array type, we need to convert the array to string.
+		// For example, if the array is [1, 2, 3], we convert it to "1,2,3", instead of json-style (e.g., "[1,2,3]").
+		if resrc.Typ() == static.SimpleAPIPropertyTypeArray {
+			valueList := make([]string, 0)
+			for _, v := range resrc.(*resource.ResourceArray).Value {
+				vStr := v.String()
+				valueList = append(valueList, vStr)
+			}
+			valueStr = strings.Join(valueList, ",")
+		} else {
+			valueStr = resrc.String()
+		}
+		requestPathParams[key] = valueStr
+	}
+	oc.RequestPathParams = requestPathParams
+	oc.RequestPathParamResources = resources
+}
+
+// SetRequestQueryParamsByResources sets the request query parameters by the given resources.
+// It stores the resources in the RequestQueryParamResources field,
+// and sets the RequestQueryParams field to the string representation of the resources.
+func (oc *OperationCase) SetRequestQueryParamsByResources(resources map[string]resource.Resource) {
+	requestQueryParams := make(map[string]string)
+	for key, resrc := range resources {
+		var valueStr string
+		// For array type, we need to convert the array to string.
+		// For example, if the array is [1, 2, 3], we convert it to "1,2,3", instead of json-style (e.g., "[1,2,3]").
+		if resrc.Typ() == static.SimpleAPIPropertyTypeArray {
+			valueList := make([]string, 0)
+			for _, v := range resrc.(*resource.ResourceArray).Value {
+				vStr := v.String()
+				valueList = append(valueList, vStr)
+			}
+			valueStr = strings.Join(valueList, ",")
+		} else {
+			valueStr = resrc.String()
+		}
+		requestQueryParams[key] = valueStr
+	}
+	oc.RequestQueryParams = requestQueryParams
+	oc.RequestQueryParamResources = resources
+}
+
+// SetRequestBodyByResource sets the request body by the given resource.
+// It stores the resource in the RequestBodyResources field,
+// and sets the RequestBody field to the string representation of the resource.
+func (oc *OperationCase) SetRequestBodyByResource(resource resource.Resource) {
+	oc.RequestBodyResource = resource
+	if resource == nil {
+		return
+	}
+	// Convert the resource to json string.
+	jsonStr := resource.String()
+	oc.RequestBody = []byte(jsonStr)
 }
 
 // AppendOperationCase appends an operation case to the test scenario.

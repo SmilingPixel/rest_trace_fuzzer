@@ -42,6 +42,9 @@ type Resource interface {
 
 	// SetByRawValue sets the value of the resource.
 	SetByRawValue(value any)
+
+	// Copy creates a deep copy of the resource.
+	Copy() Resource
 }
 
 // ResourceInteger represents a integer resource.
@@ -81,6 +84,12 @@ func (r *ResourceInteger) SetByRawValue(value any) {
 	r.Value = value.(int64)
 }
 
+func (r *ResourceInteger) Copy() Resource {
+	return &ResourceInteger{
+		Value: r.Value,
+	}
+}
+
 // ResourceFloat represents a float resource.
 type ResourceFloat struct {
 	Value float64
@@ -115,6 +124,12 @@ func (r *ResourceFloat) GetRawValue() any {
 func (r *ResourceFloat) SetByRawValue(value any) {
 	// We assume the value is float64 type.
 	r.Value = value.(float64)
+}
+
+func (r *ResourceFloat) Copy() Resource {
+	return &ResourceFloat{
+		Value: r.Value,
+	}
 }
 
 // ResourceString represents a string resource.
@@ -152,6 +167,12 @@ func (r *ResourceString) GetRawValue() any {
 
 func (r *ResourceString) SetByRawValue(value any) {
 	r.Value = value.(string)
+}
+
+func (r *ResourceString) Copy() Resource {
+	return &ResourceString{
+		Value: r.Value,
+	}
 }
 
 // ResourceBoolean represents a boolean resource.
@@ -197,6 +218,12 @@ func (r *ResourceBoolean) GetRawValue() any {
 func (r *ResourceBoolean) SetByRawValue(value any) {
 	// We assume the value is bool type.
 	r.Value = value.(bool)
+}
+
+func (r *ResourceBoolean) Copy() Resource {
+	return &ResourceBoolean{
+		Value: r.Value,
+	}
 }
 
 // ResourceObject represents an object resource.
@@ -263,6 +290,16 @@ func (r *ResourceObject) SetByRawValue(value any) {
 	}
 }
 
+func (r *ResourceObject) Copy() Resource {
+	result := &ResourceObject{
+		Value: make(map[string]Resource),
+	}
+	for key, value := range r.Value {
+		result.Value[key] = value.Copy()
+	}
+	return result
+}
+
 // ResourceArray represents an array resource.
 type ResourceArray struct {
 	Value []Resource
@@ -322,6 +359,16 @@ func (r *ResourceArray) SetByRawValue(value any) {
 		}
 		r.Value = append(r.Value, subResource)
 	}
+}
+
+func (r *ResourceArray) Copy() Resource {
+	result := &ResourceArray{
+		Value: make([]Resource, 0, len(r.Value)),
+	}
+	for _, value := range r.Value {
+		result.Value = append(result.Value, value.Copy())
+	}
+	return result
 }
 
 // NewResourceFromValue creates a new resource.

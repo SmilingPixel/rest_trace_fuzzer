@@ -123,7 +123,8 @@ func main() {
 		}
 	}
 	fuzzStrategist := strategy.NewFuzzStrategist(resourceManager)
-	caseManager := casemanager.NewCaseManager(APIManager, resourceManager, fuzzStrategist, extraHeaders)
+	resourceMutateStrategist := strategy.NewResourceMutateStrategy()
+	caseManager := casemanager.NewCaseManager(APIManager, resourceManager, fuzzStrategist, resourceMutateStrategist, extraHeaders)
 	responseProcesser := feedback.NewResponseProcesser(APIManager, resourceManager)
 	runTimeGraph := feedback.NewRuntimeGraph(APIManager.APIDataflowGraph)
 

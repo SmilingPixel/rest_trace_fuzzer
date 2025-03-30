@@ -6,11 +6,11 @@ import (
 	"resttracefuzzer/pkg/static"
 	"resttracefuzzer/pkg/strategy"
 	"sort"
-	"strings"
+
+	"maps"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/rs/zerolog/log"
-	"maps"
 )
 
 const (
@@ -35,6 +35,9 @@ type CaseManager struct {
 	// The fuzz strategist.
 	FuzzStrategist *strategy.FuzzStrategist
 
+	// The mutation strategist.
+	ResourceMutateStrategy *strategy.ResourceMutateStrategy
+
 	// GlobalExtraHeaders is the global extra headers, which will be added to each request.
 	// It is a map of header name to header value.
 	// It can be used for simple cases, e.g., adding an authorization header.
@@ -42,14 +45,21 @@ type CaseManager struct {
 }
 
 // NewCaseManager creates a new CaseManager.
-func NewCaseManager(APIManager *static.APIManager, resourceManager *resource.ResourceManager, fuzzStrategist *strategy.FuzzStrategist, globalExtraHeaders map[string]string) *CaseManager {
+func NewCaseManager(
+	APIManager *static.APIManager,
+	resourceManager *resource.ResourceManager,
+	fuzzStrategist *strategy.FuzzStrategist,
+	ResourceMutateStrategy *strategy.ResourceMutateStrategy,
+	globalExtraHeaders map[string]string,
+) *CaseManager {
 	testScenarios := make([]*TestScenario, 0)
 	m := &CaseManager{
-		APIManager:         APIManager,
-		ResourceManager:    resourceManager,
-		FuzzStrategist:     fuzzStrategist,
-		TestScenarios:      testScenarios,
-		GlobalExtraHeaders: globalExtraHeaders,
+		APIManager:             APIManager,
+		ResourceManager:        resourceManager,
+		FuzzStrategist:         fuzzStrategist,
+		ResourceMutateStrategy: ResourceMutateStrategy,
+		TestScenarios:          testScenarios,
+		GlobalExtraHeaders:     globalExtraHeaders,
 	}
 	m.initTestcasesFromDoc()
 	return m
@@ -81,13 +91,13 @@ func (m *CaseManager) PopAndPopulate() (*TestScenario, error) {
 		log.Debug().Msgf("[CaseManager.PopAndPopulate] Start to populate request for operation %v", operationCase.APIMethod)
 		// fill the request path and query params
 		requestParamsDef := operationCase.Operation.Parameters
-		requestPathParams, requestQueryParams, err := m.generateRequestParamsFromSchema(requestParamsDef)
+		requestPathParamResources, requestQueryParamResources, err := m.generateRequestParamResourcesFromSchema(requestParamsDef)
 		if err != nil {
-			log.Err(err).Msg("[CaseManager.PopAndFillRequest] Failed to generate request params")
+			log.Err(err).Msg("[CaseManager.PopAndFillRequest] Failed to generate request param resources")
 			return nil, err
 		}
-		operationCase.RequestPathParams = requestPathParams
-		operationCase.RequestQueryParams = requestQueryParams
+		operationCase.SetRequestPathParamsByResources(requestPathParamResources)
+		operationCase.SetRequestQueryParamsByResources(requestQueryParamResources)
 
 		// fill the request headers, including global extra headers and operation specific headers
 		requestHeaders := make(map[string]string)
@@ -99,12 +109,12 @@ func (m *CaseManager) PopAndPopulate() (*TestScenario, error) {
 		// fill the request body
 		requestBodySchema := operationCase.Operation.RequestBody
 		if requestBodySchema != nil {
-			requestBody, err := m.generateRequestBodyFromSchema(requestBodySchema)
+			requestBodyResrc, err := m.generateRequestBodyResourceFromSchema(requestBodySchema)
 			if err != nil {
-				log.Err(err).Msg("[CaseManager.PopAndFillRequest] Failed to generate request body")
+				log.Err(err).Msg("[CaseManager.PopAndFillRequest] Failed to generate request body resource")
 				return nil, err
 			}
-			operationCase.RequestBody = requestBody
+			operationCase.SetRequestBodyByResource(requestBodyResrc)
 		}
 	}
 	return testScenario, nil
@@ -145,13 +155,18 @@ func (m *CaseManager) EvaluateScenarioAndTryUpdate(hasAchieveNewCoverage bool, e
 		executedScenario.DecreaseEnergyByRandom()
 	}
 
-	// Put the scenario back to the queue if it has achieved new coverage or has not been executed for enough times
+	// If it has achieved new coverage or has not been executed for enough times,
+	// mutate it and put it back to the queue.
 	if hasAchieveNewCoverage || executedScenario.ExecutedCount < MaxAllowedExecutedCount {
-		// Put the scenario back to the queue
-		m.pushAndSort(executedScenario)
+		mutatedScenario, err := m.mutateScenario(executedScenario)
+		if err != nil {
+			log.Err(err).Msg("[CaseManager.evaluateScenarioAndTryUpdate] Failed to mutate scenario")
+			return err
+		}
+		m.pushAndSort(mutatedScenario)
 	}
 
-	// Process the scenario to generate a new one
+	// Extend the scenario to generate a new one
 	newScenario, err := m.extendScenarioIfExecSuccess(executedScenario)
 	if err != nil {
 		log.Err(err).Msg("[CaseManager.evaluateScenarioAndTryUpdate] Failed to process scenario")
@@ -179,10 +194,10 @@ func (m *CaseManager) extendScenarioIfExecSuccess(existingScenario *TestScenario
 	newScenario.Energy = existingScenario.Energy / 2
 	// We append a random operation to the scenario for now.
 	// TODO: append an operation based on API dependency @xunzhou24
-	newAPIMethid, newOperation := m.APIManager.GetRandomAPIMethod()
+	newAPIMethod, newOperation := m.APIManager.GetRandomAPIMethod()
 	newOperationCase := OperationCase{
 		Operation: newOperation,
-		APIMethod: newAPIMethid,
+		APIMethod: newAPIMethod,
 	}
 	newScenario.OperationCases = append(newScenario.OperationCases, &newOperationCase)
 	return newScenario, nil
@@ -193,36 +208,83 @@ func (m *CaseManager) initTestcasesFromDoc() error {
 	// TODO: Implement this method. @xunzhou24
 	// At the beginning, each testcase is a simple request to each API.
 	for method, operation := range m.APIManager.APIMap {
-		operationCase := OperationCase{
-			Operation: operation,
-			APIMethod: method,
-		}
-		testcase := NewTestScenario([]*OperationCase{&operationCase})
+		operationCase := NewOperationCase(method, operation)
+		testcase := NewTestScenario([]*OperationCase{operationCase})
 		m.pushAndSort(testcase)
 	}
 	return nil
 }
 
-// generateRequestBodyFromSchema generates a request body from a schema.
-// It returns a json object as a byte array and error if any.
+// mutateScenario mutates the given test scenario and returns it.
+// Mutation would not reset the scenario, i.e., the executed count and energy will be inherited from the existing one. (This is different from extending)
+func (m *CaseManager) mutateScenario(scenario *TestScenario) (*TestScenario, error) {
+	// copy the given scenario
+	newScenario := scenario.Copy()
+	// The new one will inherit the energy from the existing one.
+	newScenario.Energy = scenario.Energy / 2
+
+	// For each operation in the scenario, we mutate the request params, headers, and body.
+	for _, operationCase := range newScenario.OperationCases {
+		requestPathParamResrc := operationCase.RequestPathParamResources
+		requestQueryParamResrc := operationCase.RequestQueryParamResources
+		requestBodyResrc := operationCase.RequestBodyResource
+		// mutate the request path params
+		for key, resrc := range requestPathParamResrc {
+			mutatedResrc, err := m.ResourceMutateStrategy.MutateResource(resrc)
+			if err != nil {
+				log.Err(err).Msgf("[CaseManager.mutateScenario] Failed to mutate request path param %v", key)
+				return nil, err
+			}
+			requestPathParamResrc[key] = mutatedResrc
+		}
+		// mutate the request query params
+		for key, resrc := range requestQueryParamResrc {
+			mutatedResrc, err := m.ResourceMutateStrategy.MutateResource(resrc)
+			if err != nil {
+				log.Err(err).Msgf("[CaseManager.mutateScenario] Failed to mutate request query param %v", key)
+				return nil, err
+			}
+			requestQueryParamResrc[key] = mutatedResrc
+		}
+		// mutate the request body
+		if requestBodyResrc != nil {
+			mutatedResrc, err := m.ResourceMutateStrategy.MutateResource(requestBodyResrc)
+			if err != nil {
+				log.Err(err).Msgf("[CaseManager.mutateScenario] Failed to mutate request body")
+				return nil, err
+			}
+			requestBodyResrc = mutatedResrc
+		}
+		// set the mutated resources back to the operation case
+		// use `Set...ByResource` to set the actual request params at the same time
+		operationCase.SetRequestPathParamsByResources(requestPathParamResrc)
+		operationCase.SetRequestQueryParamsByResources(requestQueryParamResrc)
+		operationCase.SetRequestBodyByResource(requestBodyResrc)
+	}
+	return newScenario, nil
+}
+
+
+// generateRequestBodyResourceFromSchema generates a request body resource from a schema.
+// It returns a json object as a resource and error if any.
 // If the schema is empty, it returns nil.
-func (m *CaseManager) generateRequestBodyFromSchema(requestBodyRef *openapi3.RequestBodyRef) ([]byte, error) {
+func (m *CaseManager) generateRequestBodyResourceFromSchema(requestBodyRef *openapi3.RequestBodyRef) (resource.Resource, error) {
 	if requestBodyRef == nil || requestBodyRef.Value == nil {
 		return nil, nil
 	}
 	generatedValue, err := m.FuzzStrategist.GenerateValueForSchema(requestBodyRef.Ref, requestBodyRef.Value.Content.Get("application/json").Schema)
 	if err != nil {
-		log.Err(err).Msgf("[CaseManager.generateRequestBodyFromSchema] Failed to generate object from schema %v", requestBodyRef.Value.Content.Get("application/json").Schema)
+		log.Err(err).Msgf("[CaseManager.generateRequestBodyResourceFromSchema] Failed to generate object from schema %v", requestBodyRef.Value.Content.Get("application/json").Schema)
 		return nil, err
 	}
-	return []byte(generatedValue.String()), nil
+	return generatedValue, nil
 }
 
-// generateRequestParamsFromSchema generates request params (including path and query) from a schema.
+// generateRequestParamResourcesFromSchema generates request params resources (including path and query) from a schema.
 // It returns a map of request path params, a map of query params, and an error if any.
-func (m *CaseManager) generateRequestParamsFromSchema(params []*openapi3.ParameterRef) (map[string]string, map[string]string, error) {
-	pathParams := make(map[string]string)
-	queryParams := make(map[string]string)
+func (m *CaseManager) generateRequestParamResourcesFromSchema(params []*openapi3.ParameterRef) (map[string]resource.Resource, map[string]resource.Resource, error) {
+	pathParams := make(map[string]resource.Resource)
+	queryParams := make(map[string]resource.Resource)
 	for _, param := range params {
 		if param == nil || param.Value == nil {
 			return nil, nil, fmt.Errorf("request param is nil")
@@ -230,31 +292,17 @@ func (m *CaseManager) generateRequestParamsFromSchema(params []*openapi3.Paramet
 
 		generatedValue, err := m.FuzzStrategist.GenerateValueForSchema(param.Value.Name, param.Value.Schema)
 		if err != nil {
-			log.Err(err).Msgf("[CaseManager.generateRequestParamsFromSchema] Failed to generate object from schema %v", param.Value.Schema)
+			log.Err(err).Msgf("[CaseManager.generateRequestParamResourcesFromSchema] Failed to generate object from schema %v", param.Value.Schema)
 			return nil, nil, err
 		}
 
-		var valueStr string
-		// For array type, we need to convert the array to string.
-		// For example, if the array is [1, 2, 3], we convert it to "1,2,3", instead of json-style (e.g., "[1,2,3]").
-		if generatedValue.Typ() == static.SimpleAPIPropertyTypeArray {
-			valueList := make([]string, 0)
-			for _, v := range generatedValue.(*resource.ResourceArray).Value { // updated to use generatedValue
-				vStr := v.String()
-				valueList = append(valueList, vStr)
-			}
-			valueStr = strings.Join(valueList, ",")
-		} else {
-			valueStr = generatedValue.String()
-		}
-
 		if param.Value.In == "path" {
-			pathParams[param.Value.Name] = valueStr
+			pathParams[param.Value.Name] = generatedValue
 		} else if param.Value.In == "query" {
-			queryParams[param.Value.Name] = valueStr
+			queryParams[param.Value.Name] = generatedValue
 		} else {
 			// TODO: support other param locations (e.g., header) @xunzhou24
-			log.Warn().Msgf("[CaseManager.generateRequestParamsFromSchema] Unsupported param location %v", param.Value.In)
+			log.Warn().Msgf("[CaseManager.generateRequestParamResourcesFromSchema] Unsupported param location %v", param.Value.In)
 		}
 	}
 	return pathParams, queryParams, nil

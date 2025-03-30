@@ -169,7 +169,7 @@ func (f *BasicFuzzer) ExecuteTestScenario(testScenario *casemanager.TestScenario
 	log.Info().Msgf("[BasicFuzzer.ExecuteTestScenario] Finish execute current test scenario (UUID: %s), Edge coverage: %f, covered status code count: %d, hasAchieveNewCoverage: %v", testScenario.UUID.String(), f.RunTimeGraph.GetEdgeCoverage(), f.ResponseProcesser.GetCoveredStatusCodeCount(), hasAchieveNewCoverage)
 
 	// Pass the scenario and the result back to the case manager,
-	// and decide whether to put the scenario back to the queue and to generate a new one.
+	// and decide whether to put the scenario back to the queue and to generate a new one by extending or mutating the scenario.
 	err := f.CaseManager.EvaluateScenarioAndTryUpdate(hasAchieveNewCoverage, testScenario)
 	if err != nil {
 		log.Err(err).Msg("[BasicFuzzer.ExecuteTestScenario] Failed to evaluate scenario and try update")

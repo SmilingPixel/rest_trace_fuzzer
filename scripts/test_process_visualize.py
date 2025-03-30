@@ -57,6 +57,7 @@ def plot_graphs(test_data, output_prefix="test_analysis"):
     plt.grid(True, linestyle='--', alpha=0.7)
     plt.legend()
     plt.savefig(f"{output_prefix}_edge_coverage.svg", format="svg")
+    plt.savefig(f"{output_prefix}_edge_coverage.png", format="png")
     plt.close()
     
     plt.figure(figsize=(8, 4))
@@ -67,6 +68,7 @@ def plot_graphs(test_data, output_prefix="test_analysis"):
     plt.grid(True, linestyle='--', alpha=0.7)
     plt.legend()
     plt.savefig(f"{output_prefix}_status_codes.svg", format="svg")
+    plt.savefig(f"{output_prefix}_status_codes.png", format="png")
     plt.close()
 
 # Main function

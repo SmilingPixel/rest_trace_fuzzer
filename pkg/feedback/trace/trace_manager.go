@@ -9,7 +9,7 @@ import (
 const (
 	// Time to wait before fetching the trace, as the trace may not be
 	// available immediately after the request.
-	TraceFetchWaitTime = 2500 * time.Millisecond
+	TraceFetchWaitTime = 3000 * time.Millisecond
 )
 
 // TraceManager manages traces.

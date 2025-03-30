@@ -159,7 +159,7 @@ func DefaultValueForPrimitiveTypeKind(kind reflect.Kind) any {
 func RandomValueForPrimitiveTypeKind(kind reflect.Kind) any {
     switch kind {
     case reflect.Int64:
-        return rand.IntN(114514)
+        return rand.Int64N(114514)
     case reflect.Float64:
         return rand.Float64() + float64(rand.IntN(114514))
     case reflect.Bool:
