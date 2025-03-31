@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"fmt"
+	"reflect"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/rs/zerolog/log"
@@ -12,89 +12,63 @@ import (
 //
 // TODO: support openapi3 oneOf, anyOf, allOf, etc. @xunzhou24
 func FlattenSchema(schema *openapi3.SchemaRef) (map[string]*openapi3.SchemaRef, error) {
-	schemas := make(map[string]*openapi3.SchemaRef)
+	name2schema := make(map[string]*openapi3.SchemaRef)
 	if schema == nil {
 		log.Info().Msg("Schema is nil")
-		return schemas, nil
+		return name2schema, nil
 	}
 	// schemas = append(schemas, schema)
 
+	type schemaQueueItem struct {
+		name   string
+		schema *openapi3.SchemaRef
+	}
+
 	// BFS
-	que := make([]*openapi3.SchemaRef, 0)
-	que = append(que, schema)
+	que := make([]schemaQueueItem, 0)
+	que = append(que, schemaQueueItem{name: schema.Ref, schema: schema})
 	for len(que) > 0 {
-		newQue := make([]*openapi3.SchemaRef, 0)
+		newQue := make([]schemaQueueItem, 0)
 		for _, s := range que {
-			props := s.Value.Properties
-			for propName, propScheme := range props {
-				// log.Debug().Msgf("[flattenSchema] start to process property %s", propName)
-				if propScheme.Value.Type.Includes("object") {
-					newQue = append(newQue, propScheme)
-					schemas[propName] = propScheme
-				} else if propScheme.Value.Type.Includes("array") {
-					newQue = append(newQue, propScheme.Value.Items)
-					schemas[propName] = propScheme.Value.Items
-				} else {
-					schemas[propName] = propScheme
+			switch {
+			case s.schema.Value.Type.Includes(openapi3.TypeObject):
+				for propName, propSchema := range s.schema.Value.Properties {
+					newQue = append(newQue, schemaQueueItem{name: propName, schema: propSchema})
+					name2schema[propName] = propSchema
+				}
+			case s.schema.Value.Type.Includes(openapi3.TypeArray):
+				// Array element would not be seen as a whole,
+				// so we do not store array itself, just flatten it instead.
+				newQue = append(newQue, schemaQueueItem{name: s.name, schema: s.schema.Value.Items})
+			default:
+				if s.name != "" {
+					name2schema[s.name] = s.schema
 				}
 			}
 		}
 		que = newQue
 	}
-	return schemas, nil
+	return name2schema, nil
 }
 
-// GenerateJsonTemplateFromSchema generates a JSON template from a schema.
-// It returns a json object.
-//
-// For primitive types, the method fills a default value.
-//
-// Deprecated: Use [resttracefuzzer/pkg/casemanager.PopulateCaseOperation] instead.
-func GenerateJsonTemplateFromSchema(schema *openapi3.SchemaRef) (map[string]interface{}, error) {
-	if schema == nil || schema.Value == nil {
-		return nil, fmt.Errorf("schema is nil")
-	}
-
-	result := make(map[string]interface{})
-
-	for propName, propSchema := range schema.Value.Properties {
-		switch {
-		case propSchema.Value.Type.Includes("object"):
-			subResult, err := GenerateJsonTemplateFromSchema(propSchema)
-			if err != nil {
-				return nil, err
-			}
-			result[propName] = subResult
-
-		case propSchema.Value.Type.Includes("array"):
-			subResult, err := GenerateJsonTemplateFromSchema(propSchema.Value.Items)
-			if err != nil {
-				return nil, err
-			}
-			// TODO: control the array size @xunzhou24
-			result[propName] = []interface{}{subResult}
-
-		default:
-			// primitive types
-			result[propName] = GenerateDefaultValueForPrimitiveSchemaType(propSchema.Value.Type)
-		}
-	}
-
-	return result, nil
+// IncludePrimitiveType checks if the types include primitive types.
+func IncludePrimitiveType(types *openapi3.Types) bool {
+	return types.Includes(openapi3.TypeString) || types.Includes(openapi3.TypeNumber) || types.Includes(openapi3.TypeInteger) || types.Includes(openapi3.TypeBoolean)
 }
 
-// GenerateDefaultValueForPrimitiveSchemaType generates a placeholder value for a primitive schema type.
-//
-// TODO: deprecate it when strategy-based generation is implemented. @xunzhou24
-func GenerateDefaultValueForPrimitiveSchemaType(schemaType *openapi3.Types) interface{} {
+// PrimitiveSchemaType2ReflectKind converts a primitive schema type to a reflect kind.
+func PrimitiveSchemaType2ReflectKind(schemaType *openapi3.Types) reflect.Kind {
+	log.Debug().Msgf("[PrimitiveSchemaType2ReflectKind] schemaType: %v", schemaType)
 	switch {
-	case schemaType.Includes("string"):
-		return "string"
-	case schemaType.Includes("number"):
-		return 1
-	case schemaType.Includes("boolean"):
-		return true
+	case schemaType.Includes(openapi3.TypeString):
+		return reflect.String
+	case schemaType.Includes(openapi3.TypeNumber):
+		return reflect.Float64
+	case schemaType.Includes(openapi3.TypeInteger):
+		return reflect.Int64
+	case schemaType.Includes(openapi3.TypeBoolean):
+		return reflect.Bool
 	default:
-		return nil
+		return 0
 	}
 }

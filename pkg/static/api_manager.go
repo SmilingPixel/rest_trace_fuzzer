@@ -42,7 +42,7 @@ func (m *APIManager) InitFromSystemDoc(doc *openapi3.T) {
 	for path, pathItem := range doc.Paths.Map() {
 		for method, operation := range pathItem.Operations() {
 			// By default, the type of the API is HTTP.
-			m.APIMap[SimpleAPIMethod{Method: method, Endpoint: path, Type: SimpleAPIMethodTypeHTTP}] = operation
+			m.APIMap[SimpleAPIMethod{Method: method, Endpoint: path, Typ: SimpleAPIMethodTypeHTTP}] = operation
 		}
 	}
 }
@@ -60,13 +60,13 @@ func (m *APIManager) InitFromServiceDoc(doc *openapi3.T) {
 			// Split the operationID by `_`.
 			operationIDParts := strings.Split(operationID, "_")
 			if len(operationIDParts) != 2 {
-				log.Warn().Msgf("Invalid operationID: %s", operationID)
+				log.Warn().Msgf("[APIManager.InitFromServiceDoc] Invalid operationID: %s", operationID)
 				continue
 			}
 			serviceName := operationIDParts[0]
 			methodName := operationIDParts[1]
 			// TODO: we treat all the methods as gRPC methods for now. @xunzhou24
-			simpleMethod := SimpleAPIMethod{Method: methodName, Type: SimpleAPIMethodTypeGRPC}
+			simpleMethod := SimpleAPIMethod{Method: methodName, Typ: SimpleAPIMethodTypeGRPC}
 			if _, exists := m.InternalServiceAPIMap[serviceName]; !exists {
 				m.InternalServiceAPIMap[serviceName] = make(map[SimpleAPIMethod]*openapi3.Operation)
 			}
@@ -77,4 +77,15 @@ func (m *APIManager) InitFromServiceDoc(doc *openapi3.T) {
 	// Generate the dataflow graph of the internal APIs.
 	m.APIDataflowGraph = NewAPIDataflowGraph()
 	m.APIDataflowGraph.ParseFromServiceDocument(m.InternalServiceAPIMap)
+}
+
+// GetRandomAPIMethod returns a random API method from the API manager.
+func (m *APIManager) GetRandomAPIMethod() (SimpleAPIMethod, *openapi3.Operation) {
+	// Golang map iteration order is random.
+	// See [official doc](https://go.dev/blog/maps#iteration-order).
+	for method, operation := range m.APIMap {
+		return method, operation
+	}
+	log.Warn().Msg("[APIManager.GetRandomAPIMethod] No API method found")
+	return SimpleAPIMethod{}, nil
 }

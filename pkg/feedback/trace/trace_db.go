@@ -2,20 +2,22 @@ package trace
 
 // TraceDB represents a database for traces.
 // Structs that implement this interface should be able to store and retrieve traces.
-// By default, we store Jaeger-style traces.
 type TraceDB interface {
-	// TODO: Define the methods of the TraceDB interface. @xunzhou24
 
 	// SelectByIDs selects traces by IDs.
 	// If any trace of target ID does not exist, length of the result will be less than the length of the input.
-	SelectByIDs(ids []string) ([]*SimplifiedJaegerTrace, error)
+	SelectByIDs(ids []string) ([]*SimplifiedTrace, error)
 
 	// BatchUpsert inserts or updates traces.
 	// If the trace already exists, it will be updated.
-	BatchUpsert(traces []*SimplifiedJaegerTrace) error
+	BatchUpsert(traces []*SimplifiedTrace) error
+
+	// InsertAndReturn inserts a trace and returns the inserted trace.
+	// If the trace already exists, it will not be inserted.
+	InsertAndReturn(trace *SimplifiedTrace) (*SimplifiedTrace, error)
 
 	// BatchInsertAndReturn inserts traces and returns the inserted traces.
-	BatchInsertAndReturn(traces []*SimplifiedJaegerTrace) ([]*SimplifiedJaegerTrace, error)
+	BatchInsertAndReturn(traces []*SimplifiedTrace) ([]*SimplifiedTrace, error)
 }
 
 // InMemoryTraceDB is an in-memory implementation of TraceDB.
@@ -23,7 +25,7 @@ type InMemoryTraceDB struct {
 
 	// Traces is a list of traces.
 	// TODO: performance optimization: use a better structure instead of a list. @xunzhou24
-	Traces []*SimplifiedJaegerTrace
+	Traces []*SimplifiedTrace
 }
 
 // NewInMemoryTraceDB creates a new InMemoryTraceDB.
@@ -32,12 +34,12 @@ func NewInMemoryTraceDB() *InMemoryTraceDB {
 }
 
 // SelectByIDs selects traces by IDs.
-func (db *InMemoryTraceDB) SelectByIDs(ids []string) ([]*SimplifiedJaegerTrace, error) {
+func (db *InMemoryTraceDB) SelectByIDs(ids []string) ([]*SimplifiedTrace, error) {
 	idsSet := make(map[string]struct{})
 	for _, id := range ids {
 		idsSet[id] = struct{}{}
 	}
-	res := make([]*SimplifiedJaegerTrace, 0)
+	res := make([]*SimplifiedTrace, 0)
 	for _, trace := range db.Traces {
 		if _, ok := idsSet[trace.TraceID]; ok {
 			res = append(res, trace)
@@ -47,7 +49,7 @@ func (db *InMemoryTraceDB) SelectByIDs(ids []string) ([]*SimplifiedJaegerTrace, 
 }
 
 // BatchUpsert inserts or updates traces.
-func (db *InMemoryTraceDB) BatchUpsert(traces []*SimplifiedJaegerTrace) error {
+func (db *InMemoryTraceDB) BatchUpsert(traces []*SimplifiedTrace) error {
 	for _, trace := range traces {
 		queriedTrace, err := db.SelectByIDs([]string{trace.TraceID})
 		if err != nil {
@@ -69,8 +71,8 @@ func (db *InMemoryTraceDB) BatchUpsert(traces []*SimplifiedJaegerTrace) error {
 }
 
 // BatchInsertAndReturn inserts traces and returns the inserted traces.
-func (db *InMemoryTraceDB) BatchInsertAndReturn(traces []*SimplifiedJaegerTrace) ([]*SimplifiedJaegerTrace, error) {
-	newlyInsertedTraces := make([]*SimplifiedJaegerTrace, 0)
+func (db *InMemoryTraceDB) BatchInsertAndReturn(traces []*SimplifiedTrace) ([]*SimplifiedTrace, error) {
+	newlyInsertedTraces := make([]*SimplifiedTrace, 0)
 	for _, trace := range traces {
 		exist, err := db.SelectByIDs([]string{trace.TraceID})
 		if err != nil {
@@ -83,4 +85,17 @@ func (db *InMemoryTraceDB) BatchInsertAndReturn(traces []*SimplifiedJaegerTrace)
 		newlyInsertedTraces = append(newlyInsertedTraces, trace)
 	}
 	return newlyInsertedTraces, nil
+}
+
+// InsertAndReturn inserts a trace and returns the inserted trace.
+func (db *InMemoryTraceDB) InsertAndReturn(trace *SimplifiedTrace) (*SimplifiedTrace, error) {
+	exist, err := db.SelectByIDs([]string{trace.TraceID})
+	if err != nil {
+		return nil, err
+	}
+	if len(exist) > 0 {
+		return nil, nil
+	}
+	db.Traces = append(db.Traces, trace)
+	return trace, nil
 }

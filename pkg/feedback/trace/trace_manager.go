@@ -1,6 +1,16 @@
 package trace
 
-import "github.com/rs/zerolog/log"
+import (
+	"time"
+
+	"github.com/rs/zerolog/log"
+)
+
+const (
+	// Time to wait before fetching the trace, as the trace may not be
+	// available immediately after the request.
+	TraceFetchWaitTime = 3000 * time.Millisecond
+)
 
 // TraceManager manages traces.
 type TraceManager struct {
@@ -30,46 +40,65 @@ func NewTraceManager() *TraceManager {
 // PullTraces pulls traces from the trace source(e.g., Jaeger), and update local data.
 func (m *TraceManager) PullTraces() error {
 	// Fetch traces from the trace source.
-	traces, err := m.TraceFetcher.FetchFromRemote()
+	traces, err := m.TraceFetcher.FetchAllFromRemote()
 	if err != nil {
-		log.Err(err).Msg("Failed to fetch traces from remote")
+		log.Err(err).Msg("[TraceManager.PullTraces] Failed to fetch traces from remote")
 		return err
 	}
 	err = m.TraceDB.BatchUpsert(traces)
 	if err != nil {
-		log.Err(err).Msg("Failed to upsert traces")
+		log.Err(err).Msg("[TraceManager.PullTraces] Failed to upsert traces")
 		return err
 	}
 	return nil
 }
 
 // PullTracesAndReturn pulls traces from the trace source(e.g., Jaeger), and return the traces.
-func (m *TraceManager) PullTracesAndReturn() ([]*SimplifiedJaegerTrace, error) {
+func (m *TraceManager) PullTracesAndReturn() ([]*SimplifiedTrace, error) {
 	// Fetch traces from the trace source.
-	traces, err := m.TraceFetcher.FetchFromRemote()
+	traces, err := m.TraceFetcher.FetchAllFromRemote()
 	if err != nil {
-		log.Err(err).Msg("Failed to fetch traces from remote")
+		log.Err(err).Msg("[TraceManager.PullTracesAndReturn] Failed to fetch traces from remote")
 		return nil, err
 	}
 	newTraces, err := m.TraceDB.BatchInsertAndReturn(traces)
 	if err != nil {
-		log.Err(err).Msg("Failed to insert traces")
+		log.Err(err).Msg("[TraceManager.PullTracesAndReturn] Failed to insert traces")
 		return nil, err
 	}
 	return newTraces, nil
 }
 
-// ConvertTraces2CallInfos returns the call information (list) between services.
-func (m *TraceManager) ConvertTraces2CallInfos(traces []*SimplifiedJaegerTrace) ([]*CallInfo, error) {
+// PullTraceByIDAndReturn pulls a trace by ID from the trace source(e.g., Jaeger), and return the trace.
+func (m *TraceManager) PullTraceByIDAndReturn(traceID string) (*SimplifiedTrace, error) {
+	// Wait a short time before fetching the trace, as the trace may not be
+	// available immediately after the request.
+	// TODO: a more sufficient way to wait for the trace to be available. @xunzhou24
+	time.Sleep(TraceFetchWaitTime)
+	trace, err := m.TraceFetcher.FetchOneByIDFromRemote(traceID)
+	if err != nil || trace == nil {
+		log.Err(err).Msgf("[TraceManager.PullTraceByIDAndReturn] Failed to fetch trace from remote, traceID: %s", traceID)
+		return nil, err
+	}
+	newTrace, err := m.TraceDB.InsertAndReturn(trace)
+	if err != nil {
+		log.Err(err).Msgf("[TraceManager.PullTraceByIDAndReturn] Failed to insert trace, traceID: %s", traceID)
+		return nil, err
+	}
+	return newTrace, nil
+}
+
+// BatchConvertTrace2CallInfos returns the call information (list) between services.
+func (m *TraceManager) BatchConvertTrace2CallInfos(traces []*SimplifiedTrace) ([]*CallInfo, error) {
 	res := make([]*CallInfo, 0)
 	if len(traces) == 0 {
-		log.Warn().Msg("[TraceManager.ConvertTraces2CallInfos] No trace available")
+		log.Warn().Msg("[TraceManager.BatchConvertTrace2CallInfos] No trace available")
 		return res, nil
 	}
 	for _, trace := range traces {
-		callInfoList, err := m.convertSingleTrace2CallInfos(trace)
+		callInfoList, err := m.convertTrace2CallInfos(trace)
 		if err != nil {
-			log.Err(err).Msg("[TraceManager.ConvertTraces2CallInfos] Failed to convert single trace to call infos")
+			log.Err(err).Msg("[TraceManager.BatchConvertTrace2CallInfos] Failed to convert single trace to call infos")
 			return nil, err
 		}
 		res = append(res, callInfoList...)
@@ -77,32 +106,57 @@ func (m *TraceManager) ConvertTraces2CallInfos(traces []*SimplifiedJaegerTrace) 
 	return res, nil
 }
 
-// convertSingleTrace2CallInfos returns the call information (list) between services.
-func (m *TraceManager) convertSingleTrace2CallInfos(trace *SimplifiedJaegerTrace) ([]*CallInfo, error) {
+// convertTrace2CallInfos returns the call information (list) between services.
+func (m *TraceManager) convertTrace2CallInfos(trace *SimplifiedTrace) ([]*CallInfo, error) {
 	res := make([]*CallInfo, 0)
 	if trace == nil || len(trace.SpanMap) == 0 {
-		log.Warn().Msg("[TraceManager.convertSingleTrace2CallInfos] Invalid trace")
+		log.Warn().Msg("[TraceManager.convertTrace2CallInfos] Invalid trace, trace is nil or has no spans")
 		return res, nil
 	}
 	for _, span := range trace.SpanMap {
+		// Spans of kind 'internal' would be ignored, as we only care about the calls between services.
+		if span.SpanKind == INTERNAL {
+			continue
+		}
+		var parentSpan *SimplifiedTraceSpan
 		for _, ref := range span.References {
-			refMap, ok := ref.(map[string]string)
-			if !ok {
-				log.Warn().Msg("[TraceManager.convertSingleTrace2CallInfos] Invalid reference")
-				continue
-			}
-			if refMap["refType"] == "CHILD_OF" {
-				parentSpanID := refMap["spanID"] // TODO: check here @xunzhou24
-				parentSpan := trace.SpanMap[parentSpanID]
-				callInfo := &CallInfo{
-					SourceService:         parentSpan.Process.ServiceName,
-					TargetService:         span.Process.ServiceName,
-					SourceMethodTraceName: parentSpan.OperationName,
-					TargetMethodTraceName: span.OperationName,
-				}
-				res = append(res, callInfo)
+			if ref["refType"] == "CHILD_OF" {
+				parentSpanID := ref["spanID"]
+				parentSpan = trace.SpanMap[parentSpanID]
+				break
 			}
 		}
+		if parentSpan == nil || parentSpan.SpanKind == INTERNAL {
+			continue
+		}
+		parentSpanID := parentSpan.SpanID
+
+		if parentSpan.OperationName == "/oteldemo.ProductCatalogService/ListProducts" {
+			log.Info().Msgf("[TraceManager.convertTrace2CallInfos] parentSpanID: %s, spanID: %s", parentSpanID, span.SpanID)
+		}
+
+		// retrieve method trace name
+		// Failure to retrieve for some reason would lead to the call being ignored.
+		// At least one of the method trace names from the parent span and the span should be available.
+		sourceMethodTraceName, sourceOk := parentSpan.RetrieveCalledMethod()
+		targetMethodTraceName, targetOk := span.RetrieveCalledMethod()
+		if (!sourceOk && !targetOk) || (sourceMethodTraceName == "" && targetMethodTraceName == "") {
+			log.Warn().Msgf("[TraceManager.convertTrace2CallInfos] Failed to retrieve method trace name, parentSpanID: %s, spanID: %s", parentSpanID, span.SpanID)
+			continue
+		}
+		var methodTraceName string
+		if sourceMethodTraceName != "" {
+			methodTraceName = sourceMethodTraceName
+		} else {
+			methodTraceName = targetMethodTraceName
+		}
+
+		callInfo := &CallInfo{
+			SourceService:         parentSpan.Process.ServiceName,
+			TargetService:         span.Process.ServiceName,
+			Method: 			  methodTraceName,
+		}
+		res = append(res, callInfo)
 	}
 	return res, nil
 }

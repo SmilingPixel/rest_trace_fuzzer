@@ -15,5 +15,7 @@ go.work.sum
 # Python virtual environment
 /venv
 
-# env file
+# private env, config file and tools
 .env
+config/my*
+my_tools/

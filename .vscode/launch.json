@@ -4,7 +4,6 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-
         {
             "name": "Launch Package",
             "type": "go",
@@ -12,14 +11,12 @@
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/api-fuzzer",
             "args": [
-                "--openapi-spec", "${workspaceFolder}/../openapi/otel_demo/system_swagger.json",
-                "--fuzzer-type", "Basic",
-                "--fuzzer-budget", "30s",
-                "--server-base-url", "http://www.example.com",
-                "--internal-service-openapi-spec", "${workspaceFolder}/../openapi/otel_demo/internal_service_oas.yaml",
-                "--output-dir", "${workspaceFolder}/./output",
-                "--log-level", "debug"
-            ]
+                "--config-file",
+                "${workspaceFolder}/config/my_config.json",
+                "--log-level",
+                "debug"
+            ],
+            "cwd": "${workspaceFolder}", // This is the working directory, which is "" by default when launching
         }
     ]
 }

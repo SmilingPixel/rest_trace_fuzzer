@@ -33,17 +33,18 @@ func (r *InternalServiceReporter) GenerateInternalServiceReport(runtimeGraph *fe
 	// Generate the report and marshal it to JSON.
 	report := InternalServiceTestReport{
 		EdgeCoverage: edgeCoverage,
+		FinalRuntimeGraph: runtimeGraph,
 	}
 	reportJSON, err := sonic.Marshal(report)
 	if err != nil {
-		log.Err(err).Msgf("[InternalServiceReporter.GenerateInternalServiceReport] Failed to marshal the internal service report: %v", err)
+		log.Err(err).Msgf("[InternalServiceReporter.GenerateInternalServiceReport] Failed to marshal the internal service report")
 		return err
 	}
 
 	// Write the report to a file.
 	err = os.WriteFile(outputPath, reportJSON, 0644)
 	if err != nil {
-		log.Err(err).Msgf("[InternalServiceReporter.GenerateInternalServiceReport] Failed to write the internal service report to file: %v", err)
+		log.Err(err).Msgf("[InternalServiceReporter.GenerateInternalServiceReport] Failed to write the internal service report to file")
 		return err
 	}
 	return nil

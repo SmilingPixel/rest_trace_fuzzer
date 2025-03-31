@@ -1,12 +1,17 @@
 {
-    "config_file_path": "",
-    "openapi_spec_path": "../openapi/otel_demo/system_swagger.json",
-    "server_base_url": "http://www.example.com",
-    "internal_service_openapi_path": "../openapi/otel_demo/internal_service_oas.yaml",
-    "trace_backend_url": "http://localhost:4317",
-    "trace_backend_type": "Jaeger",
-    "fuzzer_type": "Basic",
-    "fuzzer_budget": 30,
-    "log_level": "info",
-    "output_dir": "./output"
-  }
+    "configFilePath": "./config/config.json",
+    "extraHeaders": "{\"token\":\"YOUR_TOKEN_HERE\"}",
+    "fuzzValueDictFilePath": "./config/fuzz_value_dict.json",
+    "fuzzerBudget": 5,
+    "fuzzerType": "Basic",
+    "HTTPMiddlewareScriptPath": "./config/http_middleware.starlark",
+    "internalServiceOpenAPIPath": "../openapi/otel_demo/internal_service_oas.yaml",
+    "logLevel": "debug",
+    "logToFile": true,
+    "openAPISpecPath": "../openapi/otel_demo/system_swagger.json",
+    "outputDir": "./output",
+    "serverBaseURL": "http://www.example.com",
+    "traceBackendType": "Jaeger",
+    "traceBackendURL": "http://localhost:4317",
+    "traceIDHeaderKey": "X-Trace-Id"
+}

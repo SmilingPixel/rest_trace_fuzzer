@@ -1,4 +1,4 @@
 #!/bin/bash
 
-# Clear all files under /output
-rm -rf ./output/*
+# Remove all files ending with ...report...json and .log under /output
+rm -rf ./output/*report*.json ./output/*.log
