@@ -20,6 +20,7 @@ func ParseCmdArgs() {
 	flag.StringVar(&GlobalConfig.InternalServiceOpenAPIPath, "internal-service-openapi-spec", "", "Path to internal service openapi spec file, json format")
 	flag.StringVar(&GlobalConfig.LogLevel, "log-level", "info", "Log level: debug, info, warn, error, fatal, panic")
 	flag.BoolVar(&GlobalConfig.LogToFile, "log-to-file", false, "Should log to file")
+	flag.IntVar(&GlobalConfig.MaxOpsPerScenario, "max-ops-per-scenario", 1, "Maximum number of operations to execute in each scenario")
 	flag.StringVar(&GlobalConfig.OpenAPISpecPath, "openapi-spec", "", "Path to the OpenAPI spec file")
 	flag.StringVar(&GlobalConfig.OutputDir, "output-dir", "./output", "Output directory, e.g., ./output")
 	flag.StringVar(&GlobalConfig.ServerBaseURL, "server-base-url", "https://www.example.com", "Base URL of the API, e.g., https://www.example.com")
@@ -81,6 +82,13 @@ func ParseCmdArgs() {
 	}
 	if envVal, ok := os.LookupEnv("LOG_TO_FILE"); ok && envVal != "" {
 		GlobalConfig.LogToFile = true
+	}
+	if envVal, ok := os.LookupEnv("MAX_OPS_PER_SCENARIO"); ok && envVal != "" {
+		envValInt, err := strconv.Atoi(envVal)
+		if err != nil {
+			log.Err(err).Msgf("[ParseCmdArgs] Failed to parse int: %s", err)
+		}
+		GlobalConfig.MaxOpsPerScenario = envValInt
 	}
 	if envVal, ok := os.LookupEnv("OPENAPI_SPEC_PATH"); ok && envVal != "" {
 		GlobalConfig.OpenAPISpecPath = envVal

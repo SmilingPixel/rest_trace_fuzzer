@@ -199,7 +199,7 @@ func (s *ResourceMutateStrategy) mutatePrimitiveResourceByEdgeCase(resrc resourc
 // It will change the structure of the object resource, e.g., add or remove fields.
 func (s *ResourceMutateStrategy) mutateObjectResourceStructure(resrc resource.Resource) (resource.Resource, error) {
 	// TODO: implement the method. @xunzhou24
-	return resrc, nil
+	return nil, fmt.Errorf("not implemented")
 }
 
 

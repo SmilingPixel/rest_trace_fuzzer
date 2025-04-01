@@ -27,7 +27,7 @@ type TraceManager struct {
 // NewTraceManager creates a new TraceManager.
 func NewTraceManager() *TraceManager {
 
-	// TODO: Initialize the TraceFetcher and TraceDB according config. @xunzhou24
+	// TODO: Initialize the TraceFetcher and TraceDB according to config. @xunzhou24
 	// By default, we use JaegerTraceFetcher and InMemoryTraceDB.
 	traceFetcher := NewJaegerTraceFetcher()
 	traceDB := NewInMemoryTraceDB()

@@ -2,6 +2,8 @@ package casemanager
 
 import (
 	"fmt"
+	"math/rand/v2"
+	"resttracefuzzer/internal/config"
 	"resttracefuzzer/pkg/resource"
 	"resttracefuzzer/pkg/static"
 	"resttracefuzzer/pkg/strategy"
@@ -111,7 +113,7 @@ func (m *CaseManager) PopAndPopulate() (*TestScenario, error) {
 		if requestBodySchema != nil {
 			requestBodyResrc, err := m.generateRequestBodyResourceFromSchema(requestBodySchema)
 			if err != nil {
-				log.Err(err).Msg("[CaseManager.PopAndFillRequest] Failed to generate request body resource")
+				log.Err(err).Msgf("[CaseManager.PopAndFillRequest] Failed to generate request body resource, scenario UUID: %s", testScenario.UUID.String())
 				return nil, err
 			}
 			operationCase.SetRequestBodyByResource(requestBodyResrc)
@@ -187,14 +189,47 @@ func (m *CaseManager) extendScenarioIfExecSuccess(existingScenario *TestScenario
 		return nil, nil
 	}
 
+	// Check if the existing scenario has reached the maximum number of operations.
+	if len(existingScenario.OperationCases) >= config.GlobalConfig.MaxOpsPerScenario {
+		log.Debug().Msgf("[CaseManager.extendScenarioIfExecSuccess] The existing scenario (UUID: %s) has reached the maximum number of operations", existingScenario.UUID.String())
+		return nil, nil
+	}
+
 	// copy the existing scenario
 	newScenario := existingScenario.Copy()
 	newScenario.Reset()
 	// The new one will inherit the energy from the existing one.
 	newScenario.Energy = existingScenario.Energy / 2
-	// We append a random operation to the scenario for now.
-	// TODO: append an operation based on API dependency @xunzhou24
-	newAPIMethod, newOperation := m.APIManager.GetRandomAPIMethod()
+	
+	// Append a new operation based on producer-consumer relationship.
+	// TODO: Take energy of an operation into account. @xunzhou24
+	var candidates []static.SimpleAPIMethod
+	producers := make([]static.SimpleAPIMethod, 0)
+	for _, operationCase := range newScenario.OperationCases {
+		producers = append(producers, operationCase.APIMethod)
+	}
+	// Get the consumers of the producers in the existing scenario.
+	consumers := m.APIManager.GetConsumerAPIMethodsByProducers(producers)
+	// If there are no consumers, we can randomly select an API method.
+	// Otherwise, we select the consumers.
+	if len(consumers) > 0 {
+		candidates = consumers
+	} else {
+		candidates = append(candidates, m.APIManager.GetRandomAPIMethod())
+	}
+
+	if len(candidates) == 0 {
+		log.Warn().Msg("[CaseManager.extendScenarioIfExecSuccess] No candidates available for extending the scenario")
+		return nil, nil
+	}
+
+	// Randomly select a consumer API method from the candidates.
+	newAPIMethod := candidates[rand.IntN(len(candidates))]
+	newOperation, exist := m.APIManager.GetOperationByMethod(newAPIMethod)
+	if !exist {
+		log.Warn().Msgf("[CaseManager.extendScenarioIfExecSuccess] The new API method %v does not exist in the API manager", newAPIMethod)
+		return nil, nil
+	}
 	newOperationCase := OperationCase{
 		Operation: newOperation,
 		APIMethod: newAPIMethod,
@@ -204,8 +239,7 @@ func (m *CaseManager) extendScenarioIfExecSuccess(existingScenario *TestScenario
 }
 
 // Init initializes the case queue.
-func (m *CaseManager) initTestcasesFromDoc() error {
-	// TODO: Implement this method. @xunzhou24
+func (m *CaseManager) initTestcasesFromDoc() error { 
 	// At the beginning, each testcase is a simple request to each API.
 	for method, operation := range m.APIManager.APIMap {
 		operationCase := NewOperationCase(method, operation)

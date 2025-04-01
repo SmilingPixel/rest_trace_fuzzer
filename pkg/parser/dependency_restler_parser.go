@@ -70,13 +70,16 @@ func (p *APIDependencyRestlerParser) ParseFromPath(path string) (*static.APIDepe
 					if producerConsumerDetail["producer_endpoint"] == "" {
 						continue
 					}
+					// We assume that all exposed APIs of the system are HTTP APIs
 					consumer := static.SimpleAPIMethod{
 						Endpoint: path,
 						Method:   method,
+						Typ:      static.SimpleAPIMethodTypeHTTP,
 					}
 					producer := static.SimpleAPIMethod{
 						Endpoint: producerConsumerDetail["producer_endpoint"],
 						Method:   producerConsumerDetail["producer_method"],
+						Typ:      static.SimpleAPIMethodTypeHTTP,
 					}
 					log.Info().Msgf("[APIDependencyRestlerParser.ParseFromPath] Adding dependency from %v to %v", producer, consumer)
 					dependencyGraph.AddDependency(consumer, producer)

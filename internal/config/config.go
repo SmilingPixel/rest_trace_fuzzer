@@ -26,7 +26,7 @@ type RuntimeConfig struct {
 	FuzzerType string `json:"fuzzerType"`
 
 	// Script for HTTP middleware handling.
-	HTTPMiddlewareScriptPath string `json:"hTTPMiddlewareScriptPath"`
+	HTTPMiddlewareScriptPath string `json:"HTTPMiddlewareScriptPath"`
 
 	// Path to internal service openapi spec file, json format
 	InternalServiceOpenAPIPath string `json:"internalServiceOpenAPIPath"`
@@ -37,8 +37,11 @@ type RuntimeConfig struct {
 	// Should log to file
 	LogToFile bool `json:"logToFile"`
 
+	// Maximum number of operations to execute in each scenario
+	MaxOpsPerScenario int `json:"maxOpsPerScenario"`
+
 	// Path to the OpenAPI spec file
-	OpenAPISpecPath string `json:"openAPISpecPath"`
+	OpenAPISpecPath string `json:"OpenAPISpecPath"`
 
 	// Output directory, e.g., ./output
 	OutputDir string `json:"outputDir"`

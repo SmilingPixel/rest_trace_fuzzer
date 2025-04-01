@@ -88,6 +88,14 @@
         "default": false
     },
     {
+        "arg_name": "max-ops-per-scenario",
+        "config_name": "max_ops_per_scenario",
+        "description": "Maximum number of operations to execute in each scenario",
+        "type": "number",
+        "required": false,
+        "default": 1
+    },
+    {
         "arg_name": "openapi-spec",
         "config_name": "openapi_spec_path",
         "description": "Path to the OpenAPI spec file",

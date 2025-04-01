@@ -77,6 +77,11 @@ type OperationCase struct {
 	// It is used to generate or mutate the request body.
 	// The field would not be json encoded.
 	RequestBodyResource resource.Resource `json:"-"`
+
+	// Energy is the energy of the operation case.
+	// It is used to prioritize the operation cases.
+	// The higher the energy, the higher the priority.
+	Energy int `json:"energy"`
 }
 
 // A TestScenario is a sequence of [resttracefuzzer/pkg/casemanager/OperationCase].
@@ -149,10 +154,13 @@ func (ts *TestScenario) Copy() *TestScenario {
 }
 
 // Reset resets the test scenario.
-// It resets the executed count and energy to 0, and gives the test scenario a new UUID.
+// It resets the executed count and energy (of both scenario itself and its cases) to 0, and gives the test scenario a new UUID.
 func (ts *TestScenario) Reset() {
 	ts.ExecutedCount = 0
 	ts.Energy = 0
+	for _, operationCase := range ts.OperationCases {
+		operationCase.Energy = 0
+	}
 	newUUID, err := uuid.NewRandom()
 	if err != nil {
 		log.Err(err).Msg("[TestScenario.Reset] Failed to generate UUID")
@@ -168,6 +176,7 @@ func NewOperationCase(
 	return &OperationCase{
 		APIMethod: apiMethod,
 		Operation: operation,
+		Energy:    0,
 	}
 }
 
