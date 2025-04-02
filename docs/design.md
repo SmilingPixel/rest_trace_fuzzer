@@ -229,6 +229,8 @@ if (outputParameter.getNormalizedName().equals(inputParameter.getNormalizedName(
 }
 ```
 
+目前的实现，考虑到已经有大量成熟的工作了，因此目前支持直接导入 Restler 的解析文件，构建ODG。
+
 ### 3.2.3. DFG 解析
 
 - 类似于 ODG 解析，目前设计主要依赖于资源名称的解析
@@ -274,7 +276,7 @@ rsc2 := resourceManager.GetSingleResourceByName("Capitano")
 
 总体思路：
 - ~~从 ODG 中找到入度为 0 的节点，作为种子节点~~
-- 从种子节点开始，根据 ODG 的依赖关系，构建测试序列
+- 从种子节点开始，根据 ODG 的依赖关系，考虑优先级，构建测试序列
 - 将测试序列中的节点加入 Testcase Queue （类似于 DFS 的思路）
 - 优先级（可以参考的方案）:
   - 提高内部 ODG 覆盖率的测试用例具有更高的优先级
@@ -283,7 +285,8 @@ rsc2 := resourceManager.GetSingleResourceByName("Capitano")
 
 ### 3.4.1. 优先级的设计
 
-- 参见[`case_manager.go`](../pkg/casemanager/case_manager.go)，目前优先级的计算主要依赖于*是否产生新的覆盖*（无论是内部服务的覆盖还是系统API的响应状态的覆盖）。
+- 测试用例中，序列本身和序列中的每个操作均有独立的优先级可供计算
+- 参见[`case_manager.go`](../pkg/casemanager/case_manager.go)，目前优先级的计算主要依赖于*是否产生新的覆盖*（无论是内部服务的覆盖还是系统API的响应状态的覆盖），我们将依据这一变化，适当随机增减优先级
 - 每轮测试执行完毕后，会根据优先级，对队列中的测试用例重新排序。
 
 建议参考的方案：
@@ -310,14 +313,14 @@ rsc2 := resourceManager.GetSingleResourceByName("Capitano")
 - OpenTelemetry Demo 中，使用 Jaeger 提供的 API 进行 trace 搜集
 - 参考这个 [官方文档](https://www.jaegertracing.io/docs/2.4/apis/)
 
-**Note**: 由于服务内部的 trace 收集等需要一定的时间，因此请求完后，我们并不能马上获取到 trace 数据，需要等待几秒钟。
+**Note**: 由于服务内部的 trace 收集等需要一定的时间，因此请求完后，我们并不能马上获取到 trace 数据，需要等待几秒钟，本项目中按照3秒钟的时间进行等待。
 
 
 ### 3.6.2. Trace 分析
 
-1. 记录覆盖的调用边和调用次数，更新 ODG 实例
+1. 记录覆盖的调用边和调用次数，更新 DFG 实例
 2. 统计覆盖率更新，上报给 Runtime Info Graph
-3. 更新 ODG，补充缺失的依赖关系，修改错误的依赖关系 [TODO: 具体实现待定 @xunzhou24]
+3. 更新 DFG，补充缺失的依赖关系，修改错误的依赖关系 [TODO: 具体实现待定 @xunzhou24]
 
 
 ### 3.7. Runtime Info Graph

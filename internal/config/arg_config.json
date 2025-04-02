@@ -18,7 +18,7 @@
     {
         "arg_name": "dependency-file-type",
         "config_name": "dependency_file_type",
-        "description": "Type of the dependency file. Currently only support 'Restler'",
+        "description": "Type of the dependency file. Currently only support 'Restler'. Required if dependency-file is provided.",
         "type": "string",
         "required": false,
         "default": ""
