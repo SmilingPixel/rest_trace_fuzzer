@@ -2,7 +2,6 @@ package casemanager
 
 import (
 	"fmt"
-	"math/rand/v2"
 	"resttracefuzzer/internal/config"
 	"resttracefuzzer/pkg/resource"
 	"resttracefuzzer/pkg/static"
@@ -13,20 +12,36 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/rs/zerolog/log"
+	"slices"
 )
 
 const (
-	// MaxAllowedExecutedCount is the default maximum executed times of a test scenario.
-	MaxAllowedExecutedCount = 3
+	// MaxAllowedScenarioExecutedCount is the default maximum executed times of a test scenario.
+	MaxAllowedScenarioExecutedCount = 3
+
+	// MaxAllowedOperationCaseExecutedCount is the default maximum executed times of a test operation.
+	MaxAllowedOperationCaseExecutedCount = 7
 
 	// MaxAllowedScenarios is the default maximum number of test scenarios in the queue.
 	MaxAllowedScenarios = 114
+
+	// MaxAllowedOperationCases is the default maximum number of test operation cases in the queue of the API method.
+	MaxAllowedOperationCases = 7
 )
 
 // CaseManager manages the test cases.
 type CaseManager struct {
 	// TestScenarios is a list of test scenarios.
+	// In each loop of testing, a test scenario will be popped from the queue and executed.
+	// The test scenario is a combination of one or multiple operations.
 	TestScenarios []*TestScenario
+
+	// TestOperationCaseQueueMap is a map of test operation case queue.
+	// The key is the API method, and the value is a list of test operation cases.
+	// Only cases that have already been executed will be put into its queue.
+	// So each operation case should have a non-empty request parameters, and energy as well.
+	// It is used to get a new operation case to execute when extending a test scenario.
+	TestOperationCaseQueueMap map[static.SimpleAPIMethod][]*OperationCase
 
 	// The API manager.
 	APIManager *static.APIManager
@@ -55,6 +70,7 @@ func NewCaseManager(
 	globalExtraHeaders map[string]string,
 ) *CaseManager {
 	testScenarios := make([]*TestScenario, 0)
+	testOperationCaseQueueMap := make(map[static.SimpleAPIMethod][]*OperationCase)
 	m := &CaseManager{
 		APIManager:             APIManager,
 		ResourceManager:        resourceManager,
@@ -62,6 +78,7 @@ func NewCaseManager(
 		ResourceMutateStrategy: ResourceMutateStrategy,
 		TestScenarios:          testScenarios,
 		GlobalExtraHeaders:     globalExtraHeaders,
+		TestOperationCaseQueueMap: testOperationCaseQueueMap,
 	}
 	m.initTestcasesFromDoc()
 	return m
@@ -122,7 +139,7 @@ func (m *CaseManager) PopAndPopulate() (*TestScenario, error) {
 	return testScenario, nil
 }
 
-// pushAndSort pushes a test scenario to the case manager and sorts the test scenarios by energy.
+// pushAndSort pushes a test scenario to the case manager and sorts the test scenarios by energy (if energy function is enabled in config).
 // It also culls the test scenarios if there are too many.
 func (m *CaseManager) pushAndSort(testcase *TestScenario) {
 	m.push(testcase)
@@ -135,13 +152,58 @@ func (m *CaseManager) push(testcase *TestScenario) {
 }
 
 // sortAndCullByEnergy sorts the test scenarios by energy and culls the test scenarios if there are too many.
+// If energy function is not enabled in config, it only culls the test scenarios.
 func (m *CaseManager) sortAndCullByEnergy() {
-	sort.Slice(m.TestScenarios, func(i, j int) bool {
-		return m.TestScenarios[i].Energy > m.TestScenarios[j].Energy
-	})
+	if config.GlobalConfig.EnableEnergyScenario {
+		sort.Slice(m.TestScenarios, func(i, j int) bool {
+			return m.TestScenarios[i].Energy > m.TestScenarios[j].Energy
+		})
+	}
 
 	if len(m.TestScenarios) > MaxAllowedScenarios {
 		m.TestScenarios = m.TestScenarios[:MaxAllowedScenarios]
+	}
+}
+
+// pushAndSortOperationCase pushes a test operation case to the case manager and sorts the test operation cases by energy (if energy function is enabled in config).
+// It also culls the test operation cases if there are too many.
+func (m *CaseManager) pushAndSortOperationCase(operationCase *OperationCase) {
+	m.pushOperationCase(operationCase)
+	m.sortAndCullOperationCaseByEnergy()
+}
+
+// pushOperationCase adds a test operation case to the case manager.
+func (m *CaseManager) pushOperationCase(testcase *OperationCase) {
+	// Get the API method of the operation case.
+	apiMethod := testcase.APIMethod
+	// Get the queue of the API method.
+	operationCaseQueue, exist := m.TestOperationCaseQueueMap[apiMethod]
+	if !exist {
+		operationCaseQueue = make([]*OperationCase, 0)
+	}
+	// Add the operation case to the queue.
+	// Check if the operation case is already in the queue before adding it.
+	for _, operationCase := range operationCaseQueue {
+		if operationCase.UUID == testcase.UUID {
+			return
+		}
+	}
+	operationCaseQueue = append(operationCaseQueue, testcase)
+	// Update the queue in the map.
+	m.TestOperationCaseQueueMap[apiMethod] = operationCaseQueue
+}
+
+// sortAndCullOperationCaseByEnergy sorts the test operation cases by energy and culls the test operation cases if there are too many.
+func (m *CaseManager) sortAndCullOperationCaseByEnergy() {
+	for apiMethod, operationCaseQueue := range m.TestOperationCaseQueueMap {
+		if config.GlobalConfig.EnableEnergyScenario {
+			sort.Slice(operationCaseQueue, func(i, j int) bool {
+				return operationCaseQueue[i].Energy > operationCaseQueue[j].Energy
+			})
+		}
+		if len(operationCaseQueue) > MaxAllowedOperationCases {
+			m.TestOperationCaseQueueMap[apiMethod] = operationCaseQueue[:MaxAllowedOperationCases]
+		}
 	}
 }
 
@@ -159,7 +221,7 @@ func (m *CaseManager) EvaluateScenarioAndTryUpdate(hasAchieveNewCoverage bool, e
 
 	// If it has achieved new coverage or has not been executed for enough times,
 	// mutate it and put it back to the queue.
-	if hasAchieveNewCoverage || executedScenario.ExecutedCount < MaxAllowedExecutedCount {
+	if hasAchieveNewCoverage || executedScenario.ExecutedCount < MaxAllowedScenarioExecutedCount {
 		mutatedScenario, err := m.mutateScenario(executedScenario)
 		if err != nil {
 			log.Err(err).Msg("[CaseManager.evaluateScenarioAndTryUpdate] Failed to mutate scenario")
@@ -176,6 +238,27 @@ func (m *CaseManager) EvaluateScenarioAndTryUpdate(hasAchieveNewCoverage bool, e
 	}
 	if newScenario != nil {
 		m.pushAndSort(newScenario)
+	}
+
+	return nil
+}
+
+// EvaluateOperationCaseAndTryUpdate evaluates the given metrics for the given test operation case that has been executed,
+// determines whether to put the operation to the queue.
+// It returns an error if any.
+func (m *CaseManager) EvaluateOperationCaseAndTryUpdate(hasAchieveNewCoverage bool, executedOperationCase *OperationCase) error {
+	// Update the executed count and energy
+	executedOperationCase.ExecutedCount++
+	if hasAchieveNewCoverage {
+		executedOperationCase.IncreaseEnergyByRandom()
+	} else {
+		executedOperationCase.DecreaseEnergyByRandom()
+	}
+
+	// If it has achieved new coverage or has not been executed for enough times,
+	// put it to the queue.
+	if hasAchieveNewCoverage || executedOperationCase.ExecutedCount < MaxAllowedOperationCaseExecutedCount {
+		m.pushAndSortOperationCase(executedOperationCase)
 	}
 
 	return nil
@@ -201,9 +284,10 @@ func (m *CaseManager) extendScenarioIfExecSuccess(existingScenario *TestScenario
 	// The new one will inherit the energy from the existing one.
 	newScenario.Energy = existingScenario.Energy / 2
 	
-	// Append a new operation based on producer-consumer relationship.
-	// TODO: Take energy of an operation into account. @xunzhou24
-	var candidates []static.SimpleAPIMethod
+	// Append a new operation.
+	// We will try to get a new API method based on producer-consumer relationship. If there is no consumer, we will randomly select an API method.
+	// When generating a new operation case, we will try to get a operation from operation case queue (which is sorted by energy in advance).
+	var candidateAPIMethods []static.SimpleAPIMethod
 	producers := make([]static.SimpleAPIMethod, 0)
 	for _, operationCase := range newScenario.OperationCases {
 		producers = append(producers, operationCase.APIMethod)
@@ -213,28 +297,65 @@ func (m *CaseManager) extendScenarioIfExecSuccess(existingScenario *TestScenario
 	// If there are no consumers, we can randomly select an API method.
 	// Otherwise, we select the consumers.
 	if len(consumers) > 0 {
-		candidates = consumers
+		candidateAPIMethods = consumers
 	} else {
-		candidates = append(candidates, m.APIManager.GetRandomAPIMethod())
+		candidateAPIMethods = append(candidateAPIMethods, m.APIManager.GetRandomAPIMethod())
 	}
 
-	if len(candidates) == 0 {
+	if len(candidateAPIMethods) == 0 {
 		log.Warn().Msg("[CaseManager.extendScenarioIfExecSuccess] No candidates available for extending the scenario")
 		return nil, nil
 	}
 
-	// Randomly select a consumer API method from the candidates.
-	newAPIMethod := candidates[rand.IntN(len(candidates))]
-	newOperation, exist := m.APIManager.GetOperationByMethod(newAPIMethod)
-	if !exist {
-		log.Warn().Msgf("[CaseManager.extendScenarioIfExecSuccess] The new API method %v does not exist in the API manager", newAPIMethod)
+	// Generate operation cases and select one from the candidates.
+	candidateOperationCases := make([]*OperationCase, 0)
+	for _, apiMethod := range candidateAPIMethods {
+		var operationCase *OperationCase
+		// First try to get the operation case from the queue.
+		operationCaseQueue, exist := m.TestOperationCaseQueueMap[apiMethod]
+		if exist && len(operationCaseQueue) > 0 {
+			// Get the first operation case (whose energy is the highest) from the queue.
+			// As it is picked from the queue only as a candidate, we do not remove it from the queue right now.
+			operationCase = operationCaseQueue[0]
+		} else {
+			// If the queue is empty, we need to create a new operation case.
+			operation, exist := m.APIManager.GetOperationByMethod(apiMethod)
+			if !exist {
+				log.Warn().Msgf("[CaseManager.extendScenarioIfExecSuccess] The API method %v does not exist in the API manager", apiMethod)
+				continue
+			}
+			operationCase = NewOperationCase(apiMethod, operation)
+		}
+		// Add the operation case to the candidate operation cases.
+		candidateOperationCases = append(candidateOperationCases, operationCase)
+	}
+
+	if len(candidateOperationCases) == 0 {
+		log.Warn().Msg("[CaseManager.extendScenarioIfExecSuccess] No candidates available for extending the scenario")
 		return nil, nil
 	}
-	newOperationCase := OperationCase{
-		Operation: newOperation,
-		APIMethod: newAPIMethod,
+	// Select the operation case with the highest energy from the candidate operation cases.
+	sort.Slice(candidateOperationCases, func(i, j int) bool {
+		return candidateOperationCases[i].Energy > candidateOperationCases[j].Energy
+	})
+	newOperationCase := candidateOperationCases[0]
+	
+	// If the operation is selected from the queue, we need to remove it from the queue.
+	// We can check it by checking its UUID.
+	selectedAPIMethod := newOperationCase.APIMethod
+	operationCaseQueue, exist := m.TestOperationCaseQueueMap[selectedAPIMethod]
+	if exist {
+		for i, operationCase := range operationCaseQueue {
+			if operationCase.UUID == newOperationCase.UUID {
+				// Remove the operation case from the queue.
+				operationCaseQueue = slices.Delete(operationCaseQueue, i, i+1)
+				break
+			}
+		}
+		m.TestOperationCaseQueueMap[selectedAPIMethod] = operationCaseQueue
 	}
-	newScenario.OperationCases = append(newScenario.OperationCases, &newOperationCase)
+
+	newScenario.OperationCases = append(newScenario.OperationCases, newOperationCase)
 	return newScenario, nil
 }
 

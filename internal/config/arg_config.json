@@ -24,6 +24,22 @@
         "default": ""
     },
     {
+        "arg_name": "enable-energy-operation",
+        "config_name": "enable_energy_operation",
+        "description": "Enable energy (priority) of test operation. If true, energy would affect the test operation selection when extending the test scenario (sequence of test operations).",
+        "type": "boolean",
+        "required": false,
+        "default": false
+    },
+    {
+        "arg_name": "enable-energy-scenario",
+        "config_name": "enable_energy_scenario",
+        "description": "Enable energy (priority) of test scenario. If true, energy would affect the test scenario selection when starting a new test loop",
+        "type": "boolean",
+        "required": false,
+        "default": false
+    },
+    {
         "arg_name": "extra-headers",
         "config_name": "extra_headers",
         "description": "Extra headers to be added to the request, in the format of stringified JSON, e.g., '{\\\"header1\\\": \\\"value1\\\", \\\"header2\\\": \\\"value2\\\"}'",

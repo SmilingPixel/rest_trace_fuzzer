@@ -13,6 +13,12 @@ type RuntimeConfig struct {
 	// Type of the dependency file. Currently only support 'Restler'. Required if dependency-file is provided.
 	DependencyFileType string `json:"dependencyFileType"`
 
+	// Enable energy (priority) of test operation. If true, energy would affect the test operation selection when extending the test scenario (sequence of test operations).
+	EnableEnergyOperation bool `json:"enableEnergyOperation"`
+
+	// Enable energy (priority) of test scenario. If true, energy would affect the test scenario selection when starting a new test loop
+	EnableEnergyScenario bool `json:"enableEnergyScenario"`
+
 	// Extra headers to be added to the request, in the format of stringified JSON, e.g., '{\"header1\": \"value1\", \"header2\": \"value2\"}'
 	ExtraHeaders string `json:"extraHeaders"`
 

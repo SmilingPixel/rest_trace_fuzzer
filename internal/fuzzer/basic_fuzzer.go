@@ -114,10 +114,11 @@ func (f *BasicFuzzer) Start() error {
 
 // ExecuteTestScenario executes a test scenario (a sequence of operation cases).
 // This method makes HTTP calls, processes the response, and updates the runtime graph.
-// If the analysers conclude that the test scenario is interesting, the case manager will be updated (e.g., add the test scenario back to queue).
+// If the analysers conclude that the test scenario or its test operation cases are interesting, the case manager will be updated (e.g., mutate the test scenario and add it back to queue).
 func (f *BasicFuzzer) ExecuteTestScenario(testScenario *casemanager.TestScenario) error {
+	var hasScenarioAchieveNewCoverage bool
 	for _, operationCase := range testScenario.OperationCases {
-		// If error occurs during executation of the operation case, stop the whole test scenario.
+		// If error occurs during execution of the operation case, stop the whole test scenario.
 		// Otherwise, continue to the next operation case.
 		err := f.ExecuteCaseOperation(operationCase)
 		if err != nil {
@@ -160,17 +161,31 @@ func (f *BasicFuzzer) ExecuteTestScenario(testScenario *casemanager.TestScenario
 			continue
 		}
 		log.Info().Msg("[BasicFuzzer.ExecuteTestScenario] Operation executed successfully")
+
+		hasOperationAchieveNewCoverage := f.FuzzingSnapshot.Update(
+			f.RunTimeGraph.GetEdgeCoverage(),
+			f.ResponseProcesser.GetCoveredStatusCodeCount(),
+		)
+		hasScenarioAchieveNewCoverage = hasScenarioAchieveNewCoverage || hasOperationAchieveNewCoverage
+
+		// Pass the operation and the its execution result back to the case manager,
+		// and:
+		//  1. decide whether its operation cases are interesting or not (i.e., update their energy)
+		//  2. may mutate the operation cases and add them to the operation case queue.
+		err = f.CaseManager.EvaluateOperationCaseAndTryUpdate(hasOperationAchieveNewCoverage, operationCase)
+		if err != nil {
+			log.Err(err).Msg("[BasicFuzzer.ExecuteTestScenario] Failed to evaluate operation and try update")
+			return err
+		}
 	}
 
-	hasAchieveNewCoverage := f.FuzzingSnapshot.Update(
-		f.RunTimeGraph.GetEdgeCoverage(),
-		f.ResponseProcesser.GetCoveredStatusCodeCount(),
-	)
-	log.Info().Msgf("[BasicFuzzer.ExecuteTestScenario] Finish execute current test scenario (UUID: %s), Edge coverage: %f, covered status code count: %d, hasAchieveNewCoverage: %v", testScenario.UUID.String(), f.RunTimeGraph.GetEdgeCoverage(), f.ResponseProcesser.GetCoveredStatusCodeCount(), hasAchieveNewCoverage)
+	log.Info().Msgf("[BasicFuzzer.ExecuteTestScenario] Finish execute current test scenario (UUID: %s), Edge coverage: %f, covered status code count: %d, hasScenarioAchieveNewCoverage: %v", testScenario.UUID.String(), f.RunTimeGraph.GetEdgeCoverage(), f.ResponseProcesser.GetCoveredStatusCodeCount(), hasScenarioAchieveNewCoverage)
 
 	// Pass the scenario and the result back to the case manager,
-	// and decide whether to put the scenario back to the queue and to generate a new one by extending or mutating the scenario.
-	err := f.CaseManager.EvaluateScenarioAndTryUpdate(hasAchieveNewCoverage, testScenario)
+	// and:
+	//  1. decide whether the scenario is interesting or not (i.e., update its energy)
+	//  2. may mutate the scenario and add it back to the scenario queue.
+	err := f.CaseManager.EvaluateScenarioAndTryUpdate(hasScenarioAchieveNewCoverage, testScenario)
 	if err != nil {
 		log.Err(err).Msg("[BasicFuzzer.ExecuteTestScenario] Failed to evaluate scenario and try update")
 		return err

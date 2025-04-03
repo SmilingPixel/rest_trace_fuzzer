@@ -2,6 +2,8 @@
     "configFilePath": "./config/config.json",
     "dependencyFilePath": "./config/dependency_file.json",
     "dependencyFileType": "Restler",
+    "enableEnergyOperation": false,
+    "enableEnergyScenario": false,
     "extraHeaders": "{\"token\":\"YOUR_TOKEN_HERE\"}",
     "fuzzValueDictFilePath": "./config/fuzz_value_dict.json",
     "fuzzerBudget": 5,
