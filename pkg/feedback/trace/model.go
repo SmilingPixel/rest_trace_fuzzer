@@ -162,7 +162,7 @@ func (s *SimplifiedTraceSpan) RetrieveCalledMethod() (string, bool) {
 		}
 		// gRPC over HTTP/2
 		if grpcMethod, exist := s.TagMap["grpc.method"]; exist {
-			targetName = utils.ExtractLastSegment("/", grpcMethod.Value.(string))
+			targetName = utils.ExtractLastSegment(grpcMethod.Value.(string), []string{"/"})
 		}
 		return targetName, (targetName != "")
 

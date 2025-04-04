@@ -133,13 +133,13 @@ func TestConvertToStandardCase(t *testing.T) {
 func TestExtractLastSegment(t *testing.T) {
 	tests := []struct {
 		input      string
-		delimiters string
+		delimiters []string
 		expected   string
 	}{
-		{"/oteldemo.CartService/GetCart", "/.", "GetCart"},
-		{"com.example.ClassName.methodName", ".", "methodName"},
-		{"path/to/file.txt", "/", "file.txt"},
-		{"path-to-file.txt", "-", "file.txt"},
+		{"/oteldemo.CartService/GetCart", []string{"/", "."}, "GetCart"},
+		{"com.example.ClassName.methodName", []string{".", " "}, "methodName"},
+		{"path/to/file.txt", []string{"/"}, "file.txt"},
+		{"path-to-file.txt", []string{"-"}, "file.txt"},
 	}
 
 	for _, test := range tests {
@@ -147,3 +147,27 @@ func TestExtractLastSegment(t *testing.T) {
 		assert.Equal(t, test.expected, result)
 	}
 }
+
+// TestSplitByDelimiters tests the SplitByDelimiters function from the utils package.
+// It verifies that various input strings are correctly split into segments based on the provided delimiters.
+func TestSplitByDelimiters(t *testing.T) {
+	tests := []struct {
+		input      string
+		delimiters []string
+		expected   []string
+	}{
+		{"/oteldemo.CartService/GetCart", []string{"/", "."}, []string{"", "oteldemo", "CartService", "GetCart"}},
+		{"com.example.ClassName.methodName", []string{".", " "}, []string{"com", "example", "ClassName", "methodName"}},
+		{"path/to/file.txt", []string{"/"}, []string{"path", "to", "file.txt"}},
+		{"path-to-file.txt", []string{"-"}, []string{"path", "to", "file.txt"}},
+		{"a,b;c|d", []string{",", ";", "|"}, []string{"a", "b", "c", "d"}},
+		{"singleword", []string{"/"}, []string{"singleword"}},
+		{"", []string{"/"}, []string{""}},
+	}
+
+	for _, test := range tests {
+		result := utils.SplitByDelimiters(test.input, test.delimiters)
+		assert.Equal(t, test.expected, result)
+	}
+}
+

@@ -72,3 +72,26 @@ func PrimitiveSchemaType2ReflectKind(schemaType *openapi3.Types) reflect.Kind {
 		return 0
 	}
 }
+
+// SplitEndpointPath splits the endpoint path into segments by slash.
+// For example, "/api/v1/user/{id}" will be split into ["api", "v1", "user", "{id}"].
+func SplitEndpointPath(endpoint string) []string {
+	parts := SplitByDelimiters(endpoint, []string{"/"})
+	nonEmptyParts := make([]string, 0)
+	for _, part := range parts {
+		if part != "" {
+			nonEmptyParts = append(nonEmptyParts, part)
+		}
+	}
+	return nonEmptyParts
+}
+
+// IfPathSegmentIsPathParam checks if the path segment is a path parameter.
+// A path parameter is a segment that starts with '{' and ends with '}'.
+// For example, "{id}" is a path parameter, while "user" is not.
+func IfPathSegmentIsPathParam(segment string) bool {
+	if len(segment) < 2 {
+		return false
+	}
+	return segment[0] == '{' && segment[len(segment)-1] == '}'
+}

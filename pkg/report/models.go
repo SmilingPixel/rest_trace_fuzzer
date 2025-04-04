@@ -64,8 +64,13 @@ type InternalServiceTestReport struct {
 // FuzzerStateReport is the report of the fuzzer state.
 type FuzzerStateReport struct {
 
-	// ResourcePool is the resource pool.
-	ResourceNameMap map[string][]resource.Resource `json:"resourceNameMap"`
+	// ResourceNameMap is the map of resource name to resource.
+	// It is not jsonified, as we would call its custom method to jsonified it.
+	// ResourceNameMapJsonObject is the jsonified (for resources) version of ResourceNameMap, and would be set when ResourceNameMap is set.
+	ResourceNameMap map[string][]resource.Resource `json:"-"`
+
+	// ResourceJSONObjectNameMap is the jsonified version of ResourceNameMap.
+	ResourceJSONObjectNameMap map[string][]interface{} `json:"resourceNameMap"`
 
 }
 

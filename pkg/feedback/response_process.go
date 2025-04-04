@@ -1,6 +1,7 @@
 package feedback
 
 import (
+	"fmt"
 	"resttracefuzzer/pkg/resource"
 	"resttracefuzzer/pkg/static"
 	"resttracefuzzer/pkg/utils"
@@ -67,7 +68,26 @@ func (rc *ResponseProcesser) ProcessResponse(method static.SimpleAPIMethod, stat
 	if http.GetStatusCodeClass(statusCode) == consts.StatusOK {
 		// when storing resources, we use the API method as the root resource name.
 		// For example, if the API method is "GET /api/v1/user", the root resource name will be "user".
-		resourceName := utils.ExtractLastSegment(method.Endpoint, "/")
+		// If extracted string is a path parameter, e.g. "/api/v1/user/{id}", we will use the last but one segment of the path as the resource name.
+		var resourceName string
+		endpointParts := utils.SplitEndpointPath(method.Endpoint)
+		if len(endpointParts) == 0 {
+			log.Error().Msgf("[ResponseProcesser.ProcessResponse] Failed to split the endpoint, endpoint: %s", method.Endpoint)
+			return fmt.Errorf("failed to split the endpoint")
+		}
+		if utils.IfPathSegmentIsPathParam(endpointParts[len(endpointParts)-1]) {
+			if len(endpointParts) < 2 {
+				log.Error().Msgf("[ResponseProcesser.ProcessResponse] Failed to get the resource name from the endpoint, endpoint: %s", method.Endpoint)
+				return fmt.Errorf("failed to split the endpoint")
+			}
+			resourceName = endpointParts[len(endpointParts)-2]
+			// In this case, the resource name may be in plural form, e.g. "users/{id}".
+			// We need to get the singular form of the resource name.
+			resourceName = utils.GetSingularFormNameHeuristic(resourceName)
+		} else {
+			resourceName = endpointParts[len(endpointParts)-1]
+		}
+
 		err := rc.ResourceManager.StoreResourcesFromRawObjectBytes(responseBody, resourceName, true)
 		if err != nil {
 			log.Err(err).Msg("[ResponseProcesser.ProcessResponse] Failed to store resources")

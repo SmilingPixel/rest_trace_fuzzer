@@ -36,8 +36,8 @@ func NewResourceManager() *ResourceManager {
 	resourceNameMap := make(map[string][]Resource)
 	resourceHashSet := make(map[string]map[uint64]struct{})
 	return &ResourceManager{
-		ResourceTypeMap: resourceTypeMap,
-		ResourceNameMap: resourceNameMap,
+		ResourceTypeMap:      resourceTypeMap,
+		ResourceNameMap:      resourceNameMap,
 		ResourceName2HashSet: resourceHashSet,
 	}
 }
@@ -258,7 +258,7 @@ func (m *ResourceManager) storeResource(resource Resource, resourceName string, 
 		}
 	case static.SimpleAPIPropertyTypeArray:
 		// Heuristic rules to get the name of the array elements.
-		arrayElementName := utils.GetArrayElementNameHeuristic(resourceName)
+		arrayElementName := utils.GetSingularFormNameHeuristic(resourceName)
 		for _, subResource := range resource.(*ResourceArray).Value {
 			m.storeResource(subResource, arrayElementName, shouldStoreSubResources)
 		}
@@ -267,7 +267,7 @@ func (m *ResourceManager) storeResource(resource Resource, resourceName string, 
 	}
 }
 
-//isResourceEmpty checks if the resource is empty.
+// isResourceEmpty checks if the resource is empty.
 func isResourceEmpty(resource Resource) bool {
 	if resource == nil {
 		return true

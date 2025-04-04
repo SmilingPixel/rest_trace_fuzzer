@@ -340,8 +340,8 @@ func (m *CaseManager) extendScenarioIfExecSuccess(existingScenario *TestScenario
 	})
 	newOperationCase := candidateOperationCases[0]
 	
-	// If the operation is selected from the queue, we need to remove it from the queue.
-	// We can check it by checking its UUID.
+	// If the operation is selected from the queue, we need to remove it from the queue (We can check it by checking its UUID).
+	// In addition, considering that the operations in queue have all been executed before, we should do some mutation.
 	selectedAPIMethod := newOperationCase.APIMethod
 	operationCaseQueue, exist := m.TestOperationCaseQueueMap[selectedAPIMethod]
 	if exist {
@@ -349,6 +349,14 @@ func (m *CaseManager) extendScenarioIfExecSuccess(existingScenario *TestScenario
 			if operationCase.UUID == newOperationCase.UUID {
 				// Remove the operation case from the queue.
 				operationCaseQueue = slices.Delete(operationCaseQueue, i, i+1)
+				// Mutate the operation case.
+				mutatedOperationCase, err := m.mutateOperationCase(newOperationCase)
+				if err != nil {
+					log.Err(err).Msgf("[CaseManager.extendScenarioIfExecSuccess] Failed to mutate operation case %v", newOperationCase.APIMethod)
+					return nil, err
+				}
+				newOperationCase = mutatedOperationCase
+				
 				break
 			}
 		}
@@ -375,48 +383,62 @@ func (m *CaseManager) initTestcasesFromDoc() error {
 func (m *CaseManager) mutateScenario(scenario *TestScenario) (*TestScenario, error) {
 	// copy the given scenario
 	newScenario := scenario.Copy()
-	// The new one will inherit the energy from the existing one.
-	newScenario.Energy = scenario.Energy / 2
 
 	// For each operation in the scenario, we mutate the request params, headers, and body.
-	for _, operationCase := range newScenario.OperationCases {
-		requestPathParamResrc := operationCase.RequestPathParamResources
-		requestQueryParamResrc := operationCase.RequestQueryParamResources
-		requestBodyResrc := operationCase.RequestBodyResource
-		// mutate the request path params
-		for key, resrc := range requestPathParamResrc {
-			mutatedResrc, err := m.ResourceMutateStrategy.MutateResource(resrc)
-			if err != nil {
-				log.Err(err).Msgf("[CaseManager.mutateScenario] Failed to mutate request path param %v", key)
-				return nil, err
-			}
-			requestPathParamResrc[key] = mutatedResrc
+	for i, operationCase := range newScenario.OperationCases {
+		mutatedOperationCase, err := m.mutateOperationCase(operationCase)
+		if err != nil {
+			log.Err(err).Msgf("[CaseManager.mutateScenario] Failed to mutate operation case %v", operationCase.APIMethod)
+			return nil, err
 		}
-		// mutate the request query params
-		for key, resrc := range requestQueryParamResrc {
-			mutatedResrc, err := m.ResourceMutateStrategy.MutateResource(resrc)
-			if err != nil {
-				log.Err(err).Msgf("[CaseManager.mutateScenario] Failed to mutate request query param %v", key)
-				return nil, err
-			}
-			requestQueryParamResrc[key] = mutatedResrc
-		}
-		// mutate the request body
-		if requestBodyResrc != nil {
-			mutatedResrc, err := m.ResourceMutateStrategy.MutateResource(requestBodyResrc)
-			if err != nil {
-				log.Err(err).Msgf("[CaseManager.mutateScenario] Failed to mutate request body")
-				return nil, err
-			}
-			requestBodyResrc = mutatedResrc
-		}
-		// set the mutated resources back to the operation case
-		// use `Set...ByResource` to set the actual request params at the same time
-		operationCase.SetRequestPathParamsByResources(requestPathParamResrc)
-		operationCase.SetRequestQueryParamsByResources(requestQueryParamResrc)
-		operationCase.SetRequestBodyByResource(requestBodyResrc)
+		newScenario.OperationCases[i] = mutatedOperationCase
 	}
 	return newScenario, nil
+}
+
+// mutateOperationCase mutates the given test operation case and returns it.
+// Mutation would not reset the operation case, i.e., the executed count and energy will be inherited from the existing one.
+func (m *CaseManager) mutateOperationCase(operationCase *OperationCase) (*OperationCase, error) {
+	// copy the given operation case
+	newOperationCase := operationCase.Copy()
+
+	requestPathParamResrc := newOperationCase.RequestPathParamResources
+	requestQueryParamResrc := newOperationCase.RequestQueryParamResources
+	requestBodyResrc := newOperationCase.RequestBodyResource
+	// mutate the request path params
+	for key, resrc := range requestPathParamResrc {
+		mutatedResrc, err := m.ResourceMutateStrategy.MutateResource(resrc)
+		if err != nil {
+			log.Err(err).Msgf("[CaseManager.mutateOperationCase] Failed to mutate request path param %v", key)
+			return nil, err
+		}
+		requestPathParamResrc[key] = mutatedResrc
+	}
+	// mutate the request query params
+	for key, resrc := range requestQueryParamResrc {
+		mutatedResrc, err := m.ResourceMutateStrategy.MutateResource(resrc)
+		if err != nil {
+			log.Err(err).Msgf("[CaseManager.mutateOperationCase] Failed to mutate request query param %v", key)
+			return nil, err
+		}
+		requestQueryParamResrc[key] = mutatedResrc
+	}
+	// mutate the request body
+	if requestBodyResrc != nil {
+		mutatedResrc, err := m.ResourceMutateStrategy.MutateResource(requestBodyResrc)
+		if err != nil {
+			log.Err(err).Msgf("[CaseManager.mutateOperationCase] Failed to mutate request body")
+			return nil, err
+		}
+		requestBodyResrc = mutatedResrc
+	}
+	// set the mutated resources back to the operation case
+	// use `Set...ByResource` to set the actual request params at the same time
+	newOperationCase.SetRequestPathParamsByResources(requestPathParamResrc)
+	newOperationCase.SetRequestQueryParamsByResources(requestQueryParamResrc)
+	newOperationCase.SetRequestBodyByResource(requestBodyResrc)
+
+	return newOperationCase, nil
 }
 
 

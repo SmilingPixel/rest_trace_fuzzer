@@ -81,7 +81,7 @@ func (p *APIDependencyRestlerParser) ParseFromPath(path string) (*static.APIDepe
 						Method:   producerConsumerDetail["producer_method"],
 						Typ:      static.SimpleAPIMethodTypeHTTP,
 					}
-					log.Info().Msgf("[APIDependencyRestlerParser.ParseFromPath] Adding dependency from %v to %v", producer, consumer)
+					log.Debug().Msgf("[APIDependencyRestlerParser.ParseFromPath] Adding dependency from %v to %v", producer, consumer)
 					dependencyGraph.AddDependency(consumer, producer)
 				}
 			}
