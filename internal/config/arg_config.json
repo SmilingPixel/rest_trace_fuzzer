@@ -74,7 +74,7 @@
     {
         "arg_name": "http-middleware-script",
         "config_name": "http_middleware_script_path",
-        "description": "Script for HTTP middleware handling.",
+        "description": "Path to the script file that contains the HTTP middleware functions, see [HTTP Middleware Script](#about-http-middleware-script).",
         "type": "string",
         "required": false,
         "default": ""
@@ -110,6 +110,38 @@
         "type": "number",
         "required": false,
         "default": 1
+    },
+    {
+        "arg_name": "max-allowed-operation-case-executed-count",
+        "config_name": "max_allowed_operation_case_executed_count",
+        "description": "The maximum executed times of a test operation case.",
+        "type": "number",
+        "required": false,
+        "default": 14
+    },
+    {
+        "arg_name": "max-allowed-operation-cases",
+        "config_name": "max_allowed_operation_cases",
+        "description": "The maximum number of test operation cases in the queue of an API method.",
+        "type": "number",
+        "required": false,
+        "default": 7
+    },
+    {
+        "arg_name": "max-allowed-scenario-executed-count",
+        "config_name": "max_allowed_scenario_executed_count",
+        "description": "The maximum executed times of a test scenario.",
+        "type": "number",
+        "required": false,
+        "default": 6
+    },
+    {
+        "arg_name": "max-allowed-scenarios",
+        "config_name": "max_allowed_scenarios",
+        "description": "The maximum number of test scenarios in the queue.",
+        "type": "number",
+        "required": false,
+        "default": 114
     },
     {
         "arg_name": "openapi-spec",

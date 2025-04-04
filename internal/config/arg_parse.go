@@ -18,11 +18,15 @@ func ParseCmdArgs() {
 	flag.StringVar(&GlobalConfig.FuzzValueDictFilePath, "fuzz-value-dict-file", "", "Path to the file containing the dictionary of fuzz values, in the format of a JSON list. Each element in the list is a dictionary with two key-value pairs, one is `name` (value is of type string) and the other is `value` (value can be any json).")
 	flag.IntVar(&GlobalConfig.FuzzerBudget, "fuzzer-budget", 5, "The maximum time the fuzzer can run, in seconds")
 	flag.StringVar(&GlobalConfig.FuzzerType, "fuzzer-type", "Basic", "Type of the fuzzer. Currently only support 'Basic'")
-	flag.StringVar(&GlobalConfig.HTTPMiddlewareScriptPath, "http-middleware-script", "", "Script for HTTP middleware handling.")
+	flag.StringVar(&GlobalConfig.HTTPMiddlewareScriptPath, "http-middleware-script", "", "Path to the script file that contains the HTTP middleware functions, see [HTTP Middleware Script](#about-http-middleware-script).")
 	flag.StringVar(&GlobalConfig.InternalServiceOpenAPIPath, "internal-service-openapi-spec", "", "Path to internal service openapi spec file, json format")
 	flag.StringVar(&GlobalConfig.LogLevel, "log-level", "info", "Log level: debug, info, warn, error, fatal, panic")
 	flag.BoolVar(&GlobalConfig.LogToFile, "log-to-file", false, "Should log to file")
 	flag.IntVar(&GlobalConfig.MaxOpsPerScenario, "max-ops-per-scenario", 1, "Maximum number of operations to execute in each scenario")
+	flag.IntVar(&GlobalConfig.MaxAllowedOperationCaseExecutedCount, "max-allowed-operation-case-executed-count", 14, "The maximum executed times of a test operation case.")
+	flag.IntVar(&GlobalConfig.MaxAllowedOperationCases, "max-allowed-operation-cases", 7, "The maximum number of test operation cases in the queue of an API method.")
+	flag.IntVar(&GlobalConfig.MaxAllowedScenarioExecutedCount, "max-allowed-scenario-executed-count", 6, "The maximum executed times of a test scenario.")
+	flag.IntVar(&GlobalConfig.MaxAllowedScenarios, "max-allowed-scenarios", 114, "The maximum number of test scenarios in the queue.")
 	flag.StringVar(&GlobalConfig.OpenAPISpecPath, "openapi-spec", "", "Path to the OpenAPI spec file")
 	flag.StringVar(&GlobalConfig.OutputDir, "output-dir", "./output", "Output directory, e.g., ./output")
 	flag.StringVar(&GlobalConfig.ServerBaseURL, "server-base-url", "https://www.example.com", "Base URL of the API, e.g., https://www.example.com")
@@ -97,6 +101,34 @@ func ParseCmdArgs() {
 			log.Err(err).Msgf("[ParseCmdArgs] Failed to parse int: %s", err)
 		}
 		GlobalConfig.MaxOpsPerScenario = envValInt
+	}
+	if envVal, ok := os.LookupEnv("MAX_ALLOWED_OPERATION_CASE_EXECUTED_COUNT"); ok && envVal != "" {
+		envValInt, err := strconv.Atoi(envVal)
+		if err != nil {
+			log.Err(err).Msgf("[ParseCmdArgs] Failed to parse int: %s", err)
+		}
+		GlobalConfig.MaxAllowedOperationCaseExecutedCount = envValInt
+	}
+	if envVal, ok := os.LookupEnv("MAX_ALLOWED_OPERATION_CASES"); ok && envVal != "" {
+		envValInt, err := strconv.Atoi(envVal)
+		if err != nil {
+			log.Err(err).Msgf("[ParseCmdArgs] Failed to parse int: %s", err)
+		}
+		GlobalConfig.MaxAllowedOperationCases = envValInt
+	}
+	if envVal, ok := os.LookupEnv("MAX_ALLOWED_SCENARIO_EXECUTED_COUNT"); ok && envVal != "" {
+		envValInt, err := strconv.Atoi(envVal)
+		if err != nil {
+			log.Err(err).Msgf("[ParseCmdArgs] Failed to parse int: %s", err)
+		}
+		GlobalConfig.MaxAllowedScenarioExecutedCount = envValInt
+	}
+	if envVal, ok := os.LookupEnv("MAX_ALLOWED_SCENARIOS"); ok && envVal != "" {
+		envValInt, err := strconv.Atoi(envVal)
+		if err != nil {
+			log.Err(err).Msgf("[ParseCmdArgs] Failed to parse int: %s", err)
+		}
+		GlobalConfig.MaxAllowedScenarios = envValInt
 	}
 	if envVal, ok := os.LookupEnv("OPENAPI_SPEC_PATH"); ok && envVal != "" {
 		GlobalConfig.OpenAPISpecPath = envVal

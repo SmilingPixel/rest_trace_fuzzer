@@ -31,7 +31,7 @@ type RuntimeConfig struct {
 	// Type of the fuzzer. Currently only support 'Basic'
 	FuzzerType string `json:"fuzzerType"`
 
-	// Script for HTTP middleware handling.
+	// Path to the script file that contains the HTTP middleware functions, see [HTTP Middleware Script](#about-http-middleware-script).
 	HTTPMiddlewareScriptPath string `json:"HTTPMiddlewareScriptPath"`
 
 	// Path to internal service openapi spec file, json format
@@ -45,6 +45,18 @@ type RuntimeConfig struct {
 
 	// Maximum number of operations to execute in each scenario
 	MaxOpsPerScenario int `json:"maxOpsPerScenario"`
+
+	// The maximum executed times of a test operation case.
+	MaxAllowedOperationCaseExecutedCount int `json:"maxAllowedOperationCaseExecutedCount"`
+
+	// The maximum number of test operation cases in the queue of an API method.
+	MaxAllowedOperationCases int `json:"maxAllowedOperationCases"`
+
+	// The maximum executed times of a test scenario.
+	MaxAllowedScenarioExecutedCount int `json:"maxAllowedScenarioExecutedCount"`
+
+	// The maximum number of test scenarios in the queue.
+	MaxAllowedScenarios int `json:"maxAllowedScenarios"`
 
 	// Path to the OpenAPI spec file
 	OpenAPISpecPath string `json:"OpenAPISpecPath"`
