@@ -15,20 +15,6 @@ import (
 	"slices"
 )
 
-var (
-	// maxAllowedScenarioExecutedCount is the maximum executed times of a test scenario.
-	maxAllowedScenarioExecutedCount int
-
-	// maxAllowedOperationCaseExecutedCount is the maximum executed times of a test operation case.
-	maxAllowedOperationCaseExecutedCount int
-
-	// maxAllowedScenarios is the maximum number of test scenarios in the queue.
-	maxAllowedScenarios int
-
-	// maxAllowedOperationCases is the maximum number of test operation cases in the queue of an API method.
-	maxAllowedOperationCases int
-)
-
 // CaseManager manages the test cases.
 type CaseManager struct {
 	// TestScenarios is a list of test scenarios.
@@ -81,18 +67,9 @@ func NewCaseManager(
 		TestOperationCaseQueueMap: testOperationCaseQueueMap,
 	}
 	m.initTestcasesFromDoc()
-	m.initFromConfig()
 	return m
 }
 
-// initFromConfig initializes the case manager from the config file.
-func (m *CaseManager) initFromConfig() error {
-	maxAllowedScenarioExecutedCount = config.GlobalConfig.MaxAllowedScenarioExecutedCount
-	maxAllowedOperationCaseExecutedCount = config.GlobalConfig.MaxAllowedOperationCaseExecutedCount
-	maxAllowedScenarios = config.GlobalConfig.MaxAllowedScenarios
-	maxAllowedOperationCases = config.GlobalConfig.MaxAllowedOperationCases
-	return nil
-}
 
 // Pop pops a test scenario of highest priority from the queue.
 func (m *CaseManager) Pop() (*TestScenario, error) {
@@ -170,8 +147,8 @@ func (m *CaseManager) sortAndCullByEnergy() {
 		})
 	}
 
-	if len(m.TestScenarios) > maxAllowedScenarios {
-		m.TestScenarios = m.TestScenarios[:maxAllowedScenarios]
+	if len(m.TestScenarios) > config.GlobalConfig.MaxAllowedScenarios {
+		m.TestScenarios = m.TestScenarios[:config.GlobalConfig.MaxAllowedScenarios]
 	}
 }
 
@@ -211,8 +188,8 @@ func (m *CaseManager) sortAndCullOperationCaseByEnergy() {
 				return operationCaseQueue[i].Energy > operationCaseQueue[j].Energy
 			})
 		}
-		if len(operationCaseQueue) > maxAllowedOperationCases {
-			m.TestOperationCaseQueueMap[apiMethod] = operationCaseQueue[:maxAllowedOperationCases]
+		if len(operationCaseQueue) > config.GlobalConfig.MaxAllowedOperationCases {
+			m.TestOperationCaseQueueMap[apiMethod] = operationCaseQueue[:config.GlobalConfig.MaxAllowedOperationCases]
 		}
 	}
 }
@@ -231,7 +208,7 @@ func (m *CaseManager) EvaluateScenarioAndTryUpdate(hasAchieveNewCoverage bool, e
 
 	// If it has achieved new coverage or has not been executed for enough times,
 	// mutate it and put it back to the queue.
-	if hasAchieveNewCoverage || executedScenario.ExecutedCount < maxAllowedScenarioExecutedCount {
+	if hasAchieveNewCoverage || executedScenario.ExecutedCount < config.GlobalConfig.MaxAllowedScenarioExecutedCount {
 		mutatedScenario, err := m.mutateScenario(executedScenario)
 		if err != nil {
 			log.Err(err).Msg("[CaseManager.evaluateScenarioAndTryUpdate] Failed to mutate scenario")
@@ -267,7 +244,7 @@ func (m *CaseManager) EvaluateOperationCaseAndTryUpdate(hasAchieveNewCoverage bo
 
 	// If it has achieved new coverage or has not been executed for enough times,
 	// put it to the queue.
-	if hasAchieveNewCoverage || executedOperationCase.ExecutedCount < maxAllowedOperationCaseExecutedCount {
+	if hasAchieveNewCoverage || executedOperationCase.ExecutedCount < config.GlobalConfig.MaxAllowedOperationCaseExecutedCount {
 		m.pushAndSortOperationCase(executedOperationCase)
 	}
 
