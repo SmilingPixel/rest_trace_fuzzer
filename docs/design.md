@@ -32,6 +32,7 @@ The architecture diagram is powered by [draw.io](https://app.diagrams.net/).
 | Runtime Info Graph         | 存储程序运行时的 DFG 调用和覆盖状态                                          | 数据结构：见后面章节                                                   |
 | Resource Pool  | 存储资源池，目前主要用于存储测试过程中创建的资源       |          |
 | Testcase Queue     | 存储测试用例，优先级队列，根据选取策略的不同，依据各种指标（例如覆盖率提升等）计算优先级 | |
+| Operation Case Queues     | 存储候选请求，多个优先级队列，每种请求（Endpoint）一个队列，根据选取策略的不同，依据各种指标（例如覆盖率提升等）计算优先级 | |
 | Trace Manager   | 拉取、解析和处理 trace | |
 
 
@@ -53,6 +54,7 @@ The architecture diagram is powered by [draw.io](https://app.diagrams.net/).
 |----------------------|--------------------------------------------------|----------------------------------------------------------------------|
 | Strategist           | 提供对外接口，定义和管理测试策略                   | 所有的策略管理和使用都必须经过其接口，收敛权责                                      |
 | Value Generation     | 负责生成测试值，支持多种值生成策略                 | 例如随机生成、从资源池获取、是否需要 mutation 等                            |
+| Resource Mutation     | 负责测试值的 Mutation，支持多种 Mutation 策略                 | 例如值的随机改变、请求体结构的随机变换 等                            |
 | TODO     | TODO                 | @xunzhou24                            |
 
 
@@ -127,6 +129,7 @@ The architecture diagram is powered by [draw.io](https://app.diagrams.net/).
 │   │   └── simple_model.go  # Simple model for static info
 │   ├── strategy             # Fuzzing strategies
 │   │   ├── fuzz_strategist.go  # Fuzzing strategist implementation
+│   │   ├── resource_mutate.go  # strategies for resource mutation
 │   │   └── value_generate.go   # strategies for value generation
 │   └── utils               # Utility functions
 │       ├── http            # HTTP-related utilities
@@ -297,17 +300,30 @@ rsc2 := resourceManager.GetSingleResourceByName("Capitano")
 - LibFuzzer
   - https://github.com/llvm/llvm-project/blob/main/compiler-rt/lib/fuzzer/FuzzerLoop.cpp#L723
 
+## 3.5. Operation Case Queues
 
-## 3.5. Test Driver
+由多个优先级队列组成，存储候选的操作（主要来自历史执行的操作），用于扩展测试序列时提供备选项。
+
+数据结构上，是一个 map，key 为 Endpoint，value 为 list[Operation]。
+
+例如，
+```json
+{
+  "GET /api/pet": [...],
+  "POST /api/user": [...]
+}
+```
+
+## 3.6. Test Driver
 
 测试执行，发送请求和处理响应，更新数据持久化模块中的数据
 
 
-## 3.6. Trace Manager
+## 3.7. Trace Manager
 
 拉取和解析 trace，并根据 trace 数据，生成预处理反馈，引导测试
 
-### 3.6.1. Trace Fetcher
+### 3.7.1. Trace Fetcher
 
 - 需要提前修改服务，使得我们能够从请求的响应（头或者响应体）中获取 trace ID
 - OpenTelemetry Demo 中，使用 Jaeger 提供的 API 进行 trace 搜集
@@ -316,14 +332,14 @@ rsc2 := resourceManager.GetSingleResourceByName("Capitano")
 **Note**: 由于服务内部的 trace 收集等需要一定的时间，因此请求完后，我们并不能马上获取到 trace 数据，需要等待几秒钟，本项目中按照3秒钟的时间进行等待。
 
 
-### 3.6.2. Trace 分析
+### 3.7.2. Trace 分析
 
 1. 记录覆盖的调用边和调用次数，更新 DFG 实例
 2. 统计覆盖率更新，上报给 Runtime Info Graph
 3. 更新 DFG，补充缺失的依赖关系，修改错误的依赖关系 [TODO: 具体实现待定 @xunzhou24]
 
 
-### 3.7. Runtime Info Graph
+### 3.8. Runtime Info Graph
 
 - 记录程序运行时的 DFG 调用和覆盖状态
 - 基于 DFG，目前用于记录 DFG 上的调用次数，用于后续的覆盖率统计和测试用例优先级计算
@@ -363,5 +379,8 @@ Edge， a -> b 表示存在数据流从 a 到 b，同时携带了调用次数信
 - [x] 完善的脚本化支持测试请求的修改，主要用于鉴权等
 - [x] trace 反馈信息的处理
 - [x] testcase queue 的优先级的基础实现
+- [x] operation case queues 的设计与实现
+- [x] 基础版本的 mutation 策略
+- [ ] 内部服务接口和系统接口关联的模块：设计与实现
 - [ ] TODO
 
