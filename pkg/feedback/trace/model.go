@@ -65,6 +65,16 @@ type CallInfo struct {
 	Method string `json:"method"`
 }
 
+// NewCallInfo creates a new CallInfo instance.
+// The service would be formatted, as there may be differences in service names between those in trace and doc.
+func NewCallInfo(sourceService, targetService, method string) *CallInfo {
+	return &CallInfo{
+		SourceService: utils.FormatServiceName(sourceService),
+		TargetService: utils.FormatServiceName(targetService),
+		Method:        method,
+	}
+}
+
 // SpanKindType represents the type of a span.
 // See [OpenTelemetry specification](https://opentelemetry.io/docs/specs/otel/trace/api/#spankind) for more details.
 type SpanKindType string

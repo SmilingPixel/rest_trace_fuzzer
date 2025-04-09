@@ -11,6 +11,7 @@ import (
 	"resttracefuzzer/pkg/parser"
 	"resttracefuzzer/pkg/report"
 	"resttracefuzzer/pkg/resource"
+	fuzzruntime "resttracefuzzer/pkg/runtime"
 	"resttracefuzzer/pkg/static"
 	"resttracefuzzer/pkg/strategy"
 	"time"
@@ -126,7 +127,9 @@ func main() {
 	resourceMutateStrategist := strategy.NewResourceMutateStrategy()
 	caseManager := casemanager.NewCaseManager(APIManager, resourceManager, fuzzStrategist, resourceMutateStrategist, extraHeaders)
 	responseProcesser := feedback.NewResponseProcesser(APIManager, resourceManager)
-	runTimeGraph := feedback.NewRuntimeGraph(APIManager.APIDataflowGraph)
+	traceManager := trace.NewTraceManager()
+	callInfoGraph := fuzzruntime.NewCallInfoGraph(APIManager.APIDataflowGraph)
+	reachabilityMap := fuzzruntime.NewRuntimeReachabilityMapFromStaticMap(APIManager.StaticReachabilityMap)
 
 	// Read API dependency files
 	// You can generate the dependency files by running Restler
@@ -158,8 +161,9 @@ func main() {
 			APIManager,
 			caseManager,
 			responseProcesser,
-			trace.NewTraceManager(),
-			runTimeGraph,
+			traceManager,
+			callInfoGraph,
+			reachabilityMap,
 			testLogReporter,
 		)
 	} else {
@@ -191,7 +195,7 @@ func main() {
 	}
 	internalServiceReporter := report.NewInternalServiceReporter()
 	internalServiceReportPath := fmt.Sprintf("%s/internal_service_report_%s.json", config.GlobalConfig.OutputDir, t.Format(outputFileTimeFormat))
-	err = internalServiceReporter.GenerateInternalServiceReport(mainFuzzer.GetRuntimeGraph(), internalServiceReportPath)
+	err = internalServiceReporter.GenerateInternalServiceReport(mainFuzzer.GetCallInfoGraph(), internalServiceReportPath)
 	if err != nil {
 		log.Err(err).Msgf("[main] Failed to generate internal service report")
 		return

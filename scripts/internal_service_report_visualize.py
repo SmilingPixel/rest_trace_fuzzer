@@ -9,7 +9,7 @@ def load_json(file_path):
 def build_graph(data):
     G = nx.DiGraph()
     
-    for edge in data["finalRuntimeGraph"]["edges"]:
+    for edge in data["finalCallInfoGraph"]["edges"]:
         source = edge["source"]["serviceName"]
         target = edge["target"]["serviceName"]
         method = edge["target"]["simpleAPIMethod"]["method"]

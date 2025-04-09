@@ -198,3 +198,15 @@ func EdgeCaseValueForPrimitiveTypeKind(kind reflect.Kind) any {
         return nil
     }
 }
+
+// FormatServiceName formats the service name.
+// It does the following:
+//  1. Convert the name to "standard case".(See [resttracefuzzer/pkg/utils.ConvertToStandardCase])
+//  2. remove the suffix "service" if exists.
+func FormatServiceName(name string) string {
+	name = ConvertToStandardCase(name)
+	if len(name) > 7 && name[len(name)-7:] == "service" {
+		name = name[:len(name)-7]
+	}
+	return name
+}

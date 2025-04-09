@@ -10,22 +10,16 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// APIDataflowNode represents a node in the dataflow graph of the internal APIs.
-type APIDataflowNode struct {
-	ServiceName     string          `json:"serviceName"`
-	SimpleAPIMethod SimpleAPIMethod `json:"simpleAPIMethod"`
-}
-
 // APIDataflowEdge represents an edge in the dataflow graph of the internal APIs.
 //
 // The edge represents the dataflow between two nodes.
 // The data pass from SourceData to TargetData, both of which are parameters of the API.
 // For example, `placeOrder` of CheckoutService passes `userInfo` to `emptyCart` of CartService.
 type APIDataflowEdge struct {
-	Source         *APIDataflowNode  `json:"source"`
-	Target         *APIDataflowNode  `json:"target"`
-	SourceProperty SimpleAPIProperty `json:"sourceProperty"`
-	TargetProperty SimpleAPIProperty `json:"targetProperty"`
+	Source         InternalServiceEndpoint `json:"source"`
+	Target         InternalServiceEndpoint `json:"target"`
+	SourceProperty SimpleAPIProperty        `json:"sourceProperty"`
+	TargetProperty SimpleAPIProperty        `json:"targetProperty"`
 }
 
 // APIDataflowGraph represents the dataflow graph of the internal APIs.
@@ -93,7 +87,7 @@ func (g *APIDataflowGraph) parseServiceOperationPair(
 		sourceParam := sourceParamRef.Value
 		simpleAPIProperty := SimpleAPIProperty{
 			Name: sourceParam.Name,
-			Typ: OpenAPITypes2SimpleAPIPropertyType(sourceParam.Schema.Value.Type),
+			Typ:  OpenAPITypes2SimpleAPIPropertyType(sourceParam.Schema.Value.Type),
 		}
 		sourceRequestProperties = append(sourceRequestProperties, simpleAPIProperty)
 	}
@@ -103,7 +97,7 @@ func (g *APIDataflowGraph) parseServiceOperationPair(
 		targetParam := targetParamRef.Value
 		simpleAPIProperty := SimpleAPIProperty{
 			Name: targetParam.Name,
-			Typ: OpenAPITypes2SimpleAPIPropertyType(targetParam.Schema.Value.Type),
+			Typ:  OpenAPITypes2SimpleAPIPropertyType(targetParam.Schema.Value.Type),
 		}
 		targetRequestProperties = append(targetRequestProperties, simpleAPIProperty)
 	}
@@ -155,7 +149,7 @@ func (g *APIDataflowGraph) parseServiceOperationPair(
 }
 
 // AddEdge adds an edge to the dataflow graph.
-func (g *APIDataflowGraph) AddEdge(source, target *APIDataflowNode, sourceProp, targetProp SimpleAPIProperty) {
+func (g *APIDataflowGraph) AddEdge(source, target InternalServiceEndpoint, sourceProp, targetProp SimpleAPIProperty) {
 	edge := &APIDataflowEdge{
 		Source:         source,
 		Target:         target,
@@ -217,11 +211,11 @@ func (g *APIDataflowGraph) tryMatchPropertiesAndUpdateGraph(
 		for _, targetProp := range targetProperties {
 			// TODO: better algorithm for matching parameters @xunzhou24
 			if utils.MatchVariableNames(sourceProp.Name, targetProp.Name, similarityCalculator, threshold) {
-				sourceNode := &APIDataflowNode{
+				sourceNode := InternalServiceEndpoint{
 					ServiceName:     sourceService,
 					SimpleAPIMethod: sourceMethod,
 				}
-				targetNode := &APIDataflowNode{
+				targetNode := InternalServiceEndpoint{
 					ServiceName:     targetService,
 					SimpleAPIMethod: targetMethod,
 				}

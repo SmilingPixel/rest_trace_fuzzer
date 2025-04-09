@@ -6,6 +6,7 @@ import (
 	"resttracefuzzer/pkg/feedback"
 	"resttracefuzzer/pkg/feedback/trace"
 	"resttracefuzzer/pkg/report"
+	fuzzruntime "resttracefuzzer/pkg/runtime"
 	"resttracefuzzer/pkg/static"
 	"resttracefuzzer/pkg/utils/http"
 	"time"
@@ -27,8 +28,11 @@ type BasicFuzzer struct {
 	// TraceManager manages traces.
 	TraceManager *trace.TraceManager
 
-	// RuntimeGraph is the runtime graph, including coverage information.
-	RunTimeGraph *feedback.RuntimeGraph
+	// CallInfoGraph is the runtime graph of call info, including coverage information.
+	CallInfoGraph *fuzzruntime.CallInfoGraph
+
+	// ReachabilityMap stores the reachability (from external APIs to internal service interfaces) information of the API.
+	ReachabilityMap *fuzzruntime.RuntimeReachabilityMap
 
 	// Budget is the budget of the fuzzer, which is the maximum time the fuzzer can run, in milliseconds.
 	Budget time.Duration
@@ -50,7 +54,8 @@ func NewBasicFuzzer(
 	caseManager *casemanager.CaseManager,
 	responseProcesser *feedback.ResponseProcesser,
 	traceManager *trace.TraceManager,
-	runtimeGraph *feedback.RuntimeGraph,
+	callInfoGraph *fuzzruntime.CallInfoGraph,
+	reachabilityMap *fuzzruntime.RuntimeReachabilityMap,
 	testLogReporter *report.TestLogReporter,
 ) *BasicFuzzer {
 	httpClientMiddles := make([]http.HTTPClientMiddleware, 0)
@@ -67,15 +72,16 @@ func NewBasicFuzzer(
 	)
 	fuzzingSnapshot := NewFuzzingSnapshot()
 	return &BasicFuzzer{
-		APIManager:      APIManager,
-		CaseManager:     caseManager,
+		APIManager:        APIManager,
+		CaseManager:       caseManager,
 		ResponseProcesser: responseProcesser,
-		TraceManager:    traceManager,
-		Budget:          time.Duration(config.GlobalConfig.FuzzerBudget) * time.Second, // Convert seconds to nanoseconds.
-		HTTPClient:      httpClient,
-		RunTimeGraph:    runtimeGraph,
-		FuzzingSnapshot: fuzzingSnapshot,
-		TestLogReporter: testLogReporter,
+		TraceManager:      traceManager,
+		Budget:            time.Duration(config.GlobalConfig.FuzzerBudget) * time.Second, // Convert seconds to nanoseconds.
+		HTTPClient:        httpClient,
+		CallInfoGraph:     callInfoGraph,
+		ReachabilityMap:   reachabilityMap,
+		FuzzingSnapshot:   fuzzingSnapshot,
+		TestLogReporter:   testLogReporter,
 	}
 }
 
@@ -113,7 +119,7 @@ func (f *BasicFuzzer) Start() error {
 }
 
 // ExecuteTestScenario executes a test scenario (a sequence of operation cases).
-// This method makes HTTP calls, processes the response, and updates the runtime graph.
+// This method makes HTTP calls, processes the response, and updates the runtime call info graph.
 // If the analysers conclude that the test scenario or its test operation cases are interesting, the case manager will be updated (e.g., mutate the test scenario and add it back to queue).
 func (f *BasicFuzzer) ExecuteTestScenario(testScenario *casemanager.TestScenario) error {
 	var hasScenarioAchieveNewCoverage bool
@@ -138,7 +144,7 @@ func (f *BasicFuzzer) ExecuteTestScenario(testScenario *casemanager.TestScenario
 			continue // continue to the next operation case instead of stopping the fuzzing process
 		}
 
-		// fetch the trace from the service, parse it, and update local runtime graph.
+		// fetch the trace from the service, parse it, and update local runtime call info graph.
 		traceID, exist := operationCase.ResponseHeaders[config.GlobalConfig.TraceIDHeaderKey]
 		if !exist || traceID == "" {
 			log.Warn().Msg("[BasicFuzzer.ExecuteTestScenario] No trace ID found in the response headers")
@@ -155,15 +161,23 @@ func (f *BasicFuzzer) ExecuteTestScenario(testScenario *casemanager.TestScenario
 			log.Err(err).Msg("[BasicFuzzer.ExecuteTestScenario] Failed to get call infos")
 			continue
 		}
-		err = f.RunTimeGraph.UpdateFromCallInfos(callInfoList)
+
+		// Update runtime info, including call info graph and reachability map.
+		err = f.CallInfoGraph.UpdateFromCallInfos(callInfoList)
 		if err != nil {
-			log.Err(err).Msg("[BasicFuzzer.ExecuteTestScenario] Failed to update runtime graph")
+			log.Err(err).Msg("[BasicFuzzer.ExecuteTestScenario] Failed to update runtime call info graph")
 			continue
 		}
+		err = f.ReachabilityMap.UpdateFromCallInfos(operationCase.APIMethod, callInfoList)
+		if err != nil {
+			log.Err(err).Msg("[BasicFuzzer.ExecuteTestScenario] Failed to update reachability map")
+			continue
+		}
+
 		log.Info().Msg("[BasicFuzzer.ExecuteTestScenario] Operation executed successfully")
 
 		hasOperationAchieveNewCoverage := f.FuzzingSnapshot.Update(
-			f.RunTimeGraph.GetEdgeCoverage(),
+			f.CallInfoGraph.GetEdgeCoverage(),
 			f.ResponseProcesser.GetCoveredStatusCodeCount(),
 		)
 		hasScenarioAchieveNewCoverage = hasScenarioAchieveNewCoverage || hasOperationAchieveNewCoverage
@@ -179,7 +193,7 @@ func (f *BasicFuzzer) ExecuteTestScenario(testScenario *casemanager.TestScenario
 		}
 	}
 
-	log.Info().Msgf("[BasicFuzzer.ExecuteTestScenario] Finish execute current test scenario (UUID: %s), Edge coverage: %f, covered status code count: %d, hasScenarioAchieveNewCoverage: %v", testScenario.UUID.String(), f.RunTimeGraph.GetEdgeCoverage(), f.ResponseProcesser.GetCoveredStatusCodeCount(), hasScenarioAchieveNewCoverage)
+	log.Info().Msgf("[BasicFuzzer.ExecuteTestScenario] Finish execute current test scenario (UUID: %s), Edge coverage: %f, covered status code count: %d, hasScenarioAchieveNewCoverage: %v", testScenario.UUID.String(), f.CallInfoGraph.GetEdgeCoverage(), f.ResponseProcesser.GetCoveredStatusCodeCount(), hasScenarioAchieveNewCoverage)
 
 	// Pass the scenario and the result back to the case manager,
 	// and:
@@ -221,7 +235,7 @@ func (f *BasicFuzzer) ExecuteCaseOperation(operationCase *casemanager.OperationC
 	return nil
 }
 
-// GetRuntimeGraph gets the runtime graph.
-func (f *BasicFuzzer) GetRuntimeGraph() *feedback.RuntimeGraph {
-	return f.RunTimeGraph
+// GetCallInfoGraph gets the runtime call info graph.
+func (f *BasicFuzzer) GetCallInfoGraph() *fuzzruntime.CallInfoGraph {
+	return f.CallInfoGraph
 }

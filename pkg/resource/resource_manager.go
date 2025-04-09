@@ -89,12 +89,9 @@ func (m *ResourceManager) GetSingleResourceByName(resourceName string) Resource 
 	// For example, if the resource name is userName, we can get the resource by "name".
 	resourceNameParts := utils.SplitIntoWords(resourceName)
 	resources = m.ResourceNameMap[resourceNameParts[len(resourceNameParts)-1]]
-	if len(resources) > 0 {
-		return resources[rand.IntN(len(resources))]
-	}
 
 	if len(resources) == 0 {
-		log.Warn().Msgf("[ResourceManager.GetRandomResourceByName] No resource of name %s", resourceName)
+		log.Warn().Msgf("[ResourceManager.GetSingleResourceByName] No resource found for name %s. Returning a random resource if available.", resourceName)
 		return nil
 	}
 
@@ -157,7 +154,7 @@ func (m *ResourceManager) LoadFromExternalDictFile(filePath string) error {
 		resourceValue := dictValue.Value
 		resource, err := NewResourceFromValue(resourceValue)
 		if err != nil {
-			log.Warn().Msgf("[ResourceManager.LoadFromExternalDictFile] Failed to create resource: %s, err: %v", resourceName, err)
+			log.Err(err).Msgf("[ResourceManager.LoadFromExternalDictFile] Failed to create resource: %s, err: %v", resourceName, err)
 			continue
 		}
 		m.storeResource(resource, resourceName, false) // For resources loaded from external dictionary, we do not store sub-resources.

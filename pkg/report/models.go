@@ -2,8 +2,8 @@ package report
 
 import (
 	"resttracefuzzer/pkg/casemanager"
-	"resttracefuzzer/pkg/feedback"
 	"resttracefuzzer/pkg/resource"
+	fuzzruntime "resttracefuzzer/pkg/runtime"
 	"resttracefuzzer/pkg/static"
 	"time"
 
@@ -57,8 +57,8 @@ type InternalServiceTestReport struct {
 	// EdgeCoverage is the coverage of the edge.
 	EdgeCoverage float64 `json:"edgeCoverage"`
 
-	// FinalRuntimeGraph is the final runtime graph.
-	FinalRuntimeGraph *feedback.RuntimeGraph `json:"finalRuntimeGraph"`
+	// FinalCallInfoGraph is the final runtime call info graph.
+	FinalCallInfoGraph *fuzzruntime.CallInfoGraph `json:"finalCallInfoGraph"`
 }
 
 // FuzzerStateReport is the report of the fuzzer state.
@@ -71,14 +71,13 @@ type FuzzerStateReport struct {
 
 	// ResourceJSONObjectNameMap is the jsonified version of ResourceNameMap.
 	ResourceJSONObjectNameMap map[string][]interface{} `json:"resourceNameMap"`
-
 }
 
 // OperationCaseForReport stores info of an operation tested during fuzzing.
 // Simplified version of [resttracefuzzer/pkg/casemanager.OperationCase]
 type OperationCaseForReport struct {
 	// APIMethod is the API method.
-	APIMethod          static.SimpleAPIMethod `json:"APIMethod"`
+	APIMethod static.SimpleAPIMethod `json:"APIMethod"`
 
 	// RequestHeaders contains the headers to be sent with the request.
 	RequestHeaders map[string]string `json:"requestHeaders"`
@@ -119,7 +118,7 @@ type TestScenarioForReport struct {
 	// OperationCaseLength is the length of the operation cases.
 	// It is used to improve the readability of the report.
 	OperationCaseLength int `json:"operationCaseLength"`
-	
+
 	// EndTime is the end time of the test scenario.
 	EndTime time.Time `json:"endTime"`
 
@@ -134,13 +133,12 @@ func NewReportFromTestScenario(testScenario *casemanager.TestScenario) *TestScen
 		operationCases = append(operationCases, NewReportFromOperationCase(operationCase))
 	}
 	return &TestScenarioForReport{
-		OperationCases: operationCases,
+		OperationCases:      operationCases,
 		OperationCaseLength: len(operationCases),
-		EndTime:          time.Now(),
-		TestScenarioUUID: testScenario.UUID,
+		EndTime:             time.Now(),
+		TestScenarioUUID:    testScenario.UUID,
 	}
 }
-
 
 // TestLogReport is the report of the test log.
 // It contains the history of testing.

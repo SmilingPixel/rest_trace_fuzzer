@@ -151,11 +151,11 @@ func (m *TraceManager) convertTrace2CallInfos(trace *SimplifiedTrace) ([]*CallIn
 			methodTraceName = targetMethodTraceName
 		}
 
-		callInfo := &CallInfo{
-			SourceService:         parentSpan.Process.ServiceName,
-			TargetService:         span.Process.ServiceName,
-			Method: 			  methodTraceName,
-		}
+		callInfo := NewCallInfo(
+			parentSpan.Process.ServiceName,
+			span.Process.ServiceName,
+			methodTraceName,
+		)
 		res = append(res, callInfo)
 	}
 	return res, nil

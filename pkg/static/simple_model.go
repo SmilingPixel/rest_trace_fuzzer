@@ -190,6 +190,13 @@ type SimpleAPIMethod struct {
 	Typ      SimpleAPIMethodType `json:"type"`
 }
 
+// InternalServiceEndpoint represents an endpoint of an internal service.
+// It can be used as node in data flow graph
+type InternalServiceEndpoint struct {
+	ServiceName     string          `json:"serviceName"`
+	SimpleAPIMethod SimpleAPIMethod `json:"simpleAPIMethod"`
+}
+
 // SimpleAPIProperty represents a property of an API.
 // For example, the property can be a parameter, a request body, a response, or any variables defined in them.
 // You should use the struct by value, not by pointer.

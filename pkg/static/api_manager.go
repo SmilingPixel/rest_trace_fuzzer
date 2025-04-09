@@ -27,6 +27,11 @@ type APIManager struct {
 
 	// The Dataflow graph of the internal APIs.
 	APIDataflowGraph *APIDataflowGraph
+
+	// Reachability information of external APIs and internal service interfaces.
+	// This map is initialized from API doc, and would not be updated in the process of fuzzing.
+	// We will keep updating the dynamic (runtime) version in runtime package
+	StaticReachabilityMap *ReachabilityMap
 }
 
 // NewAPIManager creates a new APIManager.
@@ -70,7 +75,11 @@ func (m *APIManager) InitFromServiceDoc(doc *openapi3.T) {
 			serviceName := operationIDParts[0]
 			methodName := operationIDParts[1]
 			// TODO: we treat all internal interfaces as gRPC methods for now. @xunzhou24
-			simpleMethod := SimpleAPIMethod{Method: methodName, Typ: SimpleAPIMethodTypeGRPC}
+			simpleMethod := SimpleAPIMethod{
+				Endpoint: methodName,
+				Method: methodName,
+				Typ: SimpleAPIMethodTypeGRPC,
+			}
 			if _, exists := m.InternalServiceAPIMap[serviceName]; !exists {
 				m.InternalServiceAPIMap[serviceName] = make(map[SimpleAPIMethod]*openapi3.Operation)
 			}
