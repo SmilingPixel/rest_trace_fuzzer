@@ -2,7 +2,6 @@ package static
 
 import (
 	"maps"
-	"resttracefuzzer/pkg/utils"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -61,20 +60,22 @@ func (m *APIManager) InitFromDocs(externalDoc, internalDoc *openapi3.T) {
 	m.APIDataflowGraph.ParseFromServiceDocument(m.ServiceAPIMap)
 
 	// Compute reachability map from the API doc.
+	// we only check reachability from external APIs to internal APIs
 	nodes := m.APIDataflowGraph.GetAllNodes()
+	externalEndpointNodeSet := make(map[InternalServiceEndpoint]struct{})
+	for _, node := range nodes {
+		if node.ServiceName == frontendServiceName {
+			externalEndpointNodeSet[node] = struct{}{}
+		}
+	}
 	m.StaticReachabilityMap = NewReachabilityMap()
-	for i1, node1 := range nodes {
-		for i2, node2 := range nodes {
-			// we only check reachability from external APIs to internal APIs
-			if i1 == i2 || node1.ServiceName != frontendServiceName {
-				continue
+	for node := range externalEndpointNodeSet {
+		distanceFromNode := m.APIDataflowGraph.GetDistanceBySource(node) // get a distance map of all nodes that are reachable from the node
+		for targetNode := range distanceFromNode {
+			if targetNode.ServiceName != frontendServiceName {
+				log.Debug().Msgf("[APIManager.InitFromDocs] Adding reachability from %s to %s", node.ID(), targetNode.ID())
+				m.StaticReachabilityMap.AddReachability(node.SimpleAPIMethod, targetNode)
 			}
-			canReach := utils.CanReach(m.APIDataflowGraph, node1, node2)
-			if !canReach {
-				continue
-			}
-			log.Debug().Msgf("[APIManager.InitFromDocs] Reachability from %s to %s", node1.ServiceName, node2.ServiceName)
-			m.StaticReachabilityMap.AddReachability(node1.SimpleAPIMethod, node2)
 		}
 	}
 }

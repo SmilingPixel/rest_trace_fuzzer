@@ -22,64 +22,26 @@ type APIDataflowEdge struct {
 	TargetProperty SimpleAPIProperty        `json:"targetProperty"`
 }
 
+func (e *APIDataflowEdge) GetSource() InternalServiceEndpoint {
+	return e.Source
+}
+
+func (e *APIDataflowEdge) GetTarget() InternalServiceEndpoint {
+	return e.Target
+}
+
 // APIDataflowGraph represents the dataflow graph of the internal APIs.
 // It implements [resttracefuzzer/pkg/utils/AbstractGraph] interface, to support graph related algorithms.
 type APIDataflowGraph struct {
-	// Edge list representation of the graph.
-	Edges []*APIDataflowEdge `json:"edges"`
-
-	// Adjacency list representation of the graph.
-	// We do not jsonify this field, because it contains the same info as Edges.
-	AdjacencyList map[InternalServiceEndpoint][]*APIDataflowEdge `json:"-"`
+	*utils.Graph[InternalServiceEndpoint, *APIDataflowEdge]
 }
 
 // NewAPIDataflowGraph creates a new APIDataflowGraph.
 func NewAPIDataflowGraph() *APIDataflowGraph {
-	edges := make([]*APIDataflowEdge, 0)
-	adjacencyList := make(map[InternalServiceEndpoint][]*APIDataflowEdge)
+	graph := utils.NewGraph[InternalServiceEndpoint, *APIDataflowEdge]()
 	return &APIDataflowGraph{
-		Edges: edges,
-		AdjacencyList: adjacencyList,
+		Graph: graph,
 	}
-}
-
-// HasNode checks if the graph has a node.
-func (g *APIDataflowGraph) HasNode(node utils.AbstractNode) bool {
-	// Check if the node is of type InternalServiceEndpoint
-	internalEndpointNode, ok := node.(InternalServiceEndpoint)
-	if !ok {
-		log.Warn().Msg("[APIDataflowGraph.HasNode] Node is not of type InternalServiceEndpoint")
-		return false
-	}
-
-	_, exist := g.AdjacencyList[internalEndpointNode]
-	return exist
-}
-
-// GetNeighborsOf returns the neighbors of a node.
-func (g *APIDataflowGraph) GetNeighborsOf(node utils.AbstractNode) []utils.AbstractNode {
-	neighbors := make([]utils.AbstractNode, 0)
-	
-	// Check if the node is of type InternalServiceEndpoint
-	internalEndpointNode, ok := node.(InternalServiceEndpoint)
-	if !ok {
-		log.Warn().Msg("[APIDataflowGraph.GetNeighborsOf] Node is not of type InternalServiceEndpoint")
-		return neighbors
-	}
-
-	for _, edge := range g.AdjacencyList[internalEndpointNode] {
-		neighbors = append(neighbors, utils.AbstractNode(edge.Target))
-	}
-	return neighbors
-}
-
-// GetAllNodes returns all nodes in the graph.
-func (g *APIDataflowGraph) GetAllNodes() []InternalServiceEndpoint {
-	nodes := make([]InternalServiceEndpoint, 0)
-	for node := range g.AdjacencyList {
-		nodes = append(nodes, node)
-	}
-	return nodes
 }
 
 // ParseFromServiceDocument parses the dataflow graph from the service document.
@@ -195,19 +157,6 @@ func (g *APIDataflowGraph) parseServiceOperationPair(
 	)
 }
 
-// AddEdge adds an edge to the dataflow graph.
-func (g *APIDataflowGraph) AddEdge(source, target InternalServiceEndpoint, sourceProp, targetProp SimpleAPIProperty) {
-	edge := &APIDataflowEdge{
-		Source:         source,
-		Target:         target,
-		SourceProperty: sourceProp,
-		TargetProperty: targetProp,
-	}
-	log.Trace().Msgf("[APIDataflowGraph.AddEdge] Adding edge: %v -> %v", source, target)
-	g.Edges = append(g.Edges, edge)
-	g.AdjacencyList[source] = append(g.AdjacencyList[source], edge)
-}
-
 // extractPropertiesFromSchema extracts the properties from the schema.
 // It returns all properties in the schema in a flattened way.
 func extractPropertiesFromSchema(schema *openapi3.SchemaRef) []SimpleAPIProperty {
@@ -267,7 +216,14 @@ func (g *APIDataflowGraph) tryMatchPropertiesAndUpdateGraph(
 					ServiceName:     targetService,
 					SimpleAPIMethod: targetMethod,
 				}
-				g.AddEdge(sourceNode, targetNode, sourceProp, targetProp)
+				edge := &APIDataflowEdge{
+					Source:         sourceNode,
+					Target:         targetNode,
+					SourceProperty: sourceProp,
+					TargetProperty: targetProp,
+				}
+				g.AddEdge(edge)
+				log.Trace().Msgf("[APIDataflowGraph.tryMatchPropertiesAndUpdateGraph] Adding edge: %v -> %v", sourceNode, targetNode)
 				// Only one edge is allowed between the same source and target nodes
 				return
 			}

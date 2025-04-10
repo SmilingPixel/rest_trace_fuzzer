@@ -5,91 +5,66 @@ import (
 	"testing"
 )
 
-// TestNode is a concrete implementation of AbstractNode for testing.
-type TestNode struct {
-	id string
+// TestNode is a simple string-based node
+type TestNode string
+
+// TestEdge is a basic directed edge implementation
+type TestEdge struct {
+	From TestNode
+	To   TestNode
 }
 
-func (n *TestNode) ID() string {
-	return n.id
-}
+func (e TestEdge) GetSource() TestNode { return e.From }
+func (e TestEdge) GetTarget() TestNode { return e.To }
 
-// TestGraph is a concrete implementation of AbstractGraph for testing.
-type TestGraph struct {
-	nodes map[string]*TestNode
-	edges map[string][]*TestNode
-}
+func TestGraph_AddEdge_And_HasNode(t *testing.T) {
+	g := utils.NewGraph[TestNode, TestEdge]()
 
-// NewTestGraph initializes a new test graph.
-func NewTestGraph() *TestGraph {
-	return &TestGraph{
-		nodes: make(map[string]*TestNode),
-		edges: make(map[string][]*TestNode),
+	n1 := TestNode("A")
+	n2 := TestNode("B")
+	edge := TestEdge{From: n1, To: n2}
+
+	g.AddEdge(edge)
+
+	if !g.HasNode(n1) {
+		t.Errorf("Expected graph to have node %v", n1)
+	}
+
+	if g.HasNode(n2) {
+		t.Errorf("Expected graph NOT to have node %v (target-only node)", n2)
 	}
 }
 
-// AddNode adds a new node with the given ID to the graph.
-func (g *TestGraph) AddNode(id string) *TestNode {
-	node := &TestNode{id: id}
-	g.nodes[id] = node
-	return node
-}
-
-// AddEdge adds a directed edge from one node to another.
-func (g *TestGraph) AddEdge(from, to *TestNode) {
-	g.edges[from.id] = append(g.edges[from.id], to)
-}
-
-// HasNode checks if the node exists in the graph.
-func (g *TestGraph) HasNode(node utils.AbstractNode) bool {
-	_, exists := g.nodes[node.ID()]
-	return exists
-}
-
-// GetNeighborsOf returns neighbors of the specified node.
-func (g *TestGraph) GetNeighborsOf(node utils.AbstractNode) []utils.AbstractNode {
-	rawNeighbors := g.edges[node.ID()]
-	neighbors := make([]utils.AbstractNode, len(rawNeighbors))
-	for i, n := range rawNeighbors {
-		neighbors[i] = n
-	}
-	return neighbors
-}
-
-func TestCanReach(t *testing.T) {
-	graph := NewTestGraph()
+func TestGraph_CanReach(t *testing.T) {
+	g := utils.NewGraph[TestNode, TestEdge]()
 
 	// Create nodes
-	nodeA := graph.AddNode("A")
-	nodeB := graph.AddNode("B")
-	nodeC := graph.AddNode("C")
-	nodeD := graph.AddNode("D")
+	a := TestNode("A")
+	b := TestNode("B")
+	c := TestNode("C")
+	d := TestNode("D")
 
 	// Create edges
-	graph.AddEdge(nodeA, nodeB)
-	graph.AddEdge(nodeB, nodeC)
-	graph.AddEdge(nodeC, nodeD)
+	g.AddEdge(TestEdge{From: a, To: b})
+	g.AddEdge(TestEdge{From: b, To: c})
+	g.AddEdge(TestEdge{From: c, To: d})
 
-	// Define test cases
 	tests := []struct {
-		name     string
-		from     *TestNode
-		to       *TestNode
+		from     TestNode
+		to       TestNode
 		expected bool
 	}{
-		{"A to D", nodeA, nodeD, true},
-		{"A to C", nodeA, nodeC, true},
-		{"B to A", nodeB, nodeA, false},
-		{"D to A", nodeD, nodeA, false},
-		{"Self reach", nodeB, nodeB, true},
+		{a, d, true},  // A → B → C → D
+		{a, c, true},  // A → B → C
+		{b, a, false}, // no back edge
+		{d, a, false}, // disconnected
+		{a, a, true},  // trivial self reach
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			result := utils.CanReach(graph, tc.from, tc.to)
-			if result != tc.expected {
-				t.Errorf("CanReach(%s -> %s) = %v; expected %v", tc.from.ID(), tc.to.ID(), result, tc.expected)
-			}
-		})
+	for _, tt := range tests {
+		result := g.CanReach(tt.from, tt.to)
+		if result != tt.expected {
+			t.Errorf("CanReach(%v → %v) = %v; expected %v", tt.from, tt.to, result, tt.expected)
+		}
 	}
 }
