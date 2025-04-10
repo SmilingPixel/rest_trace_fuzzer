@@ -191,10 +191,17 @@ type SimpleAPIMethod struct {
 }
 
 // InternalServiceEndpoint represents an endpoint of an internal service.
-// It can be used as node in data flow graph
+// It can be used as node in data flow graph.
+// It implements [resttracefuzzer/pkg/utils/AbstractNode] interface, to support graph related algorithms.
 type InternalServiceEndpoint struct {
 	ServiceName     string          `json:"serviceName"`
 	SimpleAPIMethod SimpleAPIMethod `json:"simpleAPIMethod"`
+}
+
+// ID returns a unique identifier for an InternalServiceEndpoint.
+// We concatenate the service name and the endpoint to create a unique ID.
+func (e InternalServiceEndpoint) ID() string {
+	return e.ServiceName + "##" + e.SimpleAPIMethod.Endpoint
 }
 
 // SimpleAPIProperty represents a property of an API.

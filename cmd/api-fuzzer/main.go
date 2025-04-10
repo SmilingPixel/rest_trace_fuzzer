@@ -86,22 +86,23 @@ func main() {
 
 	APIManager := static.NewAPIManager()
 
-	// read OpenAPI spec and parse it
+	// read system OpenAPI spec and parse it
 	APIParser := parser.NewOpenAPIParser()
-	doc, err := APIParser.ParseSystemDocFromPath(config.GlobalConfig.OpenAPISpecPath)
+	systemDoc, err := APIParser.ParseSystemDocFromPath(config.GlobalConfig.OpenAPISpecPath)
 	if err != nil {
-		log.Err(err).Msgf("[main] Failed to parse OpenAPI spec")
+		log.Err(err).Msgf("[main] Failed to parse system OpenAPI spec")
 		return
 	}
-	APIManager.InitFromSystemDoc(doc)
-
+	
 	// Parse doc of internal services
 	serviceDoc, err := APIParser.ParseServiceDocFromPath(config.GlobalConfig.InternalServiceOpenAPIPath)
 	if err != nil {
 		log.Err(err).Msgf("[main] Failed to parse internal service OpenAPI spec")
 		return
 	}
-	APIManager.InitFromServiceDoc(serviceDoc)
+
+	// Initialize the API manager using parsed docs
+	APIManager.InitFromDocs(systemDoc, serviceDoc)
 
 	// Parse extra headers
 	extraHeaders := make(map[string]string)

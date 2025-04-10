@@ -10,21 +10,8 @@ type TestNode struct {
 	id string
 }
 
-func (n *TestNode) String() string {
+func (n *TestNode) ID() string {
 	return n.id
-}
-
-func (n *TestNode) EqualsTo(other utils.AbstractNode) bool {
-	otherNode, ok := other.(*TestNode)
-	return ok && n.id == otherNode.id
-}
-
-func (n *TestNode) HashCode() uint64 {
-	var hash uint64
-	for _, char := range n.id {
-		hash = hash*31 + uint64(char)
-	}
-	return hash
 }
 
 // TestGraph is a concrete implementation of AbstractGraph for testing.
@@ -33,6 +20,7 @@ type TestGraph struct {
 	edges map[string][]*TestNode
 }
 
+// NewTestGraph initializes a new test graph.
 func NewTestGraph() *TestGraph {
 	return &TestGraph{
 		nodes: make(map[string]*TestNode),
@@ -40,28 +28,32 @@ func NewTestGraph() *TestGraph {
 	}
 }
 
+// AddNode adds a new node with the given ID to the graph.
 func (g *TestGraph) AddNode(id string) *TestNode {
 	node := &TestNode{id: id}
 	g.nodes[id] = node
 	return node
 }
 
+// AddEdge adds a directed edge from one node to another.
 func (g *TestGraph) AddEdge(from, to *TestNode) {
 	g.edges[from.id] = append(g.edges[from.id], to)
 }
 
+// HasNode checks if the node exists in the graph.
 func (g *TestGraph) HasNode(node utils.AbstractNode) bool {
-	_, exists := g.nodes[node.String()]
+	_, exists := g.nodes[node.ID()]
 	return exists
 }
 
+// GetNeighborsOf returns neighbors of the specified node.
 func (g *TestGraph) GetNeighborsOf(node utils.AbstractNode) []utils.AbstractNode {
-	neighbors := g.edges[node.String()]
-	abstractNeighbors := make([]utils.AbstractNode, len(neighbors))
-	for i, neighbor := range neighbors {
-		abstractNeighbors[i] = neighbor
+	rawNeighbors := g.edges[node.ID()]
+	neighbors := make([]utils.AbstractNode, len(rawNeighbors))
+	for i, n := range rawNeighbors {
+		neighbors[i] = n
 	}
-	return abstractNeighbors
+	return neighbors
 }
 
 func TestCanReach(t *testing.T) {
@@ -78,22 +70,26 @@ func TestCanReach(t *testing.T) {
 	graph.AddEdge(nodeB, nodeC)
 	graph.AddEdge(nodeC, nodeD)
 
-	// Test cases
+	// Define test cases
 	tests := []struct {
+		name     string
 		from     *TestNode
 		to       *TestNode
 		expected bool
 	}{
-		{nodeA, nodeD, true},  // Path exists: A -> B -> C -> D
-		{nodeA, nodeC, true},  // Path exists: A -> B -> C
-		{nodeB, nodeA, false}, // No path exists
-		{nodeD, nodeA, false}, // No path exists
+		{"A to D", nodeA, nodeD, true},
+		{"A to C", nodeA, nodeC, true},
+		{"B to A", nodeB, nodeA, false},
+		{"D to A", nodeD, nodeA, false},
+		{"Self reach", nodeB, nodeB, true},
 	}
 
-	for _, test := range tests {
-		result := utils.CanReach(graph, test.from, test.to)
-		if result != test.expected {
-			t.Errorf("CanReach(%s, %s) = %v; want %v", test.from.String(), test.to.String(), result, test.expected)
-		}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := utils.CanReach(graph, tc.from, tc.to)
+			if result != tc.expected {
+				t.Errorf("CanReach(%s -> %s) = %v; expected %v", tc.from.ID(), tc.to.ID(), result, tc.expected)
+			}
+		})
 	}
 }

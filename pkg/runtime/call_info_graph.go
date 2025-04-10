@@ -4,6 +4,8 @@ import (
 	"resttracefuzzer/pkg/feedback/trace"
 	"resttracefuzzer/pkg/static"
 	"resttracefuzzer/pkg/utils"
+
+	"github.com/rs/zerolog/log"
 )
 
 // CallInfoEdge represents an edge in the runtime graph of call info.
@@ -20,28 +22,71 @@ type CallInfoEdge struct {
 // For example, callInfo.SourceService = "cartservice", but callInfoGraph.SourceService = "CartService".
 // We handle it by converting both names into standard cases (when creating and updating).
 type CallInfoGraph struct {
+	// Edge list representation of the graph.
 	Edges []*CallInfoEdge `json:"edges"`
+
+	// Adjacency list representation of the graph.
+	// We do not jsonify this field, because it contains the same info as Edges.
+	AdjacencyList map[static.InternalServiceEndpoint][]*CallInfoEdge `json:"-"`
 }
 
 // NewCallInfoGraph creates a new CallInfoGraph.
 // It initializes the edges from the static API dataflow graph.
 func NewCallInfoGraph(APIDataflowGraph *static.APIDataflowGraph) *CallInfoGraph {
 	edges := make([]*CallInfoEdge, 0)
+	adjacencyList := make(map[static.InternalServiceEndpoint][]*CallInfoEdge)
 	for _, edge := range APIDataflowGraph.Edges {
 		// format service name
 		source := edge.Source
 		source.ServiceName = utils.FormatServiceName(edge.Source.ServiceName)
 		target := edge.Target
 		target.ServiceName = utils.FormatServiceName(edge.Target.ServiceName)
-		edges = append(edges, &CallInfoEdge{
+		callInfoEdge := &CallInfoEdge{
 			Source:   source,
 			Target:   target,
 			HitCount: 0,
-		})
+		}
+		edges = append(edges, callInfoEdge)
+		adjacencyList[source] = append(adjacencyList[source], callInfoEdge)
 	}
 	return &CallInfoGraph{
 		Edges: edges,
+		AdjacencyList: adjacencyList,
 	}
+}
+
+// HasNode checks if the graph has a node.
+func (g *CallInfoGraph) HasNode(node utils.AbstractNode) bool {
+	// Check if the node is of type InternalServiceEndpoint
+	internalEndpointNode, ok := node.(static.InternalServiceEndpoint)
+	if !ok {
+		log.Warn().Msg("[CallInfoGraph.HasNode] Node is not of type InternalServiceEndpoint")
+		return false
+	}
+	_, exist := g.AdjacencyList[internalEndpointNode]
+	return exist
+}
+
+// GetNeighborsOf returns the neighbors of a node.
+func (g *CallInfoGraph) GetNeighborsOf(node utils.AbstractNode) []utils.AbstractNode {
+	// Check if the node is of type InternalServiceEndpoint
+	internalEndpointNode, ok := node.(static.InternalServiceEndpoint)
+	if !ok {
+		log.Warn().Msg("[CallInfoGraph.GetNeighborsOf] Node is not of type InternalServiceEndpoint")
+		return nil
+	}
+
+	// Retrieve neighbors from the adjacency list
+	edges, exist := g.AdjacencyList[internalEndpointNode]
+	if !exist {
+		return nil
+	}
+
+	neighbors := make([]utils.AbstractNode, 0, len(edges))
+	for _, edge := range edges {
+		neighbors = append(neighbors, edge.Target)
+	}
+	return neighbors
 }
 
 // UpdateFromCallInfos updates the runtime call info graph from the call information.
