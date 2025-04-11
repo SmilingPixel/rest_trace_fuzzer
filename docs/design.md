@@ -22,32 +22,38 @@ The architecture diagram is powered by [draw.io](https://app.diagrams.net/).
 | ODG Parser  | 解析系统外部暴露 OpenAPI，生成 ODG (Operation Dependency Graph) | 输入：解析完成的 OpenAPI 输出：ODG，包括 1. 整个系统对外暴露的接口之间的依赖关系 2. 每个 service 内部的接口之间的依赖关系（即对于图中的任何一条边，其两端的节点必须属于不同的 service） |
 | DFG Parser  | 内部服务 API，生成 DFG (Data Flow Graph)            | 输入：解析完成的 OpenAPI 输出：DFG，包括 1. 每个 service 内部的接口之间的数据流传递关系（即对于图中的任何一条边，其两端的节点必须属于不同的 service） |
 
-## 2.2. 数据持久化模块
+## 2.2. 静态数据模块
 
 | Module         | Description                                      | Note                                                                 |
 |----------------|--------------------------------------------------|----------------------------------------------------------------------|
 | Interfaces DB  | 存储解析完成的接口定义                              | 数据结构：见后面章节                                                   |
 | ODG DB         | 存储 ODG                                           | 数据结构：见后面章节                                                   |
 | DFG DB         | 存储 DFG                                           | 数据结构：见后面章节                                                   |
-| Runtime Info Graph         | 存储程序运行时的 DFG 调用和覆盖状态                                          | 数据结构：见后面章节                                                   |
 | Resource Pool  | 存储资源池，目前主要用于存储测试过程中创建的资源       |          |
 | Testcase Queue     | 存储测试用例，优先级队列，根据选取策略的不同，依据各种指标（例如覆盖率提升等）计算优先级 | |
 | Operation Case Queues     | 存储候选请求，多个优先级队列，每种请求（Endpoint）一个队列，根据选取策略的不同，依据各种指标（例如覆盖率提升等）计算优先级 | |
 | Trace Manager   | 拉取、解析和处理 trace | |
 
+## 2.3. 运行时数据模块
 
-## 2.3. 测试执行模块
+| Module         | Description                                      | Note                                                                 |
+|----------------|--------------------------------------------------|----------------------------------------------------------------------|
+| Call Info Graph         | 存储程序运行时的 DFG 调用和覆盖状态                                          | 数据结构：见后面章节                                                   |
+| Reachability Info Map  | 存储系统外部接口和内部服务接口的可达性关系，作为外部操作到内部操作的桥梁       | 数据结构：见后面章节         |
+
+
+## 2.4. 测试执行模块
 
 | Module               | Description                                      | Note                                                                 |
 |----------------------|--------------------------------------------------|----------------------------------------------------------------------|
-| Testcase Scheduler  | 根据 ODG, DFG, Runtime Info Graph 等，调度测试用例的优先级                        | 输入：数据持久化模块中的数据 输出：本次预计执行的接口序列         |
+| Testcase Scheduler  | 根据 ODG, DFG, Call Info Graph 等，调度测试用例的优先级                        | 输入：静态和运行时数据模块中的数据 输出：本次预计执行的接口序列         |
 | Operation Population | 根据接口定义，填充参数，实例化接口                           | 输入：接口定义，资源池数据 输出：接口请求实例                           |
-| Test Driver          | 执行接口请求，记录执行结果，处理反馈，更新数据持久化模块中的数据 |                                                                      |
+| Test Driver          | 执行接口请求，记录执行结果，处理反馈，更新运行数据模块中的数据 |                                                                      |
 | Response Processer       | 收集系统响应，存储和初步检查测试结果        |                                                                      |
-| Trace Analyser       | 收集 Trace，同步更新 RuntimeInfo Graph 的状态        |                                                                      |
+| Trace Analyser       | 收集 Trace，同步更新 Call Info Graph 的状态        |                                                                      |
 
 
-## 2.4. 策略执行模块
+## 2.5. 策略执行模块
 
 定义各类操作的策略，将策略与执行动作分离，便于后期进一步扩展
 | Module               | Description                                      | Note                                                                 |
@@ -58,7 +64,7 @@ The architecture diagram is powered by [draw.io](https://app.diagrams.net/).
 | TODO     | TODO                 | @xunzhou24                            |
 
 
-## 2.5. 结果报告模块
+## 2.6. 结果报告模块
 
 | Module               | Description                                      | Note                                                                 |
 |----------------------|--------------------------------------------------|----------------------------------------------------------------------|
@@ -74,86 +80,114 @@ The architecture diagram is powered by [draw.io](https://app.diagrams.net/).
 ```bash
 .
 ├── cmd
-│   └── api-fuzzer          # Main entry point for the API fuzzer application
-│       └── main.go         # Main application logic
+│   └── api-fuzzer          # Main entry point for the API fuzzer application
+│       └── main.go         # Main application logic
 ├── config
-│   └── config.json         # Configuration file for the application
+│   ├── config.json         # Default configuration file for the application
+│   ├── fuzz_value_dict.json # Default fuzzing value dictionary
+│   ├── http_middleware.starlark # Default HTTP middleware script
+│   ├── my_config.json      # Custom configuration file
+│   ├── my_fuzz_value_dict.json # Custom fuzzing value dictionary
+│   └── my_http_middleware.starlark # Custom HTTP middleware script
 ├── docs                    # Documentation files
-│   ├── architecture.drawio # Architecture diagram source file
-│   ├── architecture.svg    # Architecture diagram in SVG format
-│   └── design.md           # Design documentation
+│   ├── architecture.drawio # Architecture diagram source file
+│   ├── architecture.svg    # Architecture diagram in SVG format
+│   └── design.md           # Design documentation
 ├── go.mod                  # Go module file
 ├── go.sum                  # Go dependencies file
 ├── internal                # Internal packages
-│   ├── config              # Configuration related code
-│   │   ├── arg_config_generate.py # Script to generate argument configuration
-│   │   ├── arg_config.json  # Argument configuration file, auto-generated
-│   │   ├── arg_parse.go     # Argument parsing logic, auto-generated
-│   │   └── config.go
-│   └── fuzzer              # Fuzzer related code
-│       ├── basic_fuzzer.go  # Basic fuzzer implementation
-│       ├── config.go        # Fuzzer configuration handling
-│       ├── fuzzer.go        # Main fuzzer interfaces
-│       └── snapshot.go      # Snapshot handling for fuzzing
+│   ├── config              # Configuration related code
+│   │   ├── arg_config_generate.py # Script to generate argument configuration
+│   │   ├── arg_config.json  # Argument configuration file, auto-generated
+│   │   ├── arg_parse.go     # Argument parsing logic, auto-generated
+│   │   └── config.go        # Configuration handling logic
+│   └── fuzzer              # Fuzzer related code
+│       ├── basic_fuzzer.go  # Basic fuzzer implementation
+│       ├── config.go        # Fuzzer configuration handling
+│       ├── fuzzer.go        # Main fuzzer interfaces
+│       └── snapshot.go      # Snapshot handling for fuzzing
 ├── LICENSE                 # License file
 ├── Makefile                # Makefile for generate and run automation
+├── my_tools                # Custom tools and resources
+│   ├── curl.sh             # Script to convert logs to curl commands
+│   ├── demo_annotated.proto # Annotated protobuf example
+│   ├── log2curl.py         # Python script to convert logs to curl commands
+│   ├── openapi             # OpenAPI-related files
+│   │   ├── internal_service_oas.yaml # OpenAPI spec for internal services
+│   │   ├── service2oas.json # Mapping of services to OpenAPI specs
+│   │   ├── system_swagger.json # System-level OpenAPI spec
+│   │   └── system_swagger_test_0324.json # Test OpenAPI spec
+│   ├── openapi.yaml        # OpenAPI spec file
+│   └── restler_dependencies.json # RESTler dependency file
 ├── pkg                     # Public packages
-│   ├── casemanager         # Case management logic
-│   │   ├── case.go          # Case structure and methods
-│   │   └── case_manager.go  # Case manager implementation
-│   ├── feedback            # Feedback handling logic
-│   │   ├── response_process.go # Response processing logic
-│   │   ├── runtime_graph.go  # Runtime graph handling
-│   │   └── trace           # Trace handling logic
-│   │       ├── model.go      # Trace model definitions
-│   │       ├── trace_db.go   # Trace database interactions
-│   │       ├── trace_fetcher.go # Trace fetching logic
-│   │       └── trace_manager.go # Trace manager implementation
-│   ├── parser              # Parsing logic
-│   │   ├── api_parser.go    # API parsing logic
-│   │   ├── dependency_parser.go # Dependency parsing logic
-│   │   └── dependency_restler_parser.go # RESTler dependency parsing logic
-│   ├── report              # Reporting logic
-│   │   ├── fuzzer_state_reporter.go # Fuzzer state reporting
-│   │   ├── internal_service_reporter.go # Internal service reporting
-│   │   ├── models.go        # Report models
-│   │   ├── system_reporter.go # System reporting logic
-│   │   └── test_log_reporter.go # Test log reporting
-│   ├── resource            # Resource management logic
-│   │   ├── resource.go      # Resource structure and methods
-│   │   └── resource_manager.go # Resource manager implementation
-│   ├── static              # Static info related
-│   │   ├── api_manager.go   # API manager logic
-│   │   ├── dependency.go    # Dependency handling
-│   │   ├── dfg.go           # Data flow graph handling
-│   │   └── simple_model.go  # Simple model for static info
-│   ├── strategy             # Fuzzing strategies
-│   │   ├── fuzz_strategist.go  # Fuzzing strategist implementation
-│   │   ├── resource_mutate.go  # strategies for resource mutation
-│   │   └── value_generate.go   # strategies for value generation
-│   └── utils               # Utility functions
-│       ├── http            # HTTP-related utilities
-│       │   ├── http_utils.go  # HTTP utility functions
-│       │   └── middleware.go  # Middleware functions using in http utils
-│       ├── common_utils.go  # Common utility functions
-│       ├── nlp_utils.go     # NLP utility functions
-│       └── openapi_utils.go # OpenAPI utility functions
+│   ├── casemanager         # Case management logic
+│   │   ├── case.go          # Case structure and methods
+│   │   └── case_manager.go  # Case manager implementation
+│   ├── feedback            # Feedback handling logic
+│   │   ├── response_process.go # Response processing logic
+│   │   └── trace           # Trace handling logic
+│   │       ├── model.go      # Trace model definitions
+│   │       ├── trace_db.go   # Trace database interactions
+│   │       ├── trace_fetcher.go # Trace fetching logic
+│   │       └── trace_manager.go # Trace manager implementation
+│   ├── parser              # Parsing logic
+│   │   ├── api_parser.go    # API parsing logic
+│   │   ├── dependency_parser.go # Dependency parsing logic
+│   │   └── dependency_restler_parser.go # RESTler dependency parsing logic
+│   ├── report              # Reporting logic
+│   │   ├── fuzzer_state_reporter.go # Fuzzer state reporting
+│   │   ├── internal_service_reporter.go # Internal service reporting
+│   │   ├── models.go        # Report models
+│   │   ├── system_reporter.go # System reporting logic
+│   │   └── test_log_reporter.go # Test log reporting
+│   ├── resource            # Resource management logic
+│   │   ├── resource.go      # Resource structure and methods
+│   │   └── resource_manager.go # Resource manager implementation
+│   ├── runtime             # Runtime-related logic
+│   │   ├── call_info_graph.go # Call info graph handling
+│   │   └── reachability_map.go # Reachability map handling
+│   ├── static              # Static info related
+│   │   ├── api_manager.go   # API manager logic
+│   │   ├── dependency.go    # Dependency handling
+│   │   ├── dfg.go           # Data flow graph handling
+│   │   ├── reachability.go  # Reachability analysis
+│   │   └── simple_model.go  # Simple model for static info
+│   ├── strategy             # Fuzzing strategies
+│   │   ├── fuzz_strategist.go  # Fuzzing strategist implementation
+│   │   ├── resource_mutate.go  # Strategies for resource mutation
+│   │   ├── value_generate.go   # Strategies for value generation
+│   │   └── weight_map.go       # Weight map for strategies
+│   └── utils               # Utility functions
+│       ├── common_utils.go  # Common utility functions
+│       ├── graph_utils.go   # Graph utility functions
+│       ├── http            # HTTP-related utilities
+│       │   ├── http_utils.go  # HTTP utility functions
+│       │   └── middleware.go  # Middleware functions using in HTTP utils
+│       ├── nlp_utils.go     # NLP utility functions
+│       └── openapi_utils.go # OpenAPI utility functions
 ├── README.md               # Project README file
-└── scripts                 # Scripts for various tasks
-  ├── build.sh              # Build script
-  ├── clean_build.sh        # Script to clean build artifacts
-  ├── clean_output.sh       # Script to clean output
-  ├── generate_arg_config_code.sh # Script to generate argument configuration code
-  ├── include               # Protobuf include files
-  │   └── google
-  │       └── api
-  │           ├── annotations.proto # Protobuf annotations for API
-  │           └── http.proto        # Protobuf definitions for HTTP
-  ├── internal_service_report_visualize.py # Script to visualize internal service reports
-  ├── proto_gen_oas.sh      # Script to generate OpenAPI specs from protobuf
-  └── run.sh                # Script to run the application
+├── scripts                 # Scripts for various tasks
+│   ├── build.sh            # Build script
+│   ├── clean_build.sh      # Script to clean build artifacts
+│   ├── clean_output.sh     # Script to clean output
+│   ├── generate_arg_config_code.sh # Script to generate argument configuration code
+│   ├── include             # Protobuf include files
+│   │   └── google
+│   │       └── api
+│   │           ├── annotations.proto # Protobuf annotations for API
+│   │           └── http.proto        # Protobuf definitions for HTTP
+│   ├── internal_service_report_visualize.py # Script to visualize internal service reports
+│   ├── proto_gen_oas.sh    # Script to generate OpenAPI specs from protobuf
+│   ├── run.sh              # Script to run the application
+│   └── test_process_visualize.py # Script to visualize test processes
+└── test                    # Test-related files
+    ├── graph_utils_test.go # Unit tests for graph utilities
+    ├── http_utils_test.go  # Unit tests for HTTP utilities
+    ├── nlp_utils_test.go   # Unit tests for NLP utilities
+    └── testdata            # Test data for unit tests
 ```
-该工具的主要部分在下面两个文件夹下:
+该工具的主要部分在下面几个文件夹下:
+- `/cmd`: 工具主入口
 - `/pkg`: 主要模块设计实现
 - `/internal`: 工具内部流程相关
 
@@ -190,10 +224,10 @@ Operation 定义粒度: (service, path, method)，例如`(pet_service, /api/v1/p
 Edge， a -> b 表示存在数据流从 a 到 b
 | Field            | Type       | Description                         |
 |------------------|------------|-------------------------------------|
-| source           | Operation  | 表示源 Operation               |
-| target           | Operation  | 表示目标 Operation             |
-| source_property  | APIProperty | 表示存在流动的（源）资源（例如某个参数） |
-| target_property  | APIProperty | 表示存在流动的（目标）资源（例如某个参数） |
+| `source`           | `Operation`  | 表示源 Operation               |
+| `target`           | `Operation`  | 表示目标 Operation             |
+| `source_property`  | `APIProperty` | 表示存在流动的（源）资源（例如某个参数） |
+| `target_property`  | `APIProperty` | 表示存在流动的（目标）资源（例如某个参数） |
 
 Graph，包含一组 Edge，表示整个系统内部API之间的数据流传递关系。
 
@@ -300,6 +334,17 @@ rsc2 := resourceManager.GetSingleResourceByName("Capitano")
 - LibFuzzer
   - https://github.com/llvm/llvm-project/blob/main/compiler-rt/lib/fuzzer/FuzzerLoop.cpp#L723
 
+
+### 3.4.2. 序列扩展的设计
+
+总体流程示意图如下:
+
+![You can download the raw file, and edit using draw.io](seq_extend.svg)
+
+1. 内部服务接口的依赖构建: 参考 Restler 的方案，通过文档解析构建内部服务接口的依赖关系。
+2. 测试序列的拆解与扩展: 将外部请求序列（如 req1, req2, req3...）拆解为内部服务调用（如 req1-1, req1-2, req2-1, req3-1, req3-2...）；从拆解出的接口中选取一个 consumer（如 req-x），依据接口关联追加相关系统接口到测试序列末尾。
+3. 扩展机制与优先级结合: 暂时忽略优先级，专注于扩展机制的实验验证。扩展时按以下顺序尝试追加请求（可设置概率权重）：仅依据外部接口的依赖；基于高置信度的内部接口依赖进行拆解扩展；基于任意置信度的内部接口依赖进行拆解扩展；随机追加请求。
+
 ## 3.5. Operation Case Queues
 
 由多个优先级队列组成，存储候选的操作（主要来自历史执行的操作），用于扩展测试序列时提供备选项。
@@ -316,7 +361,7 @@ rsc2 := resourceManager.GetSingleResourceByName("Capitano")
 
 ## 3.6. Test Driver
 
-测试执行，发送请求和处理响应，更新数据持久化模块中的数据
+测试执行，发送请求和处理响应，更新运行时数据模块中的数据
 
 
 ## 3.7. Trace Manager
@@ -335,11 +380,11 @@ rsc2 := resourceManager.GetSingleResourceByName("Capitano")
 ### 3.7.2. Trace 分析
 
 1. 记录覆盖的调用边和调用次数，更新 DFG 实例
-2. 统计覆盖率更新，上报给 Runtime Info Graph
+2. 统计覆盖率更新，上报给 Call Info Graph
 3. 更新 DFG，补充缺失的依赖关系，修改错误的依赖关系 [TODO: 具体实现待定 @xunzhou24]
 
 
-### 3.8. Runtime Info Graph
+### 3.8. Call Info Graph
 
 - 记录程序运行时的 DFG 调用和覆盖状态
 - 基于 DFG，目前用于记录 DFG 上的调用次数，用于后续的覆盖率统计和测试用例优先级计算
@@ -347,10 +392,25 @@ rsc2 := resourceManager.GetSingleResourceByName("Capitano")
 Edge， a -> b 表示存在数据流从 a 到 b，同时携带了调用次数信息
 | Field            | Type       | Description                         |
 |------------------|------------|-------------------------------------|
-| source           | Operation  | 表示源 Operation               |
-| target           | Operation  | 表示目标 Operation             |
-| hit_count       | int        | 表示调用次数                       |
+| `source`           | `Operation`  | 表示源 Operation               |
+| `target`           | `Operation`  | 表示目标 Operation             |
+| `hit_count`       | `int`        | 表示调用次数                       |
 
+
+### 3.9. Reachability Info Map
+
+- 存储系统外部接口和内部服务接口的可达性关系
+- 外部操作到内部操作的桥梁
+
+外部 API 和内部服务接口是 M:N 的关系；同时，考虑到查询复杂度的问题，维护了两个 map:
+- 外部 API -> list[可达的内部服务接口]
+- 内部服务接口 -> list[可达该接口的外部 API]
+
+| Field                     | Description                                                                 |
+|---------------------------|-----------------------------------------------------------------------------|
+| `system_api`              | 系统对外暴露的 HTTP 接口                                                   |
+| `internal_service_interface` | 内部服务的接口（包括 HTTP, gRPC 等）                                      |
+| `confidence_level`        | 置信度，表示该路径的真实性                                                 |
 
 ## 3.8. 网络相关
 
