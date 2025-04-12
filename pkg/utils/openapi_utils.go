@@ -1,3 +1,10 @@
+/**
+ * Package utils provides utility functions for working with OpenAPI specifications.
+ *
+ * This package includes functions for schema manipulation, endpoint path processing,
+ * and type conversions related to OpenAPI 3.0 specifications. It leverages the
+ * "github.com/getkin/kin-openapi/openapi3" library for OpenAPI schema handling.
+ */
 package utils
 
 import (

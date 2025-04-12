@@ -1,3 +1,9 @@
+// Package utils provides utility functions for natural language processing (NLP)
+// and string manipulation. These utilities are designed to assist with tasks such as
+// splitting variable names into words, comparing variable names for similarity, and
+// converting strings between different casing styles. The package also includes
+// implementations of various similarity calculators, such as Levenshtein and Jaccard,
+// to support flexible and robust string comparison.
 package utils
 
 import (
