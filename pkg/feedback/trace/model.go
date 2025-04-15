@@ -314,3 +314,12 @@ func (j *JaegerTraceSpan) InferSemanticConvention() SemanticConventionType {
 
 	return SemanticConventionTypeUnknown
 }
+
+
+// TempoTrace represents a trace in Tempo format.
+// TODO: check if TempoTrace is the same as JaegerTrace @xunzhou24
+type TempoTrace = JaegerTrace
+
+// TempoTraceSpan represents a span in a Tempo trace.
+// TODO: check if TempoTraceSpan is the same as JaegerTraceSpan @xunzhou24
+type TempoTraceSpan = JaegerTraceSpan

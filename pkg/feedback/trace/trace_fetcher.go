@@ -26,6 +26,8 @@ const (
 // TraceFetcher fetches traces from trace backend and parses them into Jaeger-style spans.
 type TraceFetcher interface {
 	// FetchFromPath fetches traces from a local file.
+	//
+	// Deprecated: Use FetchFromRemote instead.
 	FetchFromPath(path string) ([]*SimplifiedTraceSpan, error)
 
 	// FetchAllFromRemote fetches all traces from a remote source.
@@ -200,4 +202,64 @@ func (p *JaegerTraceFetcher) fetchTraceByIDFromRemote(traceID string) (*Simplifi
 		return nil, err
 	}
 	return jaegerTraceResp.Data[0].ToSimplifiedTrace(), nil
+}
+
+
+// TempoTraceFetcher represents a fetcher for Tempo traces.
+type TempoTraceFetcher struct {
+	// FetcherClient is the HTTP client for fetching traces.
+	FetcherClient *http.HTTPClient
+}
+
+// NewTempoTraceFetcher creates a new TempoTraceFetcher.
+// See [official Tempo API doc](https://grafana.com/docs/tempo/latest/api_docs/)
+func NewTempoTraceFetcher() *TempoTraceFetcher {
+	tempoBackendURL := config.GlobalConfig.TraceBackendURL
+	httpClient := http.NewHTTPClient(tempoBackendURL, []string{}, http.EmptyHTTPClientMiddlewareSlice())
+	return &TempoTraceFetcher{
+		FetcherClient: httpClient,
+	}
+}
+
+// FetchFromPath fetches Tempo traces from given path.
+// The method is not implemented, and will not be, as the interface marks the method as deprecated.
+func (p *TempoTraceFetcher) FetchFromPath(filePath string) ([]*SimplifiedTraceSpan, error) {
+	return nil, fmt.Errorf("TempoTraceFetcher.FetchFromPath is not implemented")
+}
+
+// FetchAllFromRemote fetches all Tempo traces from remote source.
+// It returns a list of traces, or an error if failed.
+func (p *TempoTraceFetcher) FetchAllFromRemote() ([]*SimplifiedTrace, error) {
+	// TODO: Implement this method @xunzhou24
+	return nil, fmt.Errorf("TempoTraceFetcher.FetchAllFromRemote is not implemented")
+}
+
+// FetchOneByIDFromRemote fetches a Tempo trace by its ID from remote source.
+// It returns a SimplifiedTrace or an error if failed.
+func (p *TempoTraceFetcher) FetchOneByIDFromRemote(traceID string) (*SimplifiedTrace, error) {
+	path := fmt.Sprintf("/api/v2/traces/%s", traceID)
+	headers := map[string]string{}
+	statusCode, _, respBytes, err := p.FetcherClient.PerformGet(path, headers, nil, nil)
+	if err != nil {
+		log.Err(err).Msgf("[TempoTraceFetcher.FetchOneByIDFromRemote] Failed to fetch trace, path: %s", path)
+		return nil, err
+	}
+	if http.GetStatusCodeClass(statusCode) != consts.StatusOK {
+		log.Err(err).Msgf("[TempoTraceFetcher.FetchOneByIDFromRemote] Failed to fetch trace, statusCode: %d, path: %s", statusCode, path)
+		return nil, err
+	}
+
+	var tempoTraceResp struct {
+		Data []TempoTrace `json:"data"`
+	}
+	if err := sonic.Unmarshal(respBytes, &tempoTraceResp); err != nil {
+		log.Err(err).Msgf("[TempoTraceFetcher.FetchOneByIDFromRemote] Failed to unmarshal Tempo trace response")
+		return nil, err
+	}
+	if len(tempoTraceResp.Data) == 0 {
+		err := fmt.Errorf("trace not found: %s", traceID)
+		log.Err(err).Msgf("[TempoTraceFetcher.FetchOneByIDFromRemote] Failed to fetch trace")
+		return nil, err
+	}
+	return tempoTraceResp.Data[0].ToSimplifiedTrace(), nil
 }
