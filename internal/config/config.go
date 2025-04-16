@@ -67,7 +67,7 @@ type RuntimeConfig struct {
 	// Base URL of the API, e.g., https://www.example.com
 	ServerBaseURL string `json:"serverBaseURL"`
 
-	// Type of the trace backend. Currently only support 'Jaeger'
+	// Type of the trace backend. Currently supports 'Jaeger' and 'Tempo'.
 	TraceBackendType string `json:"traceBackendType"`
 
 	// URL of the trace backend

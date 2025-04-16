@@ -1,6 +1,7 @@
 package trace
 
 import (
+	"resttracefuzzer/internal/config"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -26,11 +27,21 @@ type TraceManager struct {
 
 // NewTraceManager creates a new TraceManager.
 func NewTraceManager() *TraceManager {
+	var traceFetcher TraceFetcher
+	var traceDB TraceDB
 
-	// TODO: Initialize the TraceFetcher and TraceDB according to config. @xunzhou24
-	// By default, we use JaegerTraceFetcher and InMemoryTraceDB.
-	traceFetcher := NewJaegerTraceFetcher()
-	traceDB := NewInMemoryTraceDB()
+	// By default, we use InMemoryTraceDB.
+	if config.GlobalConfig.TraceBackendType == "Jaeger" {
+		traceFetcher = NewJaegerTraceFetcher()
+	} else if config.GlobalConfig.TraceBackendType == "Tempo" {
+		traceFetcher = NewTempoTraceFetcher()
+	} else {
+		log.Error().Msgf("[NewTraceManager] Unsupported trace backend type: %s", config.GlobalConfig.TraceBackendType)
+		return nil
+	}
+
+	traceDB = NewInMemoryTraceDB()
+	
 	return &TraceManager{
 		TraceFetcher: traceFetcher,
 		TraceDB:      traceDB,

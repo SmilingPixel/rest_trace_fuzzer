@@ -30,7 +30,7 @@ func ParseCmdArgs() {
 	flag.StringVar(&GlobalConfig.OpenAPISpecPath, "openapi-spec", "", "Path to the OpenAPI spec file")
 	flag.StringVar(&GlobalConfig.OutputDir, "output-dir", "./output", "Output directory, e.g., ./output")
 	flag.StringVar(&GlobalConfig.ServerBaseURL, "server-base-url", "https://www.example.com", "Base URL of the API, e.g., https://www.example.com")
-	flag.StringVar(&GlobalConfig.TraceBackendType, "trace-backend-type", "Jaeger", "Type of the trace backend. Currently only support 'Jaeger'")
+	flag.StringVar(&GlobalConfig.TraceBackendType, "trace-backend-type", "Jaeger", "Type of the trace backend. Currently supports 'Jaeger' and 'Tempo'.")
 	flag.StringVar(&GlobalConfig.TraceBackendURL, "trace-backend-url", "", "URL of the trace backend")
 	flag.StringVar(&GlobalConfig.TraceIDHeaderKey, "trace-id-header-key", "X-Trace-Id", "The key of the trace ID header to be included in the response. By default, it is 'X-Trace-Id'.")
 	flag.Parse()

@@ -170,7 +170,7 @@
     {
         "arg_name": "trace-backend-type",
         "config_name": "trace_backend_type",
-        "description": "Type of the trace backend. Currently only support 'Jaeger'",
+        "description": "Type of the trace backend. Currently supports 'Jaeger' and 'Tempo'.",
         "type": "string",
         "required": true,
         "default": "Jaeger"
