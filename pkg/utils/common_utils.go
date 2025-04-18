@@ -7,6 +7,8 @@
 package utils
 
 import (
+	"encoding/base64"
+	"encoding/hex"
 	"math"
 	"math/rand/v2"
 	"reflect"
@@ -213,4 +215,38 @@ func FormatServiceName(name string) string {
 		name = name[:len(name)-7]
 	}
 	return name
+}
+
+// Base64ToHex converts a base64 string to a hex string.
+// It accepts a base64 string as input and returns a hex string as output.
+// The function uses the standard library's base64 and encoding/hex packages to perform the conversion.
+// If the input string is not valid base64, it logs a warning and returns an empty string.
+// Base64ToHex converts a Base64-encoded string to its hexadecimal representation.
+// It first decodes the input Base64 string into raw bytes and then encodes those bytes
+// into a hexadecimal string.
+//
+// Parameters:
+//   - base64Str: A string containing the Base64-encoded data.
+//
+// Returns:
+//   - A string containing the hexadecimal representation of the decoded data.
+//   - An error if the input string is not a valid Base64-encoded string or if decoding fails.
+//
+// Example:
+//   hexStr, err := Base64ToHex("SGVsbG8gd29ybGQ=")
+//   // hexStr will contain "48656c6c6f20776f726c64"
+//
+// Note:
+//   Ensure that the input string is a valid Base64-encoded string to avoid errors.
+func Base64ToHex(base64Str string) (string, error) {
+	// Decode the Base64 string
+    decoded, err := base64.StdEncoding.DecodeString(base64Str)
+    if err != nil {
+        log.Err(err).Msgf("[Base64ToHex] Failed to decode Base64 string: %v", err)
+		return "", err
+    }
+
+    // Convert the decoded bytes to a hexadecimal string
+    hexStr := hex.EncodeToString(decoded)
+	return hexStr, nil
 }

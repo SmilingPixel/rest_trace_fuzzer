@@ -130,12 +130,8 @@ func (m *TraceManager) convertTrace2CallInfos(trace *SimplifiedTrace) ([]*CallIn
 			continue
 		}
 		var parentSpan *SimplifiedTraceSpan
-		for _, ref := range span.References {
-			if ref["refType"] == "CHILD_OF" {
-				parentSpanID := ref["spanID"]
-				parentSpan = trace.SpanMap[parentSpanID]
-				break
-			}
+		if span.ParentID != "" {
+			parentSpan = trace.SpanMap[span.ParentID]
 		}
 		if parentSpan == nil || parentSpan.SpanKind == INTERNAL {
 			continue
@@ -163,8 +159,8 @@ func (m *TraceManager) convertTrace2CallInfos(trace *SimplifiedTrace) ([]*CallIn
 		}
 
 		callInfo := NewCallInfo(
-			parentSpan.Process.ServiceName,
-			span.Process.ServiceName,
+			parentSpan.ServiceName,
+			span.ServiceName,
 			methodTraceName,
 		)
 		res = append(res, callInfo)

@@ -230,7 +230,6 @@ func (p *TempoTraceFetcher) FetchFromPath(filePath string) ([]*SimplifiedTraceSp
 // FetchAllFromRemote fetches all Tempo traces from remote source.
 // It returns a list of traces, or an error if failed.
 func (p *TempoTraceFetcher) FetchAllFromRemote() ([]*SimplifiedTrace, error) {
-	// TODO: Implement this method @xunzhou24
 	return nil, fmt.Errorf("TempoTraceFetcher.FetchAllFromRemote is not implemented")
 }
 
@@ -249,17 +248,15 @@ func (p *TempoTraceFetcher) FetchOneByIDFromRemote(traceID string) (*SimplifiedT
 		return nil, err
 	}
 
-	var tempoTraceResp struct {
-		Data []TempoTrace `json:"data"`
-	}
-	if err := sonic.Unmarshal(respBytes, &tempoTraceResp); err != nil {
+	var tempoTrace TempoTrace
+	if err := sonic.Unmarshal(respBytes, &tempoTrace); err != nil {
 		log.Err(err).Msgf("[TempoTraceFetcher.FetchOneByIDFromRemote] Failed to unmarshal Tempo trace response")
 		return nil, err
 	}
-	if len(tempoTraceResp.Data) == 0 {
+	if len(tempoTrace.Batches) == 0 {
 		err := fmt.Errorf("trace not found: %s", traceID)
 		log.Err(err).Msgf("[TempoTraceFetcher.FetchOneByIDFromRemote] Failed to fetch trace")
 		return nil, err
 	}
-	return tempoTraceResp.Data[0].ToSimplifiedTrace(), nil
+	return tempoTrace.ToSimplifiedTrace(), nil
 }
