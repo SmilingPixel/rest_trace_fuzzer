@@ -109,7 +109,7 @@ The tool can be configured using command-line arguments. The following options a
 - `--openapi-spec`: Path to the OpenAPI specification file (required).
 - `--output-dir`: Directory to save the output reports (default: ./output).
 - `--server-base-url`: Base URL of the server to test (default: https://www.example.com).
-- `--trace-backend-type`: Type of the trace backend. Currently only supports 'Jaeger' (default: Jaeger).
+- `--trace-backend-type`: Type of the trace backend. Currently supports 'Jaeger' and 'Jaeger' (default: Jaeger).
 - `--trace-backend-url`: URL of the trace backend (required).
 - `--trace-id-header-key`: The response header key to be used for trace ID (default: X-Trace-Id).
 
