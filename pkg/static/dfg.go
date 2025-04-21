@@ -131,18 +131,28 @@ func (g *APIDataflowGraph) parseServiceOperationPair(
 	if sourceOperation.Responses != nil {
 		sourceResponse, exist := sourceOperation.Responses.Map()[strconv.FormatInt(consts.StatusOK, 10)]
 		if !exist {
-			log.Warn().Msg("[APIDataflowGraph.parseServiceOperationPair] No response with status code 200 found")
+			log.Warn().Msgf("[APIDataflowGraph.parseServiceOperationPair] No response with status code 200 found, operation ID: %s", sourceOperation.OperationID)
 		} else {
-			sourceResponseProperties = extractPropertiesFromSchema(sourceResponse.Value.Content.Get("application/json").Schema)
+			contentMap := sourceResponse.Value.Content
+			if len(contentMap) == 0 {
+				log.Warn().Msgf("[APIDataflowGraph.parseServiceOperationPair] No response content found, operation ID: %s", sourceOperation.OperationID)
+			} else {
+				sourceResponseProperties = extractPropertiesFromSchema(sourceResponse.Value.Content.Get("application/json").Schema)
+			}
 		}
 	}
 
 	if targetOperation.Responses != nil {
 		targetResponse, exist := targetOperation.Responses.Map()[strconv.FormatInt(consts.StatusOK, 10)]
 		if !exist {
-			log.Warn().Msg("[APIDataflowGraph.parseServiceOperationPair] No response with status code 200 found")
+			log.Warn().Msgf("[APIDataflowGraph.parseServiceOperationPair] No response with status code 200 found, operation ID: %s", targetOperation.OperationID)
 		} else {
-			targetResponseProperties = extractPropertiesFromSchema(targetResponse.Value.Content.Get("application/json").Schema)
+			contentMap := targetResponse.Value.Content
+			if len(contentMap) == 0 {
+				log.Warn().Msgf("[APIDataflowGraph.parseServiceOperationPair] No response content found, operation ID: %s", targetOperation.OperationID)
+			} else {
+				targetResponseProperties = extractPropertiesFromSchema(targetResponse.Value.Content.Get("application/json").Schema)
+			}
 		}
 	}
 
@@ -223,7 +233,7 @@ func (g *APIDataflowGraph) tryMatchPropertiesAndUpdateGraph(
 					TargetProperty: targetProp,
 				}
 				g.AddEdge(edge)
-				log.Trace().Msgf("[APIDataflowGraph.tryMatchPropertiesAndUpdateGraph] Adding edge: %v -> %v", sourceNode, targetNode)
+				log.Trace().Msgf("[APIDataflowGraph.tryMatchPropertiesAndUpdateGraph] Adding edge: %v -> %v, source property:, %v, target property: %v", sourceNode, targetNode, sourceProp, targetProp)
 				// Only one edge is allowed between the same source and target nodes
 				return
 			}

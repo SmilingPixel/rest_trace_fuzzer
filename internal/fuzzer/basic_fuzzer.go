@@ -71,6 +71,13 @@ func NewBasicFuzzer(
 		httpClientMiddles,
 	)
 	fuzzingSnapshot := NewFuzzingSnapshot()
+
+	// If budget is not positive, no fuzzing will be performed.
+	// Just give a warning and continue, as the user may want a dry run or a initial data flow graph.
+	if config.GlobalConfig.FuzzerBudget <= 0 {
+		log.Warn().Msg("[BasicFuzzer.NewBasicFuzzer] Fuzzer budget is not positive, no fuzzing will be performed")
+	}
+	
 	return &BasicFuzzer{
 		APIManager:        APIManager,
 		CaseManager:       caseManager,
