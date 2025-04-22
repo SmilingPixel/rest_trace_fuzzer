@@ -2,6 +2,7 @@ package static
 
 import (
 	"maps"
+	"resttracefuzzer/internal/config"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -25,6 +26,7 @@ type APIManager struct {
 	ServiceAPIMap map[string]map[SimpleAPIMethod]*openapi3.Operation
 
 	// The dependency graph of the API.
+	// It only include the external APIs, but internal service APIs may be used to enhance the graph (you can set it by config `use-internal-service-api-dependency`).
 	APIDependencyGraph *APIDependencyGraph
 
 	// The Dataflow graph of the internal APIs.
@@ -126,6 +128,21 @@ func (m *APIManager) initFromServiceDoc(doc *openapi3.T) {
 			}
 			m.ServiceAPIMap[serviceName][simpleMethod] = operation
 		}
+	}
+}
+
+// InitDependencyGraph initializes the dependency graph of the API manager.
+// It accepts the graph of the external API dependency and the internal API dependency.
+// If config `use-internal-service-api-dependency` is set to true, the internal API dependency will be used to enhance the final graph.
+// Otherwise, `internalAPIDependencyGraph` will be ignored (you can pass any value in such case), and the final API dependency graph will be the same as `externalAPIDependencyGraph`.
+func (m *APIManager) InitDependencyGraph(externalAPIDependencyGraph, internalAPIDependencyGraph *APIDependencyGraph) {
+	m.APIDependencyGraph = externalAPIDependencyGraph
+	if config.GlobalConfig.UseInternalServiceAPIDependency {
+		if internalAPIDependencyGraph == nil {
+			log.Warn().Msg("[APIManager.InitDependencyGraph] internalAPIDependencyGraph is nil, use externalAPIDependencyGraph only")
+			return
+		}
+		// TODO: implement this function @xunzhou24
 	}
 }
 

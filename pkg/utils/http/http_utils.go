@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/cloudwego/hertz/pkg/app/client"
+	hertzconfig "github.com/cloudwego/hertz/pkg/common/config"
 	"github.com/cloudwego/hertz/pkg/network/standard"
 	"github.com/cloudwego/hertz/pkg/protocol"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
@@ -35,14 +36,16 @@ type HTTPClient struct {
 
 // NewHTTPClient creates a new HTTPClient.
 // It takes a baseURL and headersToCapture, and middlewares as parameters and returns an instance of HTTPClient.
-func NewHTTPClient(baseURL string, headersToCapture []string, middlewares []HTTPClientMiddleware) *HTTPClient {
+func NewHTTPClient(baseURL string, headersToCapture []string, middlewares []HTTPClientMiddleware, hertzClientOpts ...hertzconfig.ClientOption) *HTTPClient {
 	tlsConfig := &tls.Config{
 		InsecureSkipVerify: true,
 	}
 
 	c, err := client.NewClient(
-		client.WithTLSConfig(tlsConfig),
-		client.WithDialer(standard.NewDialer()),
+		append([]hertzconfig.ClientOption{
+			client.WithTLSConfig(tlsConfig),
+			client.WithDialer(standard.NewDialer()),
+		}, hertzClientOpts...)...,
 	)
 	if err != nil {
 		panic(err)

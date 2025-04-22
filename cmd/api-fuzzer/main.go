@@ -144,12 +144,20 @@ func main() {
 			log.Err(err).Msgf("[main] Unsupported dependency file type: %s", config.GlobalConfig.DependencyFileType)
 			return
 		}
-		dependecyGraph, err := dependencyFileParser.ParseFromPath(config.GlobalConfig.DependencyFilePath)
+		dependencyGraph, err := dependencyFileParser.ParseFromPath(config.GlobalConfig.DependencyFilePath)
 		if err != nil {
-			log.Err(err).Msgf("Failed to parse dependency file")
+			log.Err(err).Msgf("[main] Failed to parse dependency file, path: %s", config.GlobalConfig.DependencyFilePath)
 			return
 		}
-		APIManager.APIDependencyGraph = dependecyGraph
+		var internalAPIDependencyGraph *static.APIDependencyGraph
+		if config.GlobalConfig.InternalServiceAPIDependencyFilePath != "" {
+			internalAPIDependencyGraph, err = dependencyFileParser.ParseFromPath(config.GlobalConfig.InternalServiceAPIDependencyFilePath)
+			if err != nil {
+				log.Err(err).Msgf("[main] Failed to parse internal service API dependency file, path: %s", config.GlobalConfig.InternalServiceAPIDependencyFilePath)
+				return
+			}
+		}
+		APIManager.InitDependencyGraph(dependencyGraph, internalAPIDependencyGraph)
 	}
 
 	// testLogReporter logs the tested operations

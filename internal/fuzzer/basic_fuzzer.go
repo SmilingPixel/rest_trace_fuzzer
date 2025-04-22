@@ -11,6 +11,7 @@ import (
 	"resttracefuzzer/pkg/utils/http"
 	"time"
 
+	hertzclient "github.com/cloudwego/hertz/pkg/app/client"
 	"github.com/rs/zerolog/log"
 )
 
@@ -62,13 +63,14 @@ func NewBasicFuzzer(
 	if config.GlobalConfig.HTTPMiddlewareScriptPath != "" {
 		middleware := http.NewHTTPClientScriptMiddleware(config.GlobalConfig.HTTPMiddlewareScriptPath)
 		if middleware != nil {
-			httpClientMiddles = append(httpClientMiddles, http.NewHTTPClientScriptMiddleware(config.GlobalConfig.HTTPMiddlewareScriptPath))
+			httpClientMiddles = append(httpClientMiddles, middleware)
 		}
 	}
 	httpClient := http.NewHTTPClient(
 		config.GlobalConfig.ServerBaseURL,
 		[]string{config.GlobalConfig.TraceIDHeaderKey},
 		httpClientMiddles,
+		hertzclient.WithDialTimeout(time.Duration(config.GlobalConfig.HTTPClientDialTimeout) * time.Second),
 	)
 	fuzzingSnapshot := NewFuzzingSnapshot()
 
