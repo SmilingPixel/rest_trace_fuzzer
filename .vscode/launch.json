@@ -1,3 +1,7 @@
+// This file configures debugging settings for the project.
+// It defines multiple configurations for launching the Go application with different arguments.
+// Each configuration specifies the program to run, arguments to pass, and the working directory.
+
 {
     // Use IntelliSense to learn about possible attributes.
     // Hover to view descriptions of existing attributes.
@@ -5,14 +9,28 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Launch Package",
+            "name": "OpenTelemetry Demo", // Configuration for debugging the OpenTelemetry demo
+            "type": "go", // Specifies that this is a Go application
+            "request": "launch", // Indicates that the program should be launched
+            "mode": "auto", // Automatically determines the mode (debug or run)
+            "program": "${workspaceFolder}/cmd/api-fuzzer", // Path to the main Go program
+            "args": [
+                "--config-file",
+                "${workspaceFolder}/config/my_config.json", // Path to the configuration file
+                "--log-level",
+                "debug" // Sets the log level to debug
+            ],
+            "cwd": "${workspaceFolder}", // This is the working directory, which is "" by default when launching
+        },
+        {
+            "name": "Train Ticket", // Configuration for debugging the Train Ticket system
             "type": "go",
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/api-fuzzer",
             "args": [
                 "--config-file",
-                "${workspaceFolder}/config/my_config.json",
+                "${workspaceFolder}/config/my_tt_config.json", // Path to the Train Ticket configuration file
                 "--log-level",
                 "debug"
             ],
