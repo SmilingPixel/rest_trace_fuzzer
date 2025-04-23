@@ -127,15 +127,23 @@ func (g *APIDataflowGraph) parseServiceOperationPair(
 	}
 
 	// Response body
-	// We only handle response with status code 200
+	// We only handle response with status code 200 (OK), 201 (Created), 202 (Accepted)
+	successStatusCode := []int{consts.StatusOK, consts.StatusCreated, consts.StatusAccepted}
 	if sourceOperation.Responses != nil {
-		sourceResponse, exist := sourceOperation.Responses.Map()[strconv.FormatInt(consts.StatusOK, 10)]
+		var sourceResponse *openapi3.ResponseRef
+		var exist bool
+		for _, statusCode := range successStatusCode {
+			sourceResponse, exist = sourceOperation.Responses.Map()[strconv.FormatInt(int64(statusCode), 10)]
+			if exist {
+				break
+			}
+		}
 		if !exist {
-			log.Warn().Msgf("[APIDataflowGraph.parseServiceOperationPair] No response with status code 200 found, operation ID: %s", sourceOperation.OperationID)
+			log.Warn().Msgf("[APIDataflowGraph.parseServiceOperationPair] No response with status codes 200, 201, or 202 found, operation ID: %s", sourceOperation.OperationID)
 		} else {
 			contentMap := sourceResponse.Value.Content
 			if len(contentMap) == 0 {
-				log.Warn().Msgf("[APIDataflowGraph.parseServiceOperationPair] No response content found, operation ID: %s", sourceOperation.OperationID)
+				log.Debug().Msgf("[APIDataflowGraph.parseServiceOperationPair] No response content found, operation ID: %s", sourceOperation.OperationID)
 			} else {
 				sourceResponseProperties = extractPropertiesFromSchema(sourceResponse.Value.Content.Get("application/json").Schema)
 			}
@@ -143,9 +151,16 @@ func (g *APIDataflowGraph) parseServiceOperationPair(
 	}
 
 	if targetOperation.Responses != nil {
-		targetResponse, exist := targetOperation.Responses.Map()[strconv.FormatInt(consts.StatusOK, 10)]
+		var targetResponse *openapi3.ResponseRef
+		var exist bool
+		for _, statusCode := range successStatusCode {
+			targetResponse, exist = targetOperation.Responses.Map()[strconv.FormatInt(int64(statusCode), 10)]
+			if exist {
+				break
+			}
+		}
 		if !exist {
-			log.Warn().Msgf("[APIDataflowGraph.parseServiceOperationPair] No response with status code 200 found, operation ID: %s", targetOperation.OperationID)
+			log.Warn().Msgf("[APIDataflowGraph.parseServiceOperationPair] No response with success status codes (200, 201, 202) found, operation ID: %s", targetOperation.OperationID)
 		} else {
 			contentMap := targetResponse.Value.Content
 			if len(contentMap) == 0 {

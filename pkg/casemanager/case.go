@@ -137,7 +137,7 @@ func (ts *TestScenario) IsExecutedSuccessfully() bool {
 		return false
 	}
 	lastOperationCase := ts.OperationCases[len(ts.OperationCases)-1]
-	return lastOperationCase.ResponseStatusCode == 200
+	return http.IsStatusCodeSuccess(lastOperationCase.ResponseStatusCode)
 }
 
 // IncreaseEnergyByRandom increases the energy of the test scenario by a random value (normal distribution).
