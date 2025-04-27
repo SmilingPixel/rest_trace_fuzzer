@@ -34,6 +34,7 @@ func ParseCmdArgs() {
 	flag.StringVar(&GlobalConfig.ServerBaseURL, "server-base-url", "https://www.example.com", "Base URL of the API, e.g., https://www.example.com")
 	flag.StringVar(&GlobalConfig.TraceBackendType, "trace-backend-type", "Jaeger", "Type of the trace backend. Currently supports 'Jaeger' and 'Tempo'.")
 	flag.StringVar(&GlobalConfig.TraceBackendURL, "trace-backend-url", "", "URL of the trace backend")
+	flag.IntVar(&GlobalConfig.TraceFetchWaitTime, "trace-fetch-wait-time", 1000, "Time to wait before fetching the trace, as the trace may not be available immediately after the request. The time is in milliseconds.")
 	flag.StringVar(&GlobalConfig.TraceIDHeaderKey, "trace-id-header-key", "X-Trace-Id", "The key of the trace ID header to be included in the response. By default, it is 'X-Trace-Id'.")
 	flag.BoolVar(&GlobalConfig.UseInternalServiceAPIDependency, "use-internal-service-api-dependency", false, "Indicates whether to use the internal service API dependency. If true, the internal service API dependency will be used to enhance the external service API dependency.")
 	flag.Parse()
@@ -157,6 +158,13 @@ func ParseCmdArgs() {
 	}
 	if envVal, ok := os.LookupEnv("TRACE_BACKEND_URL"); ok && envVal != "" {
 		GlobalConfig.TraceBackendURL = envVal
+	}
+	if envVal, ok := os.LookupEnv("TRACE_FETCH_WAIT_TIME"); ok && envVal != "" {
+		envValInt, err := strconv.Atoi(envVal)
+		if err != nil {
+			log.Err(err).Msgf("[ParseCmdArgs] Failed to parse int: %s", err)
+		}
+		GlobalConfig.TraceFetchWaitTime = envValInt
 	}
 	if envVal, ok := os.LookupEnv("TRACE_ID_HEADER_KEY"); ok && envVal != "" {
 		GlobalConfig.TraceIDHeaderKey = envVal

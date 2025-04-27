@@ -200,6 +200,14 @@
         "default": ""
     },
     {
+        "arg_name": "trace-fetch-wait-time",
+        "config_name": "trace_fetch_wait_time",
+        "description": "Time to wait before fetching the trace, as the trace may not be available immediately after the request. The time is in milliseconds.",
+        "type": "number",
+        "required": false,
+        "default": 1000
+    },
+    {
         "arg_name": "trace-id-header-key",
         "config_name": "trace_id_header_key",
         "description": "The key of the trace ID header to be included in the response. By default, it is 'X-Trace-Id'.",

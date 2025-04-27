@@ -7,12 +7,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-const (
-	// Time to wait before fetching the trace, as the trace may not be
-	// available immediately after the request.
-	TraceFetchWaitTime = 3000 * time.Millisecond
-)
-
 // TraceManager manages traces.
 type TraceManager struct {
 
@@ -85,7 +79,7 @@ func (m *TraceManager) PullTraceByIDAndReturn(traceID string) (*SimplifiedTrace,
 	// Wait a short time before fetching the trace, as the trace may not be
 	// available immediately after the request.
 	// TODO: a more sufficient way to wait for the trace to be available. @xunzhou24
-	time.Sleep(TraceFetchWaitTime)
+	time.Sleep(time.Duration(config.GlobalConfig.TraceFetchWaitTime) * time.Millisecond)
 	trace, err := m.TraceFetcher.FetchOneByIDFromRemote(traceID)
 	if err != nil || trace == nil {
 		log.Err(err).Msgf("[TraceManager.PullTraceByIDAndReturn] Failed to fetch trace from remote, traceID: %s", traceID)

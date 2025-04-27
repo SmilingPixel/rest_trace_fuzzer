@@ -79,6 +79,9 @@ type RuntimeConfig struct {
 	// URL of the trace backend
 	TraceBackendURL string `json:"traceBackendURL"`
 
+	// Time to wait before fetching the trace, as the trace may not be available immediately after the request. The time is in milliseconds.
+	TraceFetchWaitTime int `json:"traceFetchWaitTime"`
+
 	// The key of the trace ID header to be included in the response. By default, it is 'X-Trace-Id'.
 	TraceIDHeaderKey string `json:"traceIDHeaderKey"`
 
