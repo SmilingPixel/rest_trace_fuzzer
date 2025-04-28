@@ -236,7 +236,7 @@ func (p *TempoTraceFetcher) FetchAllFromRemote() ([]*SimplifiedTrace, error) {
 // FetchOneByIDFromRemote fetches a Tempo trace by its ID from remote source.
 // It returns a SimplifiedTrace or an error if failed.
 func (p *TempoTraceFetcher) FetchOneByIDFromRemote(traceID string) (*SimplifiedTrace, error) {
-	path := fmt.Sprintf("/api/v2/traces/%s", traceID)
+	path := fmt.Sprintf("/api/traces/%s", traceID)
 	headers := map[string]string{}
 	statusCode, _, respBytes, err := p.FetcherClient.PerformGet(path, headers, nil, nil)
 	if err != nil {
@@ -244,8 +244,8 @@ func (p *TempoTraceFetcher) FetchOneByIDFromRemote(traceID string) (*SimplifiedT
 		return nil, err
 	}
 	if http.GetStatusCodeClass(statusCode) != consts.StatusOK {
-		log.Err(err).Msgf("[TempoTraceFetcher.FetchOneByIDFromRemote] Failed to fetch trace, statusCode: %d, path: %s", statusCode, path)
-		return nil, err
+		log.Error().Msgf("[TempoTraceFetcher.FetchOneByIDFromRemote] Failed to fetch trace, statusCode: %d, path: %s", statusCode, path)
+		return nil, fmt.Errorf("failed to fetch trace, statusCode: %d", statusCode)
 	}
 
 	var tempoTrace TempoTrace

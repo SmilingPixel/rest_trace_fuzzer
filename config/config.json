@@ -24,5 +24,6 @@
     "serverBaseURL": "http://www.example.com",
     "traceBackendType": "Jaeger",
     "traceBackendURL": "http://localhost:4317",
+    "traceFetchWaitTime": 3000,
     "traceIDHeaderKey": "X-Trace-Id"
 }
