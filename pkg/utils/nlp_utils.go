@@ -56,9 +56,10 @@ func SplitIntoWords(name string) []string {
 // In sprcific, we do the following:
 //  1. Convert arrays to singular form using GetArrayElementNameHeuristic.
 //  2. Split the variable names into words using SplitIntoWords. For example, "petStore" -> ["pet", "store"].
-//  3. "Ignore" the prefixes, truncating the longer one if necessary. For example, if name1 and name2 are ["example", "pet", "store"] and ["app", "store"], respectively, we would compare ["pet", "store"] and ["app", "store"].
-//  4. Compare the words in the two slices. If the similiarity reaches a certain threshold, we consider the variable names a match. We use [resttracefuzzer/pkg/utils.SimilarityCalculator] to calculate the similarity.
-//  5. Return true if the average similarity is above the threshold, and false otherwise.
+//  3. Remove some common field names, e.g., "id". If the words list is empty after this step, we return false.
+//  4. "Ignore" the prefixes, truncating the longer one if necessary. For example, if name1 and name2 are ["example", "pet", "store"] and ["app", "store"], respectively, we would compare ["pet", "store"] and ["app", "store"].
+//  5. Compare the words in the two slices. If the similiarity reaches a certain threshold, we consider the variable names a match. We use [resttracefuzzer/pkg/utils.SimilarityCalculator] to calculate the similarity.
+//  6. Return true if the average similarity is above the threshold, and false otherwise.
 //
 // Parameters:
 //   - name1: The first variable name to compare.
@@ -72,6 +73,27 @@ func MatchVariableNames(name1, name2 string, similarityCalculator SimilarityCalc
 	words1 := SplitIntoWords(name1)
 	words2 := SplitIntoWords(name2)
 
+	// Remove common field names
+	filteredWords1 := make([]string, 0)
+	filteredWords2 := make([]string, 0)
+	for _, word := range words1 {
+		if !IsCommonFieldName(word) {
+			filteredWords1 = append(filteredWords1, word)
+		}
+	}
+	for _, word := range words2 {
+		if !IsCommonFieldName(word) {
+			filteredWords2 = append(filteredWords2, word)
+		}
+	}
+	words1 = filteredWords1
+	words2 = filteredWords2
+	// If either list is empty after filtering, return false
+	if len(words1) == 0 || len(words2) == 0 {
+		log.Debug().Msgf("[MatchVariableNames] Filtered words are empty: %v, %v", words1, words2)
+		return false
+	}
+
 	// Truncate the longer slice if necessary
 	if len(words1) != len(words2) {
 		truncatedLength := min(len(words1), len(words2))
@@ -81,7 +103,7 @@ func MatchVariableNames(name1, name2 string, similarityCalculator SimilarityCalc
 
 	// Calculate the average similarity between the two word slices
 	if similarityCalculator == nil {
-		log.Warn().Msg("No similarity calculator provided. Using identity similarity calculator.")
+		log.Warn().Msg("[MatchVariableNames] No similarity calculator provided. Using identity similarity calculator.")
 		similarityCalculator = NewIdentitySimilarityCalculator()
 	}
 	similaritySum := 0.0

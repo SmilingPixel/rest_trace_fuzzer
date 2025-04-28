@@ -9,9 +9,11 @@ package utils
 
 import (
 	"reflect"
+	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/rs/zerolog/log"
+	"slices"
 )
 
 // flattenSchema flattens a schema to a list of schemas.
@@ -101,4 +103,36 @@ func IfPathSegmentIsPathParam(segment string) bool {
 		return false
 	}
 	return segment[0] == '{' && segment[len(segment)-1] == '}'
+}
+
+
+// IsCommonFieldName checks if the given field name is a common field name.
+// Common field names are typically used for metadata or identifiers in schemas.
+// The function converts the input name to lowercase before performing the check
+// to ensure case-insensitive comparison.
+//
+// Common field names include:
+// - "id"
+// - "createdat"
+// - "updatedat"
+// - "deletedat"
+// - "createdby"
+// - "updatedby"
+//
+// Parameters:
+// - name: The field name to check.
+//
+// Returns:
+// - true if the field name is a common field name, false otherwise.
+func IsCommonFieldName(name string) bool {
+	commonFieldNames := []string{
+		"id",
+		"createdat",
+		"updatedat",
+		"deletedat",
+		"createdby",
+		"updatedby",
+	}
+	name = strings.ToLower(name)
+	return slices.Contains(commonFieldNames, name)
 }
