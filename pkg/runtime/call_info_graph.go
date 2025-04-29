@@ -84,11 +84,16 @@ func (g *CallInfoGraph) UpdateFromCallInfos(callInfos []*trace.CallInfo) error {
 
 // GetEdgeCoverage returns the edge coverage of the runtime call info graph.
 func (g *CallInfoGraph) GetEdgeCoverage() float64 {
+	return float64(g.GetEdgeCoveredCount()) / float64(len(g.Edges))
+}
+
+// GetEdgeCoveredCount returns the edge coverage count of the runtime call info graph.
+func (g *CallInfoGraph) GetEdgeCoveredCount() int {
 	coveredEdges := 0
 	for _, edge := range g.Edges {
 		if edge.HitCount > 0 {
 			coveredEdges++
 		}
 	}
-	return float64(coveredEdges) / float64(len(g.Edges))
+	return coveredEdges
 }

@@ -135,7 +135,6 @@ func main() {
 	// Read API dependency files
 	// You can generate the dependency files by running Restler
 	// We only parse Restler's output for now
-	// TODO: parse other dependency files @xunzhou24
 	var dependencyFileParser parser.APIDependencyParser
 	if config.GlobalConfig.DependencyFileType != "" {
 		if config.GlobalConfig.DependencyFileType == "Restler" {

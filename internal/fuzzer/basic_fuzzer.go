@@ -186,7 +186,7 @@ func (f *BasicFuzzer) ExecuteTestScenario(testScenario *casemanager.TestScenario
 		log.Info().Msg("[BasicFuzzer.ExecuteTestScenario] Operation executed successfully")
 
 		hasOperationAchieveNewCoverage := f.FuzzingSnapshot.Update(
-			f.CallInfoGraph.GetEdgeCoverage(),
+			f.CallInfoGraph.GetEdgeCoveredCount(),
 			f.ResponseProcesser.GetCoveredStatusCodeCount(),
 		)
 		hasScenarioAchieveNewCoverage = hasScenarioAchieveNewCoverage || hasOperationAchieveNewCoverage
@@ -202,7 +202,7 @@ func (f *BasicFuzzer) ExecuteTestScenario(testScenario *casemanager.TestScenario
 		}
 	}
 
-	log.Info().Msgf("[BasicFuzzer.ExecuteTestScenario] Finish execute current test scenario (UUID: %s), Edge coverage: %f, covered status code count: %d, hasScenarioAchieveNewCoverage: %v", testScenario.UUID.String(), f.CallInfoGraph.GetEdgeCoverage(), f.ResponseProcesser.GetCoveredStatusCodeCount(), hasScenarioAchieveNewCoverage)
+	log.Info().Msgf("[BasicFuzzer.ExecuteTestScenario] Finish execute current test scenario (UUID: %s), Edge covered count: %d, Edge coverage: %f, covered status code count: %d, hasScenarioAchieveNewCoverage: %v", testScenario.UUID.String(), f.CallInfoGraph.GetEdgeCoveredCount(), f.CallInfoGraph.GetEdgeCoverage(), f.ResponseProcesser.GetCoveredStatusCodeCount(), hasScenarioAchieveNewCoverage)
 
 	// Pass the scenario and the result back to the case manager,
 	// and:

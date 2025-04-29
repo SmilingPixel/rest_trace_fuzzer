@@ -73,8 +73,7 @@ func NewCaseManager(
 
 // Pop pops a test scenario of highest priority from the queue.
 func (m *CaseManager) Pop() (*TestScenario, error) {
-	// TODO: Implement this method with different strategies. @xunzhou24
-	// We select the first test scenario for now.
+	// Select the first test scenario, as we have implemented the priority mechanism in the pushAndSort method.
 	if len(m.TestScenarios) == 0 {
 		log.Error().Msg("[CaseManager.Pop] No test scenario available")
 		return nil, fmt.Errorf("no test scenario available")
