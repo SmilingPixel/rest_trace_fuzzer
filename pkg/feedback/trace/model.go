@@ -7,9 +7,10 @@ import (
 	"strings"
 	"time"
 
+	"maps"
+
 	"github.com/bytedance/sonic"
 	"github.com/rs/zerolog/log"
-	"maps"
 )
 
 // SimplifiedTrace represents a simplified version of a trace model.
@@ -427,6 +428,7 @@ type TempoSpanBatchElement struct {
 type TempoTraceSpan struct {
 	TraceID            string `json:"traceId"`            // Unique identifier for the trace
 	SpanID             string `json:"spanId"`            // Unique identifier for the span
+	ParentSpanId 	string `json:"parentSpanId"`      // Unique identifier for the parent span (this field may not exist in some cases)
 	Name               string `json:"name"`              // Name of the span
 	Kind               string `json:"kind"`              // Kind of the span (e.g., SPAN_KIND_SERVER)
 	StartTimeUnixNano  string `json:"startTimeUnixNano"`  // Start time in Unix nanoseconds
@@ -454,16 +456,28 @@ func (t *TempoTrace) ToSimplifiedTrace() *SimplifiedTrace {
 	for _, batch := range t.Batches {
 		for _, scopeSpan := range batch.ScopeSpans {
 			for _, span := range scopeSpan.Spans {
-				spanMap[span.SpanID] = span.ToSimplifiedTraceSpan(batch.Resource.Attributes)
-				if spanMap[span.SpanID].StartTime.Before(startTime) {
-					startTime = spanMap[span.SpanID].StartTime
+				hexSpanID, err := utils.Base64ToHex(span.SpanID)
+				if err != nil {
+					log.Err(err).Msgf("[TempoTrace.ToSimplifiedTrace] Failed to decode span ID: %v", err)
+					continue
+				}
+				spanMap[hexSpanID] = span.ToSimplifiedTraceSpan(batch.Resource.Attributes)
+				if spanMap[hexSpanID].StartTime.Before(startTime) {
+					startTime = spanMap[hexSpanID].StartTime
 				}
 				traceId = span.TraceID
 			}
 		}
 	}
+
+	// convert trace ID from base64 to hex
+	decodedTraceID, err := utils.Base64ToHex(traceId)
+	if err != nil {
+		log.Err(err).Msgf("[TempoTrace.ToSimplifiedTrace] Failed to decode trace ID: %s", traceId)
+		return nil
+	}
 	return &SimplifiedTrace{
-		TraceID:   traceId,
+		TraceID:   decodedTraceID,
 		SpanMap:   spanMap,
 		StartTime: startTime,
 	}
@@ -488,6 +502,29 @@ func (t *TempoTraceSpan) ToSimplifiedTraceSpan(resourceAttributes []TempoAttribu
 	span.TraceID = decodedTraceID
 	span.SpanID = decodedSpanID
 	span.OperationName = t.Name
+
+	// Find and set the parent span ID.
+	// If not found, an empty string is left.
+	if t.ParentSpanId != "" {
+		decodedParentSpanID, err := utils.Base64ToHex(t.ParentSpanId)
+		if err != nil {
+			log.Err(err).Msgf("[TempoTraceSpan.ToSimplifiedTraceSpan] Failed to decode parent span ID: %v", err)
+			return nil
+		}
+		span.ParentID = decodedParentSpanID
+	}
+
+	var serviceName string
+	for _, resourceAttribute := range resourceAttributes {
+		if resourceAttribute.Key == "service.name" {
+			serviceName = resourceAttribute.Value.StringValue
+			break
+		}
+	}
+	if serviceName == "" {
+		log.Warn().Msgf("[TempoTraceSpan.ToSimplifiedTraceSpan] Service name not found in resource attributes, trace ID: %s, span ID: %s", t.TraceID, t.SpanID)
+	}
+	span.ServiceName = serviceName
 
 	// convert start time from Unix nanoseconds to time.Time
 	startTimeUnixNano, err := strconv.ParseInt(t.StartTimeUnixNano, 10, 64)

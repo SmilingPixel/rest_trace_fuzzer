@@ -127,14 +127,15 @@ func (m *TraceManager) convertTrace2CallInfos(trace *SimplifiedTrace) ([]*CallIn
 		if span.ParentID != "" {
 			parentSpan = trace.SpanMap[span.ParentID]
 		}
+		// Invalid parent span, or the parent span is of kind 'internal'.
 		if parentSpan == nil || parentSpan.SpanKind == INTERNAL {
 			continue
 		}
-		parentSpanID := parentSpan.SpanID
-
-		if parentSpan.OperationName == "/oteldemo.ProductCatalogService/ListProducts" {
-			log.Info().Msgf("[TraceManager.convertTrace2CallInfos] parentSpanID: %s, spanID: %s", parentSpanID, span.SpanID)
+		// If parent span and span are from the same service, ignore the call.
+		if parentSpan.ServiceName == span.ServiceName {
+			continue
 		}
+		parentSpanID := parentSpan.SpanID
 
 		// retrieve method trace name
 		// Failure to retrieve for some reason would lead to the call being ignored.

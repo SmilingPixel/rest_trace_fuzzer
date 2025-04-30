@@ -117,11 +117,36 @@ func (m *APIManager) initFromServiceDoc(doc *openapi3.T) {
 			}
 			serviceName := operationIDParts[0]
 			methodName := operationIDParts[1]
-			// TODO: we treat all internal interfaces as gRPC methods for now. @xunzhou24
+
+			// We require the user to tag API types in the OpenAPI doc.
+			// The tag should be in the format of `APIType_{APIType}`.
+			// We can use this format to extract the API type.
+			// If the tag is not present, we assume the API type is gRPC by default.
+			var simpleAPIMethodType SimpleAPIMethodType = SimpleAPIMethodTypeGRPC
+			for _, tag := range operation.Tags {
+				if strings.HasPrefix(tag, "APIType_") {
+					apiType := strings.TrimPrefix(tag, "APIType_")
+					if apiType == "" {
+						log.Warn().Msgf("[APIManager.initFromServiceDoc] Invalid API type: %s", tag)
+						continue
+					}
+					// We only support HTTP and gRPC APIs.
+					if apiType == "HTTP" {
+						simpleAPIMethodType = SimpleAPIMethodTypeHTTP
+					} else if apiType == "gRPC" {
+						simpleAPIMethodType = SimpleAPIMethodTypeGRPC
+					} else {
+						log.Warn().Msgf("[APIManager.initFromServiceDoc] Unsupported API type: %s", apiType)
+						continue
+					}
+					break
+				}
+			}
+			
 			simpleMethod := SimpleAPIMethod{
 				Endpoint: methodName,
 				Method:   methodName,
-				Typ:      SimpleAPIMethodTypeGRPC,
+				Typ:      simpleAPIMethodType,
 			}
 			if _, exists := m.ServiceAPIMap[serviceName]; !exists {
 				m.ServiceAPIMap[serviceName] = make(map[SimpleAPIMethod]*openapi3.Operation)
