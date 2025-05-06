@@ -207,7 +207,7 @@ func (f *BasicFuzzer) ExecuteTestScenario(testScenario *casemanager.TestScenario
 	// Pass the scenario and the result back to the case manager,
 	// and:
 	//  1. decide whether the scenario is interesting or not (i.e., update its energy)
-	//  2. may mutate the scenario and add it back to the scenario queue.
+	//  2. may mutate and extend the scenario and add it back to the scenario queue.
 	err := f.CaseManager.EvaluateScenarioAndTryUpdate(hasScenarioAchieveNewCoverage, testScenario)
 	if err != nil {
 		log.Err(err).Msg("[BasicFuzzer.ExecuteTestScenario] Failed to evaluate scenario and try update")

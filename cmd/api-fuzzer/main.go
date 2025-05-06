@@ -93,7 +93,7 @@ func main() {
 		log.Err(err).Msgf("[main] Failed to parse system OpenAPI spec")
 		return
 	}
-	
+
 	// Parse doc of internal services
 	serviceDoc, err := APIParser.ParseServiceDocFromPath(config.GlobalConfig.InternalServiceOpenAPIPath)
 	if err != nil {
@@ -126,11 +126,11 @@ func main() {
 	}
 	fuzzStrategist := strategy.NewFuzzStrategist(resourceManager)
 	resourceMutateStrategist := strategy.NewResourceMutateStrategy()
-	caseManager := casemanager.NewCaseManager(APIManager, resourceManager, fuzzStrategist, resourceMutateStrategist, extraHeaders)
 	responseProcesser := feedback.NewResponseProcesser(APIManager, resourceManager)
 	traceManager := trace.NewTraceManager()
 	callInfoGraph := fuzzruntime.NewCallInfoGraph(APIManager.APIDataflowGraph)
 	reachabilityMap := fuzzruntime.NewRuntimeReachabilityMapFromStaticMap(APIManager.StaticReachabilityMap)
+	caseManager := casemanager.NewCaseManager(APIManager, resourceManager, fuzzStrategist, resourceMutateStrategist, reachabilityMap, extraHeaders)
 
 	// Read API dependency files
 	// You can generate the dependency files by running Restler
@@ -143,20 +143,20 @@ func main() {
 			log.Err(err).Msgf("[main] Unsupported dependency file type: %s", config.GlobalConfig.DependencyFileType)
 			return
 		}
-		dependencyGraph, err := dependencyFileParser.ParseFromPath(config.GlobalConfig.DependencyFilePath)
+		dependencyGraph, err := dependencyFileParser.ParseFromFile(config.GlobalConfig.DependencyFilePath)
 		if err != nil {
 			log.Err(err).Msgf("[main] Failed to parse dependency file, path: %s", config.GlobalConfig.DependencyFilePath)
 			return
 		}
-		var internalAPIDependencyGraph *static.APIDependencyGraph
+		var internalServiceAPIDependencyGraphMap map[string]*static.APIDependencyGraph
 		if config.GlobalConfig.InternalServiceAPIDependencyFilePath != "" {
-			internalAPIDependencyGraph, err = dependencyFileParser.ParseFromPath(config.GlobalConfig.InternalServiceAPIDependencyFilePath)
+			internalServiceAPIDependencyGraphMap, err = dependencyFileParser.ParseFromServiceMapFile(config.GlobalConfig.InternalServiceAPIDependencyFilePath)
 			if err != nil {
-				log.Err(err).Msgf("[main] Failed to parse internal service API dependency file, path: %s", config.GlobalConfig.InternalServiceAPIDependencyFilePath)
+				log.Err(err).Msgf("[main] Failed to parse internal service API dependency map file, path: %s", config.GlobalConfig.InternalServiceAPIDependencyFilePath)
 				return
 			}
 		}
-		APIManager.InitDependencyGraph(dependencyGraph, internalAPIDependencyGraph)
+		APIManager.InitDependencyGraph(dependencyGraph, internalServiceAPIDependencyGraphMap)
 	}
 
 	// testLogReporter logs the tested operations

@@ -3,6 +3,7 @@ package static
 import (
 	"math/rand/v2"
 	"resttracefuzzer/pkg/utils"
+	"strings"
 
 	"github.com/bytedance/sonic"
 	"github.com/getkin/kin-openapi/openapi3"
@@ -190,6 +191,19 @@ type SimpleAPIMethod struct {
 	Typ      SimpleAPIMethodType `json:"type"`
 }
 
+// CompareSimpleAPIMethod compares two SimpleAPIMethods.
+// It treats all fields as strings and compares them lexicographically.
+// It returns -1 if a < b, 0 if a == b, and 1 if a > b.
+func CompareSimpleAPIMethod(a, b SimpleAPIMethod) int {
+	if a.Endpoint != b.Endpoint {
+		return strings.Compare(a.Endpoint, b.Endpoint)
+	}
+	if a.Method != b.Method {
+		return strings.Compare(a.Method, b.Method)
+	}
+	return strings.Compare(a.Typ.String(), b.Typ.String())
+}
+
 // InternalServiceEndpoint represents an endpoint of an internal service.
 // It can be used as node in data flow graph.
 // It implements [resttracefuzzer/pkg/utils/AbstractNode] interface, to support graph related algorithms.
@@ -202,6 +216,16 @@ type InternalServiceEndpoint struct {
 // We concatenate the service name and the endpoint to create a unique ID.
 func (e InternalServiceEndpoint) ID() string {
 	return e.ServiceName + "##" + e.SimpleAPIMethod.Endpoint
+}
+
+// CompareInternalServiceEndpoint compares two InternalServiceEndpoints.
+// It compares the service name and the SimpleAPIMethod.
+// It returns -1 if a < b, 0 if a == b, and 1 if a > b.
+func CompareInternalServiceEndpoint(a, b InternalServiceEndpoint) int {
+	if a.ServiceName != b.ServiceName {
+		return strings.Compare(a.ServiceName, b.ServiceName)
+	}
+	return CompareSimpleAPIMethod(a.SimpleAPIMethod, b.SimpleAPIMethod)
 }
 
 // SimpleAPIProperty represents a property of an API.

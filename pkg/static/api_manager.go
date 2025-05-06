@@ -3,6 +3,8 @@ package static
 import (
 	"maps"
 	"resttracefuzzer/internal/config"
+	"resttracefuzzer/pkg/utils"
+	"slices"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -25,9 +27,14 @@ type APIManager struct {
 	// It include all internal APIs as well as those of frontend.
 	ServiceAPIMap map[string]map[SimpleAPIMethod]*openapi3.Operation
 
-	// The dependency graph of the API.
-	// It only include the external APIs, but internal service APIs may be used to enhance the graph (you can set it by config `use-internal-service-api-dependency`).
+	// The dependency graph of system API.
+	// It only contains the external APIs, but internal service APIs may be used to enhance the graph (you can set it by config `use-internal-service-api-dependency`).
 	APIDependencyGraph *APIDependencyGraph
+
+	// The dependency graph of the internal APIs.
+	// It is a map from the service name to the dependency graph of the service.
+	// Service names are formatted using [resttracefuzzer/pkg/utils.FormatServiceName].
+	InternalServiceAPIDependencyGraphMap map[string]*APIDependencyGraph
 
 	// The Dataflow graph of the internal APIs.
 	APIDataflowGraph *APIDataflowGraph
@@ -142,7 +149,7 @@ func (m *APIManager) initFromServiceDoc(doc *openapi3.T) {
 					break
 				}
 			}
-			
+
 			simpleMethod := SimpleAPIMethod{
 				Endpoint: methodName,
 				Method:   methodName,
@@ -157,17 +164,26 @@ func (m *APIManager) initFromServiceDoc(doc *openapi3.T) {
 }
 
 // InitDependencyGraph initializes the dependency graph of the API manager.
-// It accepts the graph of the external API dependency and the internal API dependency.
-// If config `use-internal-service-api-dependency` is set to true, the internal API dependency will be used to enhance the final graph.
-// Otherwise, `internalAPIDependencyGraph` will be ignored (you can pass any value in such case), and the final API dependency graph will be the same as `externalAPIDependencyGraph`.
-func (m *APIManager) InitDependencyGraph(externalAPIDependencyGraph, internalAPIDependencyGraph *APIDependencyGraph) {
+// It accepts the graph of the external API dependency and the internal API dependency (a map from service to corresponding dependency graph).
+// If config `use-internal-service-api-dependency` is set to true, the internal API dependency will be used to enhance the fuzzing.
+// Otherwise, `internalAPIDependencyGraph` will be ignored (you can pass any value in such case).
+func (m *APIManager) InitDependencyGraph(externalAPIDependencyGraph *APIDependencyGraph, internalAPIDependencyGraphMap map[string]*APIDependencyGraph) {
+	// Just copy the external API dependency graph to the API manager.
 	m.APIDependencyGraph = externalAPIDependencyGraph
+
+	// If the config `use-internal-service-api-dependency` is set to true, we will use the internal API dependency graph to enhance the fuzzing.
 	if config.GlobalConfig.UseInternalServiceAPIDependency {
-		if internalAPIDependencyGraph == nil {
-			log.Warn().Msg("[APIManager.InitDependencyGraph] internalAPIDependencyGraph is nil, use externalAPIDependencyGraph only")
+		if len(internalAPIDependencyGraphMap) == 0 {
+			log.Warn().Msg("[APIManager.InitDependencyGraph] internalAPIDependencyGraphMap is empty, it would be ignored")
 			return
 		}
-		// TODO: implement this function @xunzhou24
+		// To handle different service name formats (formats in trace may not be the same as those in OpenAPI doc),
+		// we need to format the service name in the dependency graph.
+		m.InternalServiceAPIDependencyGraphMap = make(map[string]*APIDependencyGraph)
+		for serviceName, dependencyGraph := range internalAPIDependencyGraphMap {
+			formattedServiceName := utils.FormatServiceName(serviceName)
+			m.InternalServiceAPIDependencyGraphMap[formattedServiceName] = dependencyGraph
+		}
 	}
 }
 
@@ -190,14 +206,42 @@ func (m *APIManager) GetRandomAPIMethod() SimpleAPIMethod {
 	return SimpleAPIMethod{}
 }
 
-// GetConsumerAPIMethodsByProducers returns the consumer API methods of the given producer API methods.
+// GetConsumerAPIMethodsByProducersForSystem returns the consumer API methods of the given producer API methods.
+// Producers and consumers are all external / system APIs. Please refer to `GetConsumerAPIMethodsByProducersForInternalService` for the internal APIs.
 // You should set the `APIDependencyGraph` field of the API manager before calling this function.
-func (m *APIManager) GetConsumerAPIMethodsByProducers(producers []SimpleAPIMethod) []SimpleAPIMethod {
+func (m *APIManager) GetConsumerAPIMethodsByProducersForSystem(producers []SimpleAPIMethod) []SimpleAPIMethod {
 	var res []SimpleAPIMethod
 	for _, producer := range producers {
 		if consumers, ok := m.APIDependencyGraph.Graph[producer]; ok {
 			res = append(res, consumers...)
 		}
 	}
+	// sort and remove duplicates
+	slices.SortFunc(res, func(a, b SimpleAPIMethod) int {
+		return CompareSimpleAPIMethod(a, b)
+	})
+	res = slices.Compact(res)
+	return res
+}
+
+// GetConsumerAPIMethodsByProducersForInternalService returns the consumer API methods of the given producer API methods.
+// Producers and consumers are all internal / service APIs. Please refer to `GetConsumerAPIMethodsByProducersForSystem` for the system APIs.
+// You should set the `InternalServiceAPIDependencyGraphMap` field of the API manager before calling this function.
+func (m *APIManager) GetConsumerAPIMethodsByProducersForInternalService(serviceName string, producers []SimpleAPIMethod) []SimpleAPIMethod {
+	var res []SimpleAPIMethod
+	if dependencyGraph, ok := m.InternalServiceAPIDependencyGraphMap[serviceName]; ok {
+		for _, producer := range producers {
+			if consumers, ok := dependencyGraph.Graph[producer]; ok {
+				res = append(res, consumers...)
+			}
+		}
+	} else {
+		log.Warn().Msgf("[APIManager.GetConsumerAPIMethodsByProducersForInternalService] Service %s not found", serviceName)
+	}
+	// sort and remove duplicates
+	slices.SortFunc(res, func(a, b SimpleAPIMethod) int {
+		return CompareSimpleAPIMethod(a, b)
+	})
+	res = slices.Compact(res)
 	return res
 }

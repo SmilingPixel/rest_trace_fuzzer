@@ -4,15 +4,17 @@ import (
 	"fmt"
 	"resttracefuzzer/internal/config"
 	"resttracefuzzer/pkg/resource"
+	fuzzruntime "resttracefuzzer/pkg/runtime"
 	"resttracefuzzer/pkg/static"
 	"resttracefuzzer/pkg/strategy"
 	"sort"
 
 	"maps"
 
+	"slices"
+
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/rs/zerolog/log"
-	"slices"
 )
 
 // CaseManager manages the test cases.
@@ -41,6 +43,9 @@ type CaseManager struct {
 	// The mutation strategist.
 	ResourceMutateStrategy *strategy.ResourceMutateStrategy
 
+	// The runtime reachability map. It is used to track the reachability of system components at runtime, and enhance the producer-consumer relationship.
+	RuntimeReachabilityMap *fuzzruntime.RuntimeReachabilityMap
+
 	// GlobalExtraHeaders is the global extra headers, which will be added to each request.
 	// It is a map of header name to header value.
 	// It can be used for simple cases, e.g., adding an authorization header.
@@ -52,24 +57,25 @@ func NewCaseManager(
 	APIManager *static.APIManager,
 	resourceManager *resource.ResourceManager,
 	fuzzStrategist *strategy.FuzzStrategist,
-	ResourceMutateStrategy *strategy.ResourceMutateStrategy,
+	resourceMutateStrategy *strategy.ResourceMutateStrategy,
+	runtimeReachabilityMap *fuzzruntime.RuntimeReachabilityMap,
 	globalExtraHeaders map[string]string,
 ) *CaseManager {
 	testScenarios := make([]*TestScenario, 0)
 	testOperationCaseQueueMap := make(map[static.SimpleAPIMethod][]*OperationCase)
 	m := &CaseManager{
-		APIManager:             APIManager,
-		ResourceManager:        resourceManager,
-		FuzzStrategist:         fuzzStrategist,
-		ResourceMutateStrategy: ResourceMutateStrategy,
-		TestScenarios:          testScenarios,
-		GlobalExtraHeaders:     globalExtraHeaders,
+		APIManager:                APIManager,
+		ResourceManager:           resourceManager,
+		FuzzStrategist:            fuzzStrategist,
+		ResourceMutateStrategy:    resourceMutateStrategy,
+		RuntimeReachabilityMap:    runtimeReachabilityMap,
+		TestScenarios:             testScenarios,
+		GlobalExtraHeaders:        globalExtraHeaders,
 		TestOperationCaseQueueMap: testOperationCaseQueueMap,
 	}
 	m.initTestcasesFromDoc()
 	return m
 }
-
 
 // Pop pops a test scenario of highest priority from the queue.
 func (m *CaseManager) Pop() (*TestScenario, error) {
@@ -269,25 +275,14 @@ func (m *CaseManager) extendScenarioIfExecSuccess(existingScenario *TestScenario
 	newScenario.Reset()
 	// The new one will inherit the energy from the existing one.
 	newScenario.Energy = existingScenario.Energy / 2
-	
-	// Append a new operation.
-	// We will try to get a new API method based on producer-consumer relationship. If there is no consumer, we will randomly select an API method.
-	// When generating a new operation case, we will try to get a operation from operation case queue (which is sorted by energy in advance).
-	var candidateAPIMethods []static.SimpleAPIMethod
-	producers := make([]static.SimpleAPIMethod, 0)
-	for _, operationCase := range newScenario.OperationCases {
-		producers = append(producers, operationCase.APIMethod)
-	}
-	// Get the consumers of the producers in the existing scenario.
-	consumers := m.APIManager.GetConsumerAPIMethodsByProducers(producers)
-	// If there are no consumers, we can randomly select an API method.
-	// Otherwise, we select the consumers.
-	if len(consumers) > 0 {
-		candidateAPIMethods = consumers
-	} else {
-		candidateAPIMethods = append(candidateAPIMethods, m.APIManager.GetRandomAPIMethod())
-	}
 
+	// Append a new operation.
+	// When generating a new operation case, we will try to get a operation from operation case queue (which is sorted by energy in advance).
+	candidateAPIMethods, err := m.resolveCandidateAPIMethods(newScenario)
+	if err != nil {
+		log.Err(err).Msg("[CaseManager.extendScenarioIfExecSuccess] Failed to resolve candidate API methods")
+		return nil, err
+	}
 	if len(candidateAPIMethods) == 0 {
 		log.Warn().Msg("[CaseManager.extendScenarioIfExecSuccess] No candidates available for extending the scenario")
 		return nil, nil
@@ -317,7 +312,7 @@ func (m *CaseManager) extendScenarioIfExecSuccess(existingScenario *TestScenario
 	}
 
 	if len(candidateOperationCases) == 0 {
-		log.Warn().Msg("[CaseManager.extendScenarioIfExecSuccess] No candidates available for extending the scenario")
+		log.Warn().Msgf("[CaseManager.extendScenarioIfExecSuccess] No candidates available for extending the scenario (UUID: %s)", existingScenario.UUID.String())
 		return nil, nil
 	}
 	// Select the operation case with the highest energy from the candidate operation cases.
@@ -325,7 +320,7 @@ func (m *CaseManager) extendScenarioIfExecSuccess(existingScenario *TestScenario
 		return candidateOperationCases[i].Energy > candidateOperationCases[j].Energy
 	})
 	newOperationCase := candidateOperationCases[0]
-	
+
 	// If the operation is selected from the queue, we need to remove it from the queue (We can check it by checking its UUID).
 	// In addition, considering that the operations in queue have all been executed before, we should do some mutation.
 	selectedAPIMethod := newOperationCase.APIMethod
@@ -353,8 +348,108 @@ func (m *CaseManager) extendScenarioIfExecSuccess(existingScenario *TestScenario
 	return newScenario, nil
 }
 
-// Init initializes the case queue.
-func (m *CaseManager) initTestcasesFromDoc() error { 
+// resolveCandidateAPIMethods resolves the candidate API methods based on the test scenario.
+// We will try to get candidate API methods based on producer-consumer relationship.
+// The producer-consumer relationship includes two parts:
+//  1. producer-consumer relationship in system APIs
+//  2. producer-consumer relationship deduced from internal service APIs. For example, if system API A calls internal service API X1, system API B calls internal service API X2,
+//     and internal service API X1 has a producer-consumer relationship with X2, then we can guess that system API A and B may have a producer-consumer relationship.
+//
+// If there is no consumer, we will randomly select an API method.
+func (m *CaseManager) resolveCandidateAPIMethods(testScenario *TestScenario) ([]static.SimpleAPIMethod, error) {
+	// Our final candidate API methods.
+	candidateAPIMethods := make([]static.SimpleAPIMethod, 0)
+
+	// ------ Part 1: use external API dependency ------
+	// system-level producer-consumer relationship
+	producers := make([]static.SimpleAPIMethod, 0)
+	for _, operationCase := range testScenario.OperationCases {
+		producers = append(producers, operationCase.APIMethod)
+	}
+	consumers := m.APIManager.GetConsumerAPIMethodsByProducersForSystem(producers)
+	candidateAPIMethods = append(candidateAPIMethods, consumers...)
+
+	// ------ Part 2: enhance by internal service API dependency ------
+	// internal-service-level producer-consumer relationship
+	// 1. For each operation case in the existing scenario, get the internal service APIs it called.
+	// 2. For each internal service API (treat it as producer) we have in step 1, find its corresponding consumer (internal service) APIs.
+	// 3. For each internal service consumer API, find system APIs that call it.
+	// 4. Collect all system APIs in step 3, and add them to the candidate API methods.
+	internalServiceEndpoints := make([]static.InternalServiceEndpoint, 0)
+	for _, operationCase := range testScenario.OperationCases {
+		// Get the internal service APIs it called.
+		// Use high confidence map only (i.e., the map that is updated from traces), as the operation case is executed successfully, and there should exist corresponding traces.
+		currServiceInternalServiceEndpoints, err := m.RuntimeReachabilityMap.GetReachableInternalEndpointsByExternalAPI(operationCase.APIMethod, true)
+		if err != nil {
+			log.Err(err).Msgf("[CaseManager.resolveCandidateAPIMethods] Failed to get reachable internal endpoints by external API %v", operationCase.APIMethod)
+			return nil, err
+		}
+		internalServiceEndpoints = append(internalServiceEndpoints, currServiceInternalServiceEndpoints...)
+	}
+	// sort and remove duplicates
+	slices.SortFunc(internalServiceEndpoints, func(a, b static.InternalServiceEndpoint) int {
+		return static.CompareInternalServiceEndpoint(a, b)
+	})
+	internalServiceEndpoints = slices.Compact(internalServiceEndpoints)
+
+	// Get the internal service consumers for each internal service endpoint.
+	internalServiceConsumers := make([]static.InternalServiceEndpoint, 0)
+	for _, internalServiceEndpoint := range internalServiceEndpoints {
+		currEndpointConsumers := m.APIManager.GetConsumerAPIMethodsByProducersForInternalService(
+			internalServiceEndpoint.ServiceName,
+			[]static.SimpleAPIMethod{internalServiceEndpoint.SimpleAPIMethod},
+		)
+		// consumer is SimpleAPIMethod, so we need to supplement the service name
+		for _, currEndpointConsumer := range currEndpointConsumers {
+			internalServiceConsumers = append(internalServiceConsumers, static.InternalServiceEndpoint{
+				ServiceName:     internalServiceEndpoint.ServiceName,
+				SimpleAPIMethod: currEndpointConsumer,
+			})
+		}
+	}
+
+	// Find which system APIs call the internal service consumers, and collect them.
+	systemConsumers := make([]static.SimpleAPIMethod, 0)
+	internalServiceConsumersSet := make(map[static.InternalServiceEndpoint]struct{})
+	for _, internalServiceConsumer := range internalServiceConsumers {
+		internalServiceConsumersSet[internalServiceConsumer] = struct{}{}
+	}
+	// Iterate all system APIs, resolve their internal service endpoints, and check if they are in the internal service consumers.
+	// Deduplication is not needed here, as we iterate the API map in the order of the system APIs.
+	for systemAPIMethod := range m.APIManager.APIMap {
+		// We allow using low-confidence map here, as the system API might not have been executed yet.
+		reachableInternalServiceEndpoints, err := m.RuntimeReachabilityMap.GetReachableInternalEndpointsByExternalAPI(systemAPIMethod, true)
+		if err != nil {
+			log.Err(err).Msgf("[CaseManager.resolveCandidateAPIMethods] Failed to get reachable internal endpoints by external API %v", systemAPIMethod)
+			return nil, err
+		}
+		for _, reachableInternalServiceEndpoint := range reachableInternalServiceEndpoints {
+			if _, exist := internalServiceConsumersSet[reachableInternalServiceEndpoint]; exist {
+				systemConsumers = append(systemConsumers, systemAPIMethod)
+				break
+			}
+		}
+	}
+
+	// aggregate the system consumers
+	candidateAPIMethods = append(candidateAPIMethods, systemConsumers...)
+
+	// ------ Part 3: Post-process ------
+	// If there are no candidates until now, we can randomly select an API method.
+	if len(candidateAPIMethods) == 0 {
+		candidateAPIMethods = append(candidateAPIMethods, m.APIManager.GetRandomAPIMethod())
+	}
+
+	// Deduplicate the candidate API methods by unique sort.
+	slices.SortFunc(candidateAPIMethods, func(a, b static.SimpleAPIMethod) int {
+		return static.CompareSimpleAPIMethod(a, b)
+	})
+	candidateAPIMethods = slices.Compact(candidateAPIMethods)
+	return candidateAPIMethods, nil
+}
+
+// initTestcasesFromDoc initializes the test cases from the OpenAPI document.
+func (m *CaseManager) initTestcasesFromDoc() error {
 	// At the beginning, each testcase is a simple request to each API.
 	for method, operation := range m.APIManager.APIMap {
 		operationCase := NewOperationCase(method, operation)
@@ -426,7 +521,6 @@ func (m *CaseManager) mutateOperationCase(operationCase *OperationCase) (*Operat
 
 	return newOperationCase, nil
 }
-
 
 // generateRequestBodyResourceFromSchema generates a request body resource from a schema.
 // It returns a json object as a resource and error if any.
