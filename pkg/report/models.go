@@ -1,6 +1,7 @@
 package report
 
 import (
+	"fmt"
 	"resttracefuzzer/pkg/casemanager"
 	"resttracefuzzer/pkg/resource"
 	fuzzruntime "resttracefuzzer/pkg/runtime"
@@ -51,7 +52,7 @@ func (r *SystemTestReport) SetStatusHitCountReport(statusHitCount map[static.Sim
 	}
 }
 
-// InternalServiceTestReport is the report of the internal service test.
+// InternalServiceTestReport is the report of states of the internal service after fuzzing.
 type InternalServiceTestReport struct {
 
 	// EdgeCoverage is the coverage of the edge.
@@ -59,6 +60,10 @@ type InternalServiceTestReport struct {
 
 	// FinalCallInfoGraph is the final runtime call info graph.
 	FinalCallInfoGraph *fuzzruntime.CallInfoGraph `json:"finalCallInfoGraph"`
+
+	// RuntimeHighConfidenceReachabilityMap is the runtime reachability map.
+	// By default, it only includes high confidence reachability map.
+	RuntimeHighConfidenceReachabilityMap *ReachabilityMapForReport `json:"runtimeHighConfidenceReachabilityMap"`
 }
 
 // FuzzerStateReport is the report of the fuzzer state.
@@ -152,4 +157,24 @@ func NewTestLogReport() *TestLogReport {
 	return &TestLogReport{
 		TestedScenarios: make([]*TestScenarioForReport, 0),
 	}
+}
+
+// ReachabilityMapForReport is the report of the reachability map.
+// It contains the reachability information of the system.
+// It is a simplified version of [resttracefuzzer/pkg/static.ReachabilityMap].
+type ReachabilityMapForReport struct {
+	// M maps from external API to internal APIs.
+	// external API is string representation of [resttracefuzzer/pkg/static.SimpleAPIMethod], as json key.
+	M map[string][]static.InternalServiceEndpoint `json:"m"`
+}
+
+// NewReachabilityMapForReport creates a new ReachabilityMapForReport from a ReachabilityMap.
+func NewReachabilityMapForReport(reachabilityMap *static.ReachabilityMap) *ReachabilityMapForReport {
+	reachabilityMapForReport := &ReachabilityMapForReport{
+		M: make(map[string][]static.InternalServiceEndpoint),
+	}
+	for external, internals := range reachabilityMap.External2Internal {
+		reachabilityMapForReport.M[fmt.Sprintf("%v", external)] = internals
+	}
+	return reachabilityMapForReport
 }

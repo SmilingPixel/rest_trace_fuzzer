@@ -19,7 +19,11 @@ func NewInternalServiceReporter() *InternalServiceReporter {
 
 // GenerateInternalServiceReport generates the internal service report.
 // The report includes the edge coverage.
-func (r *InternalServiceReporter) GenerateInternalServiceReport(callInfoGraph *fuzzruntime.CallInfoGraph, outputPath string) error {
+func (r *InternalServiceReporter) GenerateInternalServiceReport(
+	callInfoGraph *fuzzruntime.CallInfoGraph,
+	runtimeReachabilityMap *fuzzruntime.RuntimeReachabilityMap,
+	outputPath string,
+) error {
 	// At present, we only report the edge coverage.
 	coveredEdges := 0
 	for _, edge := range callInfoGraph.Edges {
@@ -33,6 +37,7 @@ func (r *InternalServiceReporter) GenerateInternalServiceReport(callInfoGraph *f
 	// Generate the report and marshal it to JSON.
 	report := InternalServiceTestReport{
 		EdgeCoverage:       edgeCoverage,
+		RuntimeHighConfidenceReachabilityMap: NewReachabilityMapForReport(runtimeReachabilityMap.HighConfidenceMap),
 		FinalCallInfoGraph: callInfoGraph,
 	}
 	reportJSON, err := sonic.Marshal(report)

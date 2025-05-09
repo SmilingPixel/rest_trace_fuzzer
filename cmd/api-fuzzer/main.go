@@ -104,6 +104,30 @@ func main() {
 	// Initialize the API manager using parsed docs
 	APIManager.InitFromDocs(systemDoc, serviceDoc)
 
+	// Read API dependency files
+	// You can generate the dependency files by running tools we support (e.g., Restler)
+	if config.GlobalConfig.DependencyFileType != "" {
+		dependencyFileParser, err := parser.NewAPIDependencyParserByType(config.GlobalConfig.DependencyFileType)
+		if err != nil {
+			log.Err(err).Msgf("[main] Failed to create dependency file parser, type: %s", config.GlobalConfig.DependencyFileType)
+			return
+		}
+		dependencyGraph, err := dependencyFileParser.ParseFromFile(config.GlobalConfig.DependencyFilePath)
+		if err != nil {
+			log.Err(err).Msgf("[main] Failed to parse dependency file, path: %s", config.GlobalConfig.DependencyFilePath)
+			return
+		}
+		var internalServiceAPIDependencyGraphMap map[string]*static.APIDependencyGraph
+		if config.GlobalConfig.InternalServiceAPIDependencyFilePath != "" {
+			internalServiceAPIDependencyGraphMap, err = dependencyFileParser.ParseFromServiceMapFile(config.GlobalConfig.InternalServiceAPIDependencyFilePath)
+			if err != nil {
+				log.Err(err).Msgf("[main] Failed to parse internal service API dependency map file, path: %s", config.GlobalConfig.InternalServiceAPIDependencyFilePath)
+				return
+			}
+		}
+		APIManager.InitDependencyGraph(dependencyGraph, internalServiceAPIDependencyGraphMap)
+	}
+
 	// Parse extra headers
 	extraHeaders := make(map[string]string)
 	if config.GlobalConfig.ExtraHeaders != "" {
@@ -131,33 +155,6 @@ func main() {
 	callInfoGraph := fuzzruntime.NewCallInfoGraph(APIManager.APIDataflowGraph)
 	reachabilityMap := fuzzruntime.NewRuntimeReachabilityMapFromStaticMap(APIManager.StaticReachabilityMap)
 	caseManager := casemanager.NewCaseManager(APIManager, resourceManager, fuzzStrategist, resourceMutateStrategist, reachabilityMap, extraHeaders)
-
-	// Read API dependency files
-	// You can generate the dependency files by running Restler
-	// We only parse Restler's output for now
-	var dependencyFileParser parser.APIDependencyParser
-	if config.GlobalConfig.DependencyFileType != "" {
-		if config.GlobalConfig.DependencyFileType == "Restler" {
-			dependencyFileParser = parser.NewAPIDependencyRestlerParser()
-		} else {
-			log.Err(err).Msgf("[main] Unsupported dependency file type: %s", config.GlobalConfig.DependencyFileType)
-			return
-		}
-		dependencyGraph, err := dependencyFileParser.ParseFromFile(config.GlobalConfig.DependencyFilePath)
-		if err != nil {
-			log.Err(err).Msgf("[main] Failed to parse dependency file, path: %s", config.GlobalConfig.DependencyFilePath)
-			return
-		}
-		var internalServiceAPIDependencyGraphMap map[string]*static.APIDependencyGraph
-		if config.GlobalConfig.InternalServiceAPIDependencyFilePath != "" {
-			internalServiceAPIDependencyGraphMap, err = dependencyFileParser.ParseFromServiceMapFile(config.GlobalConfig.InternalServiceAPIDependencyFilePath)
-			if err != nil {
-				log.Err(err).Msgf("[main] Failed to parse internal service API dependency map file, path: %s", config.GlobalConfig.InternalServiceAPIDependencyFilePath)
-				return
-			}
-		}
-		APIManager.InitDependencyGraph(dependencyGraph, internalServiceAPIDependencyGraphMap)
-	}
 
 	// testLogReporter logs the tested operations
 	testLogReporter := report.NewTestLogReporter()
@@ -203,7 +200,11 @@ func main() {
 	}
 	internalServiceReporter := report.NewInternalServiceReporter()
 	internalServiceReportPath := fmt.Sprintf("%s/internal_service_report_%s.json", config.GlobalConfig.OutputDir, t.Format(outputFileTimeFormat))
-	err = internalServiceReporter.GenerateInternalServiceReport(mainFuzzer.GetCallInfoGraph(), internalServiceReportPath)
+	err = internalServiceReporter.GenerateInternalServiceReport(
+		mainFuzzer.GetCallInfoGraph(),
+		reachabilityMap,
+		internalServiceReportPath,
+	)
 	if err != nil {
 		log.Err(err).Msgf("[main] Failed to generate internal service report")
 		return
