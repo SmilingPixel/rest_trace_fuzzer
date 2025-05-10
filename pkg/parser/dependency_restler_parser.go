@@ -3,6 +3,8 @@ package parser
 import (
 	"os"
 	"resttracefuzzer/pkg/static"
+	"resttracefuzzer/pkg/utils"
+	"strings"
 
 	"github.com/bytedance/sonic"
 	"github.com/rs/zerolog/log"
@@ -15,7 +17,7 @@ import (
 // Example JSON format:
 //
 //	{
-//		"/api/products/{productId}": {
+//    "/api/products/{productId}": {
 //	    "GET": {
 //	      "Path": [
 //	        {
@@ -78,7 +80,7 @@ func (p *APIDependencyRestlerParser) ParseFromBytes(data []byte) (*static.APIDep
 	}
 
 	// Parse the JSON map to create the API dependency graph
-	dependencyGraph, err := p.ParseFromFileMap(jsonMap)
+	dependencyGraph, err := p.ParseFromPathMap(jsonMap)
 	if err != nil {
 		log.Err(err).Msgf("[APIDependencyRestlerParser.ParseFromBytes] Error parsing JSON map")
 		return nil, err
@@ -104,7 +106,7 @@ func (p *APIDependencyRestlerParser) ParseFromServiceMapFile(path string) (map[s
 
 	dependencyGraphs := make(map[string]*static.APIDependencyGraph)
 	for serviceName, jsonMap := range serviceMap {
-		dependencyGraph, err := p.ParseFromFileMap(jsonMap)
+		dependencyGraph, err := p.ParseFromPathMap(jsonMap)
 		if err != nil {
 			log.Err(err).Msgf("[APIDependencyRestlerParser.ParseFromServiceMapFile] Error parsing JSON map for service %s", serviceName)
 			return nil, err
@@ -115,8 +117,25 @@ func (p *APIDependencyRestlerParser) ParseFromServiceMapFile(path string) (map[s
 	return dependencyGraphs, nil
 }
 
-// ParseFromFileMap parses the API dependency graph from a given path map.
-func (p *APIDependencyRestlerParser) ParseFromFileMap(jsonMap pathMap) (*static.APIDependencyGraph, error) {
+// ParseFromPathMap parses the API dependency graph from a given path map.
+func (p *APIDependencyRestlerParser) ParseFromPathMap(jsonMap pathMap) (*static.APIDependencyGraph, error) {
+	// Restler would remove path parameter suffixes from the path in field `producer_endpoint`
+	// e.g. /api/products/{productId} -> /api/products
+	// We need to restore the full path to be able to add the dependency
+	prefix2fullpath := make(map[string]string)
+	for path := range jsonMap {
+		if !strings.Contains(path, "{") {
+			continue
+		}
+		segments := utils.SplitEndpointPath(path)
+		for i, segment := range segments {
+			if strings.HasPrefix(segment, "{") {
+				prefix := "/" + strings.Join(segments[:i], "/")
+				prefix2fullpath[prefix] = path
+				break
+			}
+		}
+	}
 	dependencyGraph := static.NewAPIDependencyGraph()
 	for path, methods := range jsonMap {
 		for method, paramInMap := range methods {
@@ -125,6 +144,13 @@ func (p *APIDependencyRestlerParser) ParseFromFileMap(jsonMap pathMap) (*static.
 					if producerConsumerDetail["producer_endpoint"] == "" {
 						continue
 					}
+					producerEndpoint := producerConsumerDetail["producer_endpoint"]
+					// Restore the full path from the prefix
+					if _, exist := jsonMap[producerEndpoint]; !exist {
+						if fullPath, exist := prefix2fullpath[producerEndpoint]; exist {
+							producerEndpoint = fullPath
+						}
+					}
 					// We assume that all exposed APIs of the system are HTTP APIs
 					consumer := static.SimpleAPIMethod{
 						Endpoint: path,
@@ -132,7 +158,7 @@ func (p *APIDependencyRestlerParser) ParseFromFileMap(jsonMap pathMap) (*static.
 						Typ:      static.SimpleAPIMethodTypeHTTP,
 					}
 					producer := static.SimpleAPIMethod{
-						Endpoint: producerConsumerDetail["producer_endpoint"],
+						Endpoint: producerEndpoint,
 						Method:   producerConsumerDetail["producer_method"],
 						Typ:      static.SimpleAPIMethodTypeHTTP,
 					}
