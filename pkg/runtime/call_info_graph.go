@@ -70,11 +70,12 @@ func (g *CallInfoGraph) UpdateFromCallInfos(callInfos []*trace.CallInfo) error {
 		for _, callInfo := range sourceService2CallInfos[edge.Source.ServiceName] {
 			// TODO: A more graceful name matching strategy. @xunzhou24
 			// TODO: handle: edge in callInfo is not included in parsed callInfoGraph. @xunzhou24
+			// TODO: when call info is from a HTTP, I did not compare HTTP method here, please support it @xunzhou24
 			// When conditions below are met, we consider the edge is hit:
 			//  1. The source and target service names match (after being converted into standard case).
 			//  2. The method in callInfo (i.e., the method called) must match the method in edge's source or target (i.e., target of data flow).
 			if callInfo.TargetService == edge.Target.ServiceName &&
-				(callInfo.Method == edge.Target.SimpleAPIMethod.Method || callInfo.Method == edge.Source.SimpleAPIMethod.Method) {
+				(callInfo.Method == edge.Target.SimpleAPIMethod.Endpoint || callInfo.Method == edge.Source.SimpleAPIMethod.Endpoint) {
 				edge.HitCount++
 			}
 		}

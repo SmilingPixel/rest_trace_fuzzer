@@ -154,7 +154,7 @@ func DefaultValueForPrimitiveTypeKind(kind reflect.Kind) any {
 	case reflect.String:
 		return "114-514"
 	default:
-		log.Warn().Msgf("[DefaultValueForPrimitiveTypeKind] Unsupported type: %v", kind)
+		log.Warn().Msgf("[DefaultValueForPrimitiveTypeKind] Unsupported kind: %v", kind)
 		return nil
 	}
 }
@@ -174,7 +174,7 @@ func RandomValueForPrimitiveTypeKind(kind reflect.Kind) any {
 		randLength := rand.IntN(114) + 1
 		return RandStringBytes(randLength)
 	default:
-		log.Warn().Msgf("[RandomValueForPrimitiveTypeKind] Unsupported type: %v", kind)
+		log.Warn().Msgf("[RandomValueForPrimitiveTypeKind] Unsupported kind: %v", kind)
 		return nil
 	}
 }
@@ -200,7 +200,7 @@ func EdgeCaseValueForPrimitiveTypeKind(kind reflect.Kind) any {
 	case reflect.String:
 		return stringEdgeCase[rand.IntN(len(stringEdgeCase))]
 	default:
-		log.Warn().Msgf("[EdgeCaseValueForPrimitiveTypeKind] Unsupported type: %v", kind)
+		log.Warn().Msgf("[EdgeCaseValueForPrimitiveTypeKind] Unsupported kind: %v", kind)
 		return nil
 	}
 }

@@ -155,6 +155,8 @@ const (
 	SimpleAPIMethodTypeHTTP SimpleAPIMethodType = "HTTP"
 	// SimpleAPIMethodTypeGRPC represents a gRPC API method.
 	SimpleAPIMethodTypeGRPC SimpleAPIMethodType = "gRPC"
+	// SimpleAPIMethodTypeUnknown represent an unknown type of API method
+	SimpleAPIMethodTypeUnknown SimpleAPIMethodType = "unknown"
 	// TODO: Add more types if needed, such as MessageQueue, etc. @xunzhou24
 
 	// SimpleAPIPropertyTypeFloat
@@ -174,13 +176,16 @@ const (
 	// SimpleAPIPropertyTypeArray
 	SimpleAPIPropertyTypeArray SimpleAPIPropertyType = "array"
 
+	// Empty, None, etc.
+	SimpleAPIPropertyTypeEmpty SimpleAPIPropertyType = "empty"
+
 	// Unkown
 	SimpleAPIPropertyTypeUnknown SimpleAPIPropertyType = "unknown"
 )
 
 // SimpleAPIMethod represents an API method on a specific endpoint.
 //   - If the API is an HTTP API, the method is the HTTP method, such as GET, POST, PUT, DELETE, and Endpoint is the URL path.
-//   - If the API is a gRPC API, the method is the gRPC method name.
+//   - If the API is a gRPC API, the endpoint is the gRPC method name, and the method field is undefined
 //
 // Endpoint is the URL path or the gRPC method name.
 //

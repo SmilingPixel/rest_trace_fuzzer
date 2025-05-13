@@ -215,20 +215,21 @@ func (m *CaseManager) EvaluateScenarioAndTryUpdate(hasAchieveNewCoverage bool, e
 	// mutate it and put it back to the queue.
 	if hasAchieveNewCoverage || executedScenario.ExecutedCount < config.GlobalConfig.MaxAllowedScenarioExecutedCount {
 		mutatedScenario, err := m.mutateScenario(executedScenario)
+		// If error occurs, we do not put the mutated scenario back to the queue.
 		if err != nil {
 			log.Err(err).Msg("[CaseManager.evaluateScenarioAndTryUpdate] Failed to mutate scenario")
-			return err
+			// return err
+		} else {
+			m.pushAndSort(mutatedScenario)
 		}
-		m.pushAndSort(mutatedScenario)
 	}
 
 	// Extend the scenario to generate a new one
 	newScenario, err := m.extendScenarioIfExecSuccess(executedScenario)
 	if err != nil {
 		log.Err(err).Msg("[CaseManager.evaluateScenarioAndTryUpdate] Failed to process scenario")
-		return err
-	}
-	if newScenario != nil {
+		// return err
+	} else if newScenario != nil {
 		m.pushAndSort(newScenario)
 	}
 
@@ -260,7 +261,7 @@ func (m *CaseManager) EvaluateOperationCaseAndTryUpdate(hasAchieveNewCoverage bo
 func (m *CaseManager) extendScenarioIfExecSuccess(existingScenario *TestScenario) (*TestScenario, error) {
 	// This might involve modifying request parameters, headers, body, etc.
 	if !existingScenario.IsExecutedSuccessfully() {
-		log.Warn().Msg("[CaseManager.extendScenarioIfExecSuccess] The existing scenario is not executed successfully")
+		log.Warn().Msg("[CaseManager.extendScenarioIfExecSuccess] The existing scenario is not executed successfully (Last operation's response code is not 2xx)")
 		return nil, nil
 	}
 
@@ -490,7 +491,7 @@ func (m *CaseManager) mutateOperationCase(operationCase *OperationCase) (*Operat
 	for key, resrc := range requestPathParamResrc {
 		mutatedResrc, err := m.ResourceMutateStrategy.MutateResource(resrc)
 		if err != nil {
-			log.Err(err).Msgf("[CaseManager.mutateOperationCase] Failed to mutate request path param %v", key)
+			log.Err(err).Msgf("[CaseManager.mutateOperationCase] Failed to mutate request path param %s, resource: %s", key, resrc.String())
 			return nil, err
 		}
 		requestPathParamResrc[key] = mutatedResrc
@@ -499,7 +500,7 @@ func (m *CaseManager) mutateOperationCase(operationCase *OperationCase) (*Operat
 	for key, resrc := range requestQueryParamResrc {
 		mutatedResrc, err := m.ResourceMutateStrategy.MutateResource(resrc)
 		if err != nil {
-			log.Err(err).Msgf("[CaseManager.mutateOperationCase] Failed to mutate request query param %v", key)
+			log.Err(err).Msgf("[CaseManager.mutateOperationCase] Failed to mutate request query param %s, resource: %s", key, resrc.String())
 			return nil, err
 		}
 		requestQueryParamResrc[key] = mutatedResrc
@@ -508,7 +509,7 @@ func (m *CaseManager) mutateOperationCase(operationCase *OperationCase) (*Operat
 	if requestBodyResrc != nil {
 		mutatedResrc, err := m.ResourceMutateStrategy.MutateResource(requestBodyResrc)
 		if err != nil {
-			log.Err(err).Msgf("[CaseManager.mutateOperationCase] Failed to mutate request body")
+			log.Err(err).Msgf("[CaseManager.mutateOperationCase] Failed to mutate request body, resource: %s", requestBodyResrc.String())
 			return nil, err
 		}
 		requestBodyResrc = mutatedResrc

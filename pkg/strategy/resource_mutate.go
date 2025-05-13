@@ -72,9 +72,11 @@ func (s *ResourceMutateStrategy) MutateResource(resrc resource.Resource) (resour
 		return s.mutateArrayResource(resrc)
 	case static.SimpleAPIPropertyTypeInteger, static.SimpleAPIPropertyTypeFloat, static.SimpleAPIPropertyTypeBoolean, static.SimpleAPIPropertyTypeString:
 		return s.mutatePrimitiveResource(resrc)
+	case static.SimpleAPIPropertyTypeEmpty: // For empty resource, we do not mutate it.
+		return resrc, nil
 	default:
 		// We do not support other types.
-		return nil, fmt.Errorf("unsupported type: %v", resrc.Typ())
+		return nil, fmt.Errorf("unsupported SimpleAPIPropertyType: %v", resrc.Typ())
 	}
 }
 
@@ -167,7 +169,7 @@ func (s *ResourceMutateStrategy) mutatePrimitiveResourceByRandom(resrc resource.
 		resrc.SetByRawValue(newValue)
 	default:
 		// We do not support other types.
-		return nil, fmt.Errorf("unsupported type: %v", resrc.Typ())
+		return nil, fmt.Errorf("unsupported SimpleAPIPropertyType: %v", resrc.Typ())
 	}
 	return resrc, nil
 }
@@ -190,7 +192,7 @@ func (s *ResourceMutateStrategy) mutatePrimitiveResourceByEdgeCase(resrc resourc
 		resrc.SetByRawValue(newValue)
 	default:
 		// We do not support other types.
-		return nil, fmt.Errorf("unsupported type: %v", resrc.Typ())
+		return nil, fmt.Errorf("unsupported SimpleAPIPropertyType: %v", resrc.Typ())
 	}
 	return resrc, nil
 }
