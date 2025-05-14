@@ -31,7 +31,7 @@ type RuntimeConfig struct {
 	// Type of the fuzzer. Currently only support 'Basic'
 	FuzzerType string `json:"fuzzerType"`
 
-	// Timeout for the HTTP client dial, in seconds.
+	// Timeout for the HTTP client dial, in seconds. 30 by default.
 	HTTPClientDialTimeout int `json:"HTTPClientDialTimeout"`
 
 	// Path to the script file that contains the HTTP middleware functions, see [HTTP Middleware Script](#about-http-middleware-script).
@@ -43,25 +43,25 @@ type RuntimeConfig struct {
 	// Path to internal service openapi spec file, json format
 	InternalServiceOpenAPIPath string `json:"internalServiceOpenAPIPath"`
 
-	// Log level: debug, info, warn, error, fatal, panic
+	// Log level: debug, info (default), warn, error, fatal, panic
 	LogLevel string `json:"logLevel"`
 
-	// Should log to file
+	// Should log to file, false by default.
 	LogToFile bool `json:"logToFile"`
 
-	// Maximum number of operations to execute in each scenario
+	// Maximum number of operations to execute in each scenario. It is 1 (i.e., no sequence) by default.
 	MaxOpsPerScenario int `json:"maxOpsPerScenario"`
 
-	// The maximum executed times of a test operation case.
+	// The maximum executed times of a test operation case. It is 3 by default.
 	MaxAllowedOperationCaseExecutedCount int `json:"maxAllowedOperationCaseExecutedCount"`
 
-	// The maximum number of test operation cases in the queue of an API method.
+	// The maximum number of test operation cases in the queue of an API method. No limit by default.
 	MaxAllowedOperationCases int `json:"maxAllowedOperationCases"`
 
-	// The maximum executed times of a test scenario.
+	// The maximum executed times of a test scenario. It is 5 by default.
 	MaxAllowedScenarioExecutedCount int `json:"maxAllowedScenarioExecutedCount"`
 
-	// The maximum number of test scenarios in the queue.
+	// The maximum number of test scenarios in the queue. No limit by default.
 	MaxAllowedScenarios int `json:"maxAllowedScenarios"`
 
 	// Path to the OpenAPI spec file

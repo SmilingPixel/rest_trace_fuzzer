@@ -74,7 +74,7 @@
     {
         "arg_name": "http-client-dial-timeout",
         "config_name": "http_client_dial_timeout",
-        "description": "Timeout for the HTTP client dial, in seconds.",
+        "description": "Timeout for the HTTP client dial, in seconds. 30 by default.",
         "type": "number",
         "required": false,
         "default": 30
@@ -106,7 +106,7 @@
     {
         "arg_name": "log-level",
         "config_name": "log_level",
-        "description": "Log level: debug, info, warn, error, fatal, panic",
+        "description": "Log level: debug, info (default), warn, error, fatal, panic",
         "type": "string",
         "required": false,
         "default": "info"
@@ -114,7 +114,7 @@
     {
         "arg_name": "log-to-file",
         "config_name": "log_to_file",
-        "description": "Should log to file",
+        "description": "Should log to file, false by default.",
         "type": "boolean",
         "required": false,
         "default": false
@@ -122,7 +122,7 @@
     {
         "arg_name": "max-ops-per-scenario",
         "config_name": "max_ops_per_scenario",
-        "description": "Maximum number of operations to execute in each scenario",
+        "description": "Maximum number of operations to execute in each scenario. It is 1 (i.e., no sequence) by default.",
         "type": "number",
         "required": false,
         "default": 1
@@ -130,34 +130,34 @@
     {
         "arg_name": "max-allowed-operation-case-executed-count",
         "config_name": "max_allowed_operation_case_executed_count",
-        "description": "The maximum executed times of a test operation case.",
+        "description": "The maximum executed times of a test operation case. It is 3 by default.",
         "type": "number",
         "required": false,
-        "default": 14
+        "default": 3
     },
     {
         "arg_name": "max-allowed-operation-cases",
         "config_name": "max_allowed_operation_cases",
-        "description": "The maximum number of test operation cases in the queue of an API method.",
+        "description": "The maximum number of test operation cases in the queue of an API method. No limit by default.",
         "type": "number",
         "required": false,
-        "default": 7
+        "default": 2147483647
     },
     {
         "arg_name": "max-allowed-scenario-executed-count",
         "config_name": "max_allowed_scenario_executed_count",
-        "description": "The maximum executed times of a test scenario.",
+        "description": "The maximum executed times of a test scenario. It is 5 by default.",
         "type": "number",
         "required": false,
-        "default": 6
+        "default": 5
     },
     {
         "arg_name": "max-allowed-scenarios",
         "config_name": "max_allowed_scenarios",
-        "description": "The maximum number of test scenarios in the queue.",
+        "description": "The maximum number of test scenarios in the queue. No limit by default.",
         "type": "number",
         "required": false,
-        "default": 114
+        "default": 2147483647
     },
     {
         "arg_name": "openapi-spec",
