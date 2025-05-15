@@ -121,6 +121,8 @@ func (f *BasicFuzzer) Start() error {
 			log.Err(err).Msg("[BasicFuzzer.Start] Failed to execute the test scenario")
 			break
 		}
+
+		log.Info().Msgf("[BasicFuzzer.Start] A loop iteration finished, current consumed time: %v, budget: %v, scenario to be executed: %d", time.Since(startTime), f.Budget, f.CaseManager.GetScenarioSize())
 	}
 
 	log.Info().Msg("[BasicFuzzer.Start] Fuzzer stopped")

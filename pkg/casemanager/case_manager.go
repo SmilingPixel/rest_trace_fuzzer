@@ -199,6 +199,11 @@ func (m *CaseManager) sortAndCullOperationCaseByEnergy() {
 	}
 }
 
+// GetScenarioSize returns the size of the test scenarios.
+func (m *CaseManager) GetScenarioSize() int {
+	return len(m.TestScenarios)
+}
+
 // EvaluateScenarioAndTryUpdate evaluates the given metrics for the given test scenario that has been executed,
 // determines whether to put the scenario back to the queue, and expand the scenario with an operation to a new scenario if needed.
 // It returns an error if any.

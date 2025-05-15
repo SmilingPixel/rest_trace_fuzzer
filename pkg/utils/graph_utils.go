@@ -1,5 +1,5 @@
 // Package utils provides generic graph structures and algorithms using Go generics.
-// 
+//
 // To use this package, you must define your own node type that satisfies the `AbstractNode` interface (i.e., is `comparable`),
 // and your own edge type that implements the `AbstractEdge[N]` interface.
 //
@@ -119,11 +119,11 @@ func (g *Graph[N, E]) CanReach(source, target N) bool {
 	return false
 }
 
-// GetDistanceBySource returns the distance from the source node to all other nodes in the graph.
+// GetDistanceMapBySource returns the distance from the source node to all other nodes in the graph.
 // It uses a breadth-first search (BFS) algorithm to calculate the shortest path lengths.
 // It returns a map where the keys are nodes and the values are their respective distances from the source node.
 // Unreachable nodes will not be included in the map.
-func (g *Graph[N, E]) GetDistanceBySource(source N) map[N]int {
+func (g *Graph[N, E]) GetDistanceMapBySource(source N) map[N]int {
 	if !g.HasNode(source) {
 		return nil
 	}

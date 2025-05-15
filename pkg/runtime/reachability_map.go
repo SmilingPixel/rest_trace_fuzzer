@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"fmt"
 	"resttracefuzzer/pkg/feedback/trace"
 	"resttracefuzzer/pkg/static"
 	"resttracefuzzer/pkg/utils"
@@ -34,27 +33,22 @@ func NewRuntimeReachabilityMap() *RuntimeReachabilityMap {
 // The static maps is generated from API Doc, and is of low confidence level.
 // service names in the static maps may not be formatted, so we need to format them when adding to the map.
 func NewRuntimeReachabilityMapFromStaticMap(staticMap *static.ReachabilityMap) *RuntimeReachabilityMap {
-	hignConfidenceMap := static.NewReachabilityMap()
-	lowConfidenceMap := static.NewReachabilityMap()
+	runtimeReachabilityMap := NewRuntimeReachabilityMap()
 
 	// Copy the static map to the low confidence map
 	for external, internals := range staticMap.External2Internal {
 		for _, internal := range internals {
-			internal.ServiceName = utils.FormatServiceName(internal.ServiceName)
-			lowConfidenceMap.AddReachability(external, internal)
+			runtimeReachabilityMap.AddReachabilityWithConfidenceLevel(external, internal, 0)
 		}
 	}
 	for internal, externals := range staticMap.Internal2External {
 		internal.ServiceName = utils.FormatServiceName(internal.ServiceName)
 		for _, external := range externals {
-			lowConfidenceMap.AddReachability(external, internal)
+			runtimeReachabilityMap.AddReachabilityWithConfidenceLevel(external, internal, 0)
 		}
 	}
 
-	return &RuntimeReachabilityMap{
-		HighConfidenceMap: hignConfidenceMap,
-		LowConfidenceMap:  lowConfidenceMap,
-	}
+	return runtimeReachabilityMap
 }
 
 // AddReachabilityWithConfidenceLevel adds reachability information with confidence level to the map.
@@ -66,6 +60,18 @@ func (r *RuntimeReachabilityMap) AddReachabilityWithConfidenceLevel(external sta
 		r.HighConfidenceMap.AddReachability(external, internal)
 	} else {
 		r.LowConfidenceMap.AddReachability(external, internal)
+	}
+}
+
+// RemoveReachabilityWithConfidenceLevel removes reachability information with confidence level from the map.
+// We only support two confidence levels: high (1) and low (0) at the moment.
+func (r *RuntimeReachabilityMap) RemoveReachabilityWithConfidenceLevel(external static.SimpleAPIMethod, internal static.InternalServiceEndpoint, confidenceLevel int) {
+	// format service name
+	internal.ServiceName = utils.FormatServiceName(internal.ServiceName)
+	if confidenceLevel > 0 {
+		r.HighConfidenceMap.RemoveReachability(external, internal)
+	} else {
+		r.LowConfidenceMap.RemoveReachability(external, internal)
 	}
 }
 
@@ -94,15 +100,15 @@ func (r *RuntimeReachabilityMap) UpdateFromCallInfos(externalEndpoint static.Sim
 
 	// Update the high confidence map
 	for _, internalServiceEndpoint := range internalServiceEndpoints {
-		r.HighConfidenceMap.AddReachability(externalEndpoint, internalServiceEndpoint)
+		r.AddReachabilityWithConfidenceLevel(externalEndpoint, internalServiceEndpoint, 1)
 	}
 	
 	// If the info exists in the low confidence map, we should remove it from the low confidence map.
 	for _, internalServiceEndpoint := range internalServiceEndpoints {
-		r.LowConfidenceMap.RemoveReachability(externalEndpoint, internalServiceEndpoint)
+		r.RemoveReachabilityWithConfidenceLevel(externalEndpoint, internalServiceEndpoint, 0)
 	}
 
-	log.Debug().Msgf("[RuntimeReachabilityMap.UpdateFromCallInfo] Updated high confidence map with external: %s, internal: %v", externalEndpoint, internalServiceEndpoints)
+	log.Debug().Msgf("[RuntimeReachabilityMap.UpdateFromCallInfo] Updated high confidence map with external: %v, internal: %v", externalEndpoint, internalServiceEndpoints)
 
 	return nil
 }
@@ -112,20 +118,24 @@ func (r *RuntimeReachabilityMap) UpdateFromCallInfos(externalEndpoint static.Sim
 // Parameter `useHighConfidenceOnly` indicates whether to use high confidence map only or not.
 // If true, we only use high confidence map. If false, we use both high and low confidence maps (but the high one has higher priority).
 func (r *RuntimeReachabilityMap) GetReachableInternalEndpointsByExternalAPI(externalAPI static.SimpleAPIMethod, useHighConfidenceOnly bool) ([]static.InternalServiceEndpoint, error) {
-	// Check if the external API is in the high confidence map
+	// Check if the external API exists in the high confidence map
 	var internalEndpoints []static.InternalServiceEndpoint
-	externalAPINotExistErr := fmt.Errorf("external API %s not exist in the reachability map", externalAPI)
 	internalEndpoints, exist := r.HighConfidenceMap.GetInternalsByExternal(externalAPI)
-	if !exist {
-		return nil, externalAPINotExistErr
+	// It is common that the external API does not exist in the high confidence map,
+	// as the API may not have been fuzzed yet.
+	if !exist || len(internalEndpoints) == 0 {
+		log.Debug().Msgf("[RuntimeReachabilityMap.GetReachableInternalEndpointsByExternalAPI] External API %v not exist in the high confidence map", externalAPI)
+		if !useHighConfidenceOnly {
+			return internalEndpoints, nil
+		}
 	}
 	
 	// If not found in high confidence map, check the low confidence map
-	if len(internalEndpoints) == 0 && !useHighConfidenceOnly {
-		internalEndpoints, exist = r.LowConfidenceMap.GetInternalsByExternal(externalAPI)
-		if !exist {
-			return nil, externalAPINotExistErr
-		}
+	// If the external API exists in the low confidence map,
+	// it means that the external API cannot reach any internal API (Maybe you should check your API doc, or report a bug to us).
+	internalEndpoints, exist = r.LowConfidenceMap.GetInternalsByExternal(externalAPI)
+	if !exist || len(internalEndpoints) == 0 {
+		log.Warn().Msgf("[RuntimeReachabilityMap.GetReachableInternalEndpointsByExternalAPI] External API %v not exist in the low confidence map", externalAPI)
 	}
 	return internalEndpoints, nil
 }
