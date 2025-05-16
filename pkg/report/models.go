@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 )
 
-type StatusHitCountReport struct {
+type APIMethodStatusHitCountReport struct {
 	APIMethod static.SimpleAPIMethod `json:"APIMethod"`
 	Status    int                    `json:"status"`
 	HitCount  int                    `json:"hitCount"`
@@ -28,22 +28,22 @@ type SystemTestReport struct {
 	// Ignore this field when marshalling to JSON.
 	// This field has same information as statusHitCountReport.
 	// You should set it using SetStatusHitCountReport.
-	StatusHitCount map[static.SimpleAPIMethod]map[int]int `json:"-"`
+	APIMethodStatusHitCount map[static.SimpleAPIMethod]map[int]int `json:"-"`
 
 	// statusHitCountReport is the report of the status hit count.
 	// This field is used when marshalling to JSON.
 	// It is generated from statusHitCount.
 	// You should set statusHitCount using SetStatusHitCountReport.
-	StatusHitCountReport []StatusHitCountReport `json:"statusHitCountReport"`
+	APIMethodStatusHitCountReport []APIMethodStatusHitCountReport `json:"statusHitCountReport"`
 }
 
 // SetStatusHitCountReport sets the status hit count report.
 func (r *SystemTestReport) SetStatusHitCountReport(statusHitCount map[static.SimpleAPIMethod]map[int]int) {
-	r.StatusHitCount = statusHitCount
-	r.StatusHitCountReport = make([]StatusHitCountReport, 0)
+	r.APIMethodStatusHitCount = statusHitCount
+	r.APIMethodStatusHitCountReport = make([]APIMethodStatusHitCountReport, 0)
 	for APIMethod, statusCount := range statusHitCount {
 		for status, hitCount := range statusCount {
-			r.StatusHitCountReport = append(r.StatusHitCountReport, StatusHitCountReport{
+			r.APIMethodStatusHitCountReport = append(r.APIMethodStatusHitCountReport, APIMethodStatusHitCountReport{
 				APIMethod: APIMethod,
 				Status:    status,
 				HitCount:  hitCount,
@@ -146,16 +146,22 @@ func NewReportFromTestScenario(testScenario *casemanager.TestScenario) *TestScen
 }
 
 // TestLogReport is the report of the test log.
-// It contains the history of testing.
+// It contains the history of testing, and other information as well.
 // To reduce size of the report, it uses a simplified version of the tested scenario.
 type TestLogReport struct {
+	// TestedScenarios is the list of tested scenarios.
 	TestedScenarios []*TestScenarioForReport `json:"testedScenarios"`
+
+	// TestedScenariosLengthCount records the number of tested scenarios of each length.
+	// It maps from length of the tested scenarios to the number of tested scenarios.
+	TestedScenariosLengthCount map[int]int `json:"testedScenariosLengthCount"`
 }
 
 // NewTestLogReport creates a new TestLogReport.
 func NewTestLogReport() *TestLogReport {
 	return &TestLogReport{
 		TestedScenarios: make([]*TestScenarioForReport, 0),
+		TestedScenariosLengthCount: make(map[int]int),
 	}
 }
 

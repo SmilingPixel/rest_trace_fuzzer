@@ -2,6 +2,7 @@ package casemanager
 
 import (
 	"fmt"
+	"math/rand/v2"
 	"resttracefuzzer/internal/config"
 	"resttracefuzzer/pkg/resource"
 	fuzzruntime "resttracefuzzer/pkg/runtime"
@@ -321,11 +322,18 @@ func (m *CaseManager) extendScenarioIfExecSuccess(existingScenario *TestScenario
 		log.Warn().Msgf("[CaseManager.extendScenarioIfExecSuccess] No candidates available for extending the scenario (UUID: %s)", existingScenario.UUID.String())
 		return nil, nil
 	}
-	// Select the operation case with the highest energy from the candidate operation cases.
-	sort.Slice(candidateOperationCases, func(i, j int) bool {
-		return candidateOperationCases[i].Energy > candidateOperationCases[j].Energy
-	})
-	newOperationCase := candidateOperationCases[0]
+	// Select the operation case with the highest energy from the candidate operation cases
+	// if energy function is enabled in config.
+	// Otherwise, we will randomly select one.
+	var newOperationCase *OperationCase
+	if config.GlobalConfig.EnableEnergyOperation {
+		sort.Slice(candidateOperationCases, func(i, j int) bool {
+			return candidateOperationCases[i].Energy > candidateOperationCases[j].Energy
+		})
+		newOperationCase = candidateOperationCases[0]
+	} else {
+		newOperationCase = candidateOperationCases[rand.IntN(len(candidateOperationCases))]
+	}
 
 	// If the operation is selected from the queue, we need to remove it from the queue (We can check it by checking its UUID).
 	// In addition, considering that the operations in queue have all been executed before, we should do some mutation.
@@ -335,7 +343,12 @@ func (m *CaseManager) extendScenarioIfExecSuccess(existingScenario *TestScenario
 		for i, operationCase := range operationCaseQueue {
 			if operationCase.UUID == newOperationCase.UUID {
 				// Remove the operation case from the queue.
+				// TestOperationCaseQueueMap must be updated immediately
+				// after the operation case is removed from the queue.
+				// Otherwise, if an error occurs in the mutation, the deletion may lost,
+				// leading to data inconsistency or even memory leak!
 				operationCaseQueue = slices.Delete(operationCaseQueue, i, i+1)
+				m.TestOperationCaseQueueMap[selectedAPIMethod] = operationCaseQueue
 				// Mutate the operation case.
 				mutatedOperationCase, err := m.mutateOperationCase(newOperationCase)
 				if err != nil {
@@ -344,10 +357,12 @@ func (m *CaseManager) extendScenarioIfExecSuccess(existingScenario *TestScenario
 				}
 				newOperationCase = mutatedOperationCase
 
+				// **Note**: break as soon as we find the operation case
+				// so deleting while iterating the slice is safe.
+				// If you want to continue to iterate, please use a copy of the slice.
 				break
 			}
 		}
-		m.TestOperationCaseQueueMap[selectedAPIMethod] = operationCaseQueue
 	}
 
 	newScenario.OperationCases = append(newScenario.OperationCases, newOperationCase)
@@ -400,17 +415,19 @@ func (m *CaseManager) resolveCandidateAPIMethods(testScenario *TestScenario) ([]
 
 	// Get the internal service consumers for each internal service endpoint.
 	internalServiceConsumers := make([]static.InternalServiceEndpoint, 0)
-	for _, internalServiceEndpoint := range internalServiceEndpoints {
-		currEndpointConsumers := m.APIManager.GetConsumerAPIMethodsByProducersForInternalService(
-			internalServiceEndpoint.ServiceName,
-			[]static.SimpleAPIMethod{internalServiceEndpoint.SimpleAPIMethod},
-		)
-		// consumer is SimpleAPIMethod, so we need to supplement the service name
-		for _, currEndpointConsumer := range currEndpointConsumers {
-			internalServiceConsumers = append(internalServiceConsumers, static.InternalServiceEndpoint{
-				ServiceName:     internalServiceEndpoint.ServiceName,
-				SimpleAPIMethod: currEndpointConsumer,
-			})
+	if config.GlobalConfig.UseInternalServiceAPIDependency {
+		for _, internalServiceEndpoint := range internalServiceEndpoints {
+			currEndpointConsumers := m.APIManager.GetConsumerAPIMethodsByProducersForInternalService(
+				internalServiceEndpoint.ServiceName,
+				[]static.SimpleAPIMethod{internalServiceEndpoint.SimpleAPIMethod},
+			)
+			// consumer is SimpleAPIMethod, so we need to supplement the service name
+			for _, currEndpointConsumer := range currEndpointConsumers {
+				internalServiceConsumers = append(internalServiceConsumers, static.InternalServiceEndpoint{
+					ServiceName:     internalServiceEndpoint.ServiceName,
+					SimpleAPIMethod: currEndpointConsumer,
+				})
+			}
 		}
 	}
 
@@ -443,6 +460,7 @@ func (m *CaseManager) resolveCandidateAPIMethods(testScenario *TestScenario) ([]
 	// ------ Part 3: Post-process ------
 	// If there are no candidates until now, we can randomly select an API method.
 	if len(candidateAPIMethods) == 0 {
+		log.Info().Msg("[CaseManager.resolveCandidateAPIMethods] No candidates available, randomly select an API method")
 		candidateAPIMethods = append(candidateAPIMethods, m.APIManager.GetRandomAPIMethod())
 	}
 
