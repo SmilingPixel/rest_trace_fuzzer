@@ -222,5 +222,29 @@
         "type": "boolean",
         "required": false,
         "default": false
+    },
+    {
+        "arg_name": "value-generate-mutation-weight",
+        "config_name": "value_generate_mutation_weight",
+        "description": "The weight used in strategies to generate parameter values by mutation. There is a possibility of value_generate_mutation_weight / sum(value_generate_*) to generate a mutated value. The default value is 0.",
+        "type": "number",
+        "required": false,
+        "default": 0
+    },
+    {
+        "arg_name": "value-generate-random-weight",
+        "config_name": "value_generate_random_weight",
+        "description": "The weight used in strategies to generate random parameter values. There is a possibility of value_generate_random_weight / sum(value_generate_*) to generate a random value for the parameter. The default value is 0.",
+        "type": "number",
+        "required": false,
+        "default": 0
+    },
+    {
+        "arg_name": "value-generate-resource-pool-weight",
+        "config_name": "value_generate_resource_pool_weight",
+        "description": "The weight used in strategies to generate parameter values from the resource pool. There is a possibility of value_generate_resource_pool_weight / sum(value_generate_*) to generate a value from the resource pool. The default value is 1.",
+        "type": "number",
+        "required": false,
+        "default": 1
     }
 ]

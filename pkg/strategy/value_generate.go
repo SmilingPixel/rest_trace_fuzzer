@@ -3,6 +3,7 @@ package strategy
 import (
 	"fmt"
 	"math/rand/v2"
+	"resttracefuzzer/internal/config"
 	"resttracefuzzer/pkg/resource"
 	"resttracefuzzer/pkg/utils"
 
@@ -41,15 +42,29 @@ type SchemaToValueStrategy struct {
 }
 
 // NewSchemaToValueStrategy creates a new SchemaToValueStrategy.
-// By default we use constant weight value, and the weight of random value, value from resource pool, and mutation are all 1.
-// If you do not want resource pool or mutation to interfere, you can set their weight to 0.
-// TODO: initialize the weight map from configuration. @xunzhou24
+// If you do not want any of the value sources, you can set its weight to 0.
+// The sum of the weights must be greater than 0.
+// The default weights are:
+//  1. RANDOM: 0
+//  2. RESOURCE_POOL: 1
+//  3. MUTATION: 0
+// That means only resource pool is used by default.
 func NewSchemaToValueStrategy(resourceManager *resource.ResourceManager) *SchemaToValueStrategy {
+	valueSourceRandomWeight := config.GlobalConfig.ValueGenerateRandomWeight
+	valueSourceResourcePoolWeight := config.GlobalConfig.ValueGenerateResourcePoolWeight
+	valueSourceMutationWeight := config.GlobalConfig.ValueGenerateMutationWeight
+	if valueSourceRandomWeight < 0 || valueSourceResourcePoolWeight < 0 || valueSourceMutationWeight < 0  || valueSourceRandomWeight+valueSourceResourcePoolWeight+valueSourceMutationWeight <= 0 {
+		log.Error().Msgf("[SchemaToValueStrategy.NewSchemaToValueStrategy] Invalid weight configuration: %d, %d, %d, used default weights (0, 1, 0) instead", valueSourceRandomWeight, valueSourceResourcePoolWeight, valueSourceMutationWeight)
+		valueSourceRandomWeight = 0
+		valueSourceResourcePoolWeight = 1
+		valueSourceMutationWeight = 0
+	}
+	// Initialize the weight map with the weights from configuration.
 	valueSourceWeightMap := NewConstantWeightMapStrategy(
 		map[string]int{
-			VALUE_SOURCE_RANDOM:        1,
-			VALUE_SOURCE_RESOURCE_POOL: 7,
-			VALUE_SOURCE_MUTATION:      2,
+			VALUE_SOURCE_RANDOM:        valueSourceRandomWeight,
+			VALUE_SOURCE_RESOURCE_POOL: valueSourceResourcePoolWeight,
+			VALUE_SOURCE_MUTATION:      valueSourceMutationWeight,
 		},
 	)
 	return &SchemaToValueStrategy{

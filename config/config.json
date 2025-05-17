@@ -26,5 +26,8 @@
     "traceBackendURL": "http://localhost:4317",
     "traceFetchWaitTime": 3000,
     "traceIDHeaderKey": "X-Trace-Id",
-    "useInternalServiceAPIDependency": false
+    "useInternalServiceAPIDependency": false,
+    "valueGenerateRandomWeight": 0,
+    "valueGenerateResourcePoolWeight": 1,
+    "valueGenerateMutationWeight": 0
 }

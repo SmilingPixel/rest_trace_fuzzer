@@ -87,6 +87,15 @@ type RuntimeConfig struct {
 
 	// Indicates whether to use the internal service API dependency. If true, the internal service API dependency will be used to enhance the external service API dependency.
 	UseInternalServiceAPIDependency bool `json:"useInternalServiceAPIDependency"`
+
+	// The weight used in strategies to generate parameter values by mutation. There is a possibility of value_generate_mutation_weight / sum(value_generate_*) to generate a mutated value. The default value is 0.
+	ValueGenerateMutationWeight int `json:"valueGenerateMutationWeight"`
+
+	// The weight used in strategies to generate random parameter values. There is a possibility of value_generate_random_weight / sum(value_generate_*) to generate a random value for the parameter. The default value is 0.
+	ValueGenerateRandomWeight int `json:"valueGenerateRandomWeight"`
+
+	// The weight used in strategies to generate parameter values from the resource pool. There is a possibility of value_generate_resource_pool_weight / sum(value_generate_*) to generate a value from the resource pool. The default value is 1.
+	ValueGenerateResourcePoolWeight int `json:"valueGenerateResourcePoolWeight"`
 }
 
 func InitConfig() {

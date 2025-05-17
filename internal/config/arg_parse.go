@@ -37,6 +37,9 @@ func ParseCmdArgs() {
 	flag.IntVar(&GlobalConfig.TraceFetchWaitTime, "trace-fetch-wait-time", 1000, "Time to wait before fetching the trace, as the trace may not be available immediately after the request. The time is in milliseconds.")
 	flag.StringVar(&GlobalConfig.TraceIDHeaderKey, "trace-id-header-key", "X-Trace-Id", "The key of the trace ID header to be included in the response. By default, it is 'X-Trace-Id'.")
 	flag.BoolVar(&GlobalConfig.UseInternalServiceAPIDependency, "use-internal-service-api-dependency", false, "Indicates whether to use the internal service API dependency. If true, the internal service API dependency will be used to enhance the external service API dependency.")
+	flag.IntVar(&GlobalConfig.ValueGenerateMutationWeight, "value-generate-mutation-weight", 0, "The weight used in strategies to generate parameter values by mutation. There is a possibility of value_generate_mutation_weight / sum(value_generate_*) to generate a mutated value. The default value is 0.")
+	flag.IntVar(&GlobalConfig.ValueGenerateRandomWeight, "value-generate-random-weight", 0, "The weight used in strategies to generate random parameter values. There is a possibility of value_generate_random_weight / sum(value_generate_*) to generate a random value for the parameter. The default value is 0.")
+	flag.IntVar(&GlobalConfig.ValueGenerateResourcePoolWeight, "value-generate-resource-pool-weight", 1, "The weight used in strategies to generate parameter values from the resource pool. There is a possibility of value_generate_resource_pool_weight / sum(value_generate_*) to generate a value from the resource pool. The default value is 1.")
 	flag.Parse()
 
 	// If config file is provided, load the config from the file
@@ -171,6 +174,27 @@ func ParseCmdArgs() {
 	}
 	if envVal, ok := os.LookupEnv("USE_INTERNAL_SERVICE_API_DEPENDENCY"); ok && envVal != "" {
 		GlobalConfig.UseInternalServiceAPIDependency = true
+	}
+	if envVal, ok := os.LookupEnv("VALUE_GENERATE_MUTATION_WEIGHT"); ok && envVal != "" {
+		envValInt, err := strconv.Atoi(envVal)
+		if err != nil {
+			log.Err(err).Msgf("[ParseCmdArgs] Failed to parse int: %s", err)
+		}
+		GlobalConfig.ValueGenerateMutationWeight = envValInt
+	}
+	if envVal, ok := os.LookupEnv("VALUE_GENERATE_RANDOM_WEIGHT"); ok && envVal != "" {
+		envValInt, err := strconv.Atoi(envVal)
+		if err != nil {
+			log.Err(err).Msgf("[ParseCmdArgs] Failed to parse int: %s", err)
+		}
+		GlobalConfig.ValueGenerateRandomWeight = envValInt
+	}
+	if envVal, ok := os.LookupEnv("VALUE_GENERATE_RESOURCE_POOL_WEIGHT"); ok && envVal != "" {
+		envValInt, err := strconv.Atoi(envVal)
+		if err != nil {
+			log.Err(err).Msgf("[ParseCmdArgs] Failed to parse int: %s", err)
+		}
+		GlobalConfig.ValueGenerateResourcePoolWeight = envValInt
 	}
 
 	jsonStr, _ := sonic.Marshal(GlobalConfig)
