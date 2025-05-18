@@ -82,6 +82,10 @@ func main() {
 		}
 		log.Info().Msgf("[main] Log to file is enabled, I will write logs to %s", logFilePath)
 		log.Logger = log.Output(fileWriter)
+
+		// log config again to file
+		configStr, _ := sonic.MarshalString(config.GlobalConfig)
+		log.Info().Msgf("[main] Fuzzer config: %s", configStr)
 	}
 
 	APIManager := static.NewAPIManager()
@@ -151,7 +155,12 @@ func main() {
 	fuzzStrategist := strategy.NewFuzzStrategist(resourceManager)
 	resourceMutateStrategist := strategy.NewResourceMutateStrategy()
 	responseProcesser := feedback.NewResponseProcesser(APIManager, resourceManager)
-	traceManager := trace.NewTraceManager()
+	traceDBs := make([]trace.TraceDB, 0) // traceDBs is a list of trace databases, used to store traces
+	if config.GlobalConfig.SaveRawTrace {
+		saveDir := fmt.Sprintf("%s/raw_trace_%s", config.GlobalConfig.OutputDir, t.Format(outputFileTimeFormat))
+		traceDBs = append(traceDBs, trace.NewRawTraceFileSaver(saveDir))
+	}
+	traceManager := trace.NewTraceManager(traceDBs)
 	callInfoGraph := fuzzruntime.NewCallInfoGraph(APIManager.APIDataflowGraph)
 	reachabilityMap := fuzzruntime.NewRuntimeReachabilityMapFromStaticMap(APIManager.StaticReachabilityMap)
 	caseManager := casemanager.NewCaseManager(APIManager, resourceManager, fuzzStrategist, resourceMutateStrategist, reachabilityMap, extraHeaders)

@@ -70,6 +70,9 @@ type RuntimeConfig struct {
 	// Output directory, e.g., ./output
 	OutputDir string `json:"outputDir"`
 
+	// Whether to save the raw trace data. If true, the trace data will be saved in the output directory.
+	SaveRawTrace bool `json:"saveRawTrace"`
+
 	// Base URL of the API, e.g., https://www.example.com
 	ServerBaseURL string `json:"serverBaseURL"`
 

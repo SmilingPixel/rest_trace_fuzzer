@@ -31,6 +31,7 @@ func ParseCmdArgs() {
 	flag.IntVar(&GlobalConfig.MaxAllowedScenarios, "max-allowed-scenarios", 2147483647, "The maximum number of test scenarios in the queue. No limit by default.")
 	flag.StringVar(&GlobalConfig.OpenAPISpecPath, "openapi-spec", "", "Path to the OpenAPI spec file")
 	flag.StringVar(&GlobalConfig.OutputDir, "output-dir", "./output", "Output directory, e.g., ./output")
+	flag.BoolVar(&GlobalConfig.SaveRawTrace, "save-raw-trace", false, "Whether to save the raw trace data. If true, the trace data will be saved in the output directory.")
 	flag.StringVar(&GlobalConfig.ServerBaseURL, "server-base-url", "https://www.example.com", "Base URL of the API, e.g., https://www.example.com")
 	flag.StringVar(&GlobalConfig.TraceBackendType, "trace-backend-type", "Jaeger", "Type of the trace backend. Currently supports 'Jaeger' and 'Tempo'.")
 	flag.StringVar(&GlobalConfig.TraceBackendURL, "trace-backend-url", "", "URL of the trace backend")
@@ -152,6 +153,9 @@ func ParseCmdArgs() {
 	}
 	if envVal, ok := os.LookupEnv("OUTPUT_DIR"); ok && envVal != "" {
 		GlobalConfig.OutputDir = envVal
+	}
+	if envVal, ok := os.LookupEnv("SAVE_RAW_TRACE"); ok && envVal != "" {
+		GlobalConfig.SaveRawTrace = true
 	}
 	if envVal, ok := os.LookupEnv("SERVER_BASE_URL"); ok && envVal != "" {
 		GlobalConfig.ServerBaseURL = envVal

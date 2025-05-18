@@ -21,6 +21,7 @@
     "maxAllowedScenarios": 114,
     "openAPISpecPath": "../openapi/otel_demo/system_swagger.json",
     "outputDir": "./output",
+    "saveRawTrace": false,
     "serverBaseURL": "http://www.example.com",
     "traceBackendType": "Jaeger",
     "traceBackendURL": "http://localhost:4317",

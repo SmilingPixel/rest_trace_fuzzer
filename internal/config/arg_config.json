@@ -176,6 +176,14 @@
         "default": "./output"
     },
     {
+        "arg_name": "save-raw-trace",
+        "config_name": "save_raw_trace",
+        "description": "Whether to save the raw trace data. If true, the trace data will be saved in the output directory.",
+        "type": "boolean",
+        "required": false,
+        "default": false
+    },
+    {
         "arg_name": "server-base-url",
         "config_name": "server_base_url",
         "description": "Base URL of the API, e.g., https://www.example.com",
