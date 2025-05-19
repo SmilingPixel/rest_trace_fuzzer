@@ -19,6 +19,9 @@ type RuntimeConfig struct {
 	// Enable energy (priority) of test scenario. If true, energy would affect the test scenario selection when starting a new test loop
 	EnableEnergyScenario bool `json:"enableEnergyScenario"`
 
+	// If true, only the last case in each scenario will be executed, although the full scenario (sequence) will still be generated. This option can speed up fuzzing. For example, if a scenario consists of cases 'A-B' and is then extended with case 'C', the scenario becomes 'A-B-C', but only 'C' will be executed.
+	ExecuteLastCaseInScenarioOnly bool `json:"executeLastCaseInScenarioOnly"`
+
 	// Extra headers to be added to the request, in the format of stringified JSON, e.g., '{\"header1\": \"value1\", \"header2\": \"value2\"}'
 	ExtraHeaders string `json:"extraHeaders"`
 

@@ -14,6 +14,7 @@ func ParseCmdArgs() {
 	flag.StringVar(&GlobalConfig.DependencyFileType, "dependency-file-type", "", "Type of the dependency file. Currently only support 'Restler'. Required if dependency-file is provided.")
 	flag.BoolVar(&GlobalConfig.EnableEnergyOperation, "enable-energy-operation", false, "Enable energy (priority) of test operation. If true, energy would affect the test operation selection when extending the test scenario (sequence of test operations).")
 	flag.BoolVar(&GlobalConfig.EnableEnergyScenario, "enable-energy-scenario", false, "Enable energy (priority) of test scenario. If true, energy would affect the test scenario selection when starting a new test loop")
+	flag.BoolVar(&GlobalConfig.ExecuteLastCaseInScenarioOnly, "execute_last_case_in_scenario_only", false, "If true, only the last case in each scenario will be executed, although the full scenario (sequence) will still be generated. This option can speed up fuzzing. For example, if a scenario consists of cases 'A-B' and is then extended with case 'C', the scenario becomes 'A-B-C', but only 'C' will be executed.")
 	flag.StringVar(&GlobalConfig.ExtraHeaders, "extra-headers", "", "Extra headers to be added to the request, in the format of stringified JSON, e.g., '{\"header1\": \"value1\", \"header2\": \"value2\"}'")
 	flag.StringVar(&GlobalConfig.FuzzValueDictFilePath, "fuzz-value-dict-file", "", "Path to the file containing the dictionary of fuzz values, in the format of a JSON list. Each element in the list is a dictionary with two key-value pairs, one is `name` (value is of type string) and the other is `value` (value can be any json).")
 	flag.IntVar(&GlobalConfig.FuzzerBudget, "fuzzer-budget", 5, "The maximum time the fuzzer can run, in seconds")
@@ -74,6 +75,9 @@ func ParseCmdArgs() {
 	}
 	if envVal, ok := os.LookupEnv("ENABLE_ENERGY_SCENARIO"); ok && envVal != "" {
 		GlobalConfig.EnableEnergyScenario = true
+	}
+	if envVal, ok := os.LookupEnv("EXECUTE_LAST_CASE_IN_SCENARIO_ONLY"); ok && envVal != "" {
+		GlobalConfig.ExecuteLastCaseInScenarioOnly = true
 	}
 	if envVal, ok := os.LookupEnv("EXTRA_HEADERS"); ok && envVal != "" {
 		GlobalConfig.ExtraHeaders = envVal

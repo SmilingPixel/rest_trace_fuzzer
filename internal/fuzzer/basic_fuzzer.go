@@ -134,7 +134,14 @@ func (f *BasicFuzzer) Start() error {
 // If the analysers conclude that the test scenario or its test operation cases are interesting, the case manager will be updated (e.g., mutate the test scenario and add it back to queue).
 func (f *BasicFuzzer) ExecuteTestScenario(testScenario *casemanager.TestScenario) error {
 	var hasScenarioAchieveNewCoverage bool
-	for _, operationCase := range testScenario.OperationCases {
+	operationCasesToBeExecuted := make([]*casemanager.OperationCase, len(testScenario.OperationCases))
+	copy(operationCasesToBeExecuted, testScenario.OperationCases)
+	// If the fuzzer is configured to execute only the last operation case,
+	// then only the last operation case will be executed.
+	if config.GlobalConfig.ExecuteLastCaseInScenarioOnly {
+		operationCasesToBeExecuted = operationCasesToBeExecuted[len(operationCasesToBeExecuted)-1:]
+	}
+	for _, operationCase := range operationCasesToBeExecuted {
 		// If error occurs during execution of the operation case, stop the whole test scenario.
 		// Otherwise, continue to the next operation case.
 		err := f.ExecuteCaseOperation(operationCase)

@@ -4,6 +4,7 @@
     "dependencyFileType": "Restler",
     "enableEnergyOperation": false,
     "enableEnergyScenario": false,
+    "executeLastCaseInScenarioOnly": false,
     "extraHeaders": "{\"token\":\"YOUR_TOKEN_HERE\"}",
     "fuzzValueDictFilePath": "./config/fuzz_value_dict.json",
     "fuzzerBudget": 5,

@@ -172,7 +172,7 @@ func (ts *TestScenario) Reset() {
 	ts.ExecutedCount = 0
 	ts.Energy = 0
 	for _, operationCase := range ts.OperationCases {
-		operationCase.Energy = 0
+		operationCase.Reset()
 	}
 	newUUID, err := uuid.NewRandom()
 	if err != nil {
