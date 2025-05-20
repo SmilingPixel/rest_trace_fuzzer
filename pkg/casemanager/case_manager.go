@@ -218,25 +218,19 @@ func (m *CaseManager) EvaluateScenarioAndTryUpdate(hasAchieveNewCoverage bool, e
 	}
 
 	// If it has achieved new coverage or has not been executed for enough times,
-	// mutate it and put it back to the queue.
+	// put it back to the queue.
 	if hasAchieveNewCoverage || executedScenario.ExecutedCount < config.GlobalConfig.MaxAllowedScenarioExecutedCount {
-		mutatedScenario, err := m.mutateScenario(executedScenario)
-		// If error occurs, we do not put the mutated scenario back to the queue.
-		if err != nil {
-			log.Err(err).Msg("[CaseManager.evaluateScenarioAndTryUpdate] Failed to mutate scenario")
-			// return err
-		} else {
-			m.pushAndSort(mutatedScenario)
-		}
+		newScenario := executedScenario.Copy()
+		m.pushAndSort(newScenario)
 	}
 
 	// Extend the scenario to generate a new one
-	newScenario, err := m.extendScenarioIfExecSuccess(executedScenario)
+	extendedScenario, err := m.extendScenarioIfExecSuccess(executedScenario)
 	if err != nil {
 		log.Err(err).Msg("[CaseManager.evaluateScenarioAndTryUpdate] Failed to process scenario")
 		// return err
-	} else if newScenario != nil {
-		m.pushAndSort(newScenario)
+	} else if extendedScenario != nil {
+		m.pushAndSort(extendedScenario)
 	}
 
 	return nil
@@ -349,13 +343,6 @@ func (m *CaseManager) extendScenarioIfExecSuccess(existingScenario *TestScenario
 				// leading to data inconsistency or even memory leak!
 				operationCaseQueue = slices.Delete(operationCaseQueue, i, i+1)
 				m.TestOperationCaseQueueMap[selectedAPIMethod] = operationCaseQueue
-				// Mutate the operation case.
-				mutatedOperationCase, err := m.mutateOperationCase(newOperationCase)
-				if err != nil {
-					log.Err(err).Msgf("[CaseManager.extendScenarioIfExecSuccess] Failed to mutate operation case %v", newOperationCase.APIMethod)
-					return nil, err
-				}
-				newOperationCase = mutatedOperationCase
 
 				// **Note**: break as soon as we find the operation case
 				// so deleting while iterating the slice is safe.
@@ -485,6 +472,7 @@ func (m *CaseManager) initTestcasesFromDoc() error {
 
 // mutateScenario mutates the given test scenario and returns it.
 // Mutation would not reset the scenario, i.e., the executed count and energy will be inherited from the existing one. (This is different from extending)
+// Deprecated: this function is not used anymore, mutation in value generation strategy is used instead.
 func (m *CaseManager) mutateScenario(scenario *TestScenario) (*TestScenario, error) {
 	// copy the given scenario
 	newScenario := scenario.Copy()
@@ -503,6 +491,7 @@ func (m *CaseManager) mutateScenario(scenario *TestScenario) (*TestScenario, err
 
 // mutateOperationCase mutates the given test operation case and returns it.
 // Mutation would not reset the operation case, i.e., the executed count and energy will be inherited from the existing one.
+// Deprecated: this function is not used anymore, mutation in value generation strategy is used instead.
 func (m *CaseManager) mutateOperationCase(operationCase *OperationCase) (*OperationCase, error) {
 	// copy the given operation case
 	newOperationCase := operationCase.Copy()
