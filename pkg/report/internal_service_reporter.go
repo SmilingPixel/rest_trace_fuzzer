@@ -3,6 +3,8 @@ package report
 import (
 	"os"
 	fuzzruntime "resttracefuzzer/pkg/runtime"
+	"resttracefuzzer/pkg/static"
+	"slices"
 
 	"github.com/bytedance/sonic"
 	"github.com/rs/zerolog/log"
@@ -33,6 +35,10 @@ func (r *InternalServiceReporter) GenerateInternalServiceReport(
 	}
 	// Calculate the coverage of the edges.
 	edgeCoverage := float64(coveredEdges) / float64(len(callInfoGraph.Edges))
+
+	slices.SortFunc(callInfoGraph.Edges, func(a, b *fuzzruntime.CallInfoEdge) int {
+		return static.CompareInternalServiceEndpoint(a.Source, b.Source)
+	})
 
 	// Generate the report and marshal it to JSON.
 	report := InternalServiceTestReport{

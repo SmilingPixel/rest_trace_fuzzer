@@ -276,6 +276,8 @@ func isResourceEmpty(resource Resource) bool {
 		return len(resource.(*ResourceObject).Value) == 0
 	case static.SimpleAPIPropertyTypeArray:
 		return len(resource.(*ResourceArray).Value) == 0
+	case static.SimpleAPIPropertyTypeEmpty:
+		return true
 	default:
 		return false
 	}

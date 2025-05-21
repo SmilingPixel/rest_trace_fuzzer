@@ -6,6 +6,7 @@ import (
 	"resttracefuzzer/pkg/resource"
 	fuzzruntime "resttracefuzzer/pkg/runtime"
 	"resttracefuzzer/pkg/static"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -34,7 +35,7 @@ type SystemTestReport struct {
 	// This field is used when marshalling to JSON.
 	// It is generated from statusHitCount.
 	// You should set statusHitCount using SetStatusHitCountReport.
-	APIMethodStatusHitCountReport []APIMethodStatusHitCountReport `json:"statusHitCountReport"`
+	APIMethodStatusHitCountReport []APIMethodStatusHitCountReport `json:"APIMethodStatusHitCountReport"`
 }
 
 // SetStatusHitCountReport sets the status hit count report.
@@ -50,6 +51,9 @@ func (r *SystemTestReport) SetStatusHitCountReport(statusHitCount map[static.Sim
 			})
 		}
 	}
+	slices.SortFunc(r.APIMethodStatusHitCountReport, func(a, b APIMethodStatusHitCountReport) int {
+		return static.CompareSimpleAPIMethod(a.APIMethod, b.APIMethod)
+	})
 }
 
 // InternalServiceTestReport is the report of states of the internal service after fuzzing.
