@@ -292,6 +292,7 @@ if (outputParameter.getNormalizedName().equals(inputParameter.getNormalizedName(
 ### 3.3.1. 资源池的设计
 
 一个 resource 为一个类 JSON 结构，可从 json 格式无损转换，即包含 object, array 和几种 primitive type 的类型。
+对于 {}, null 类型，统一使用自定义的 empty type 进行表示。
 
 Resource Pool 提供两种类型的查询:
 1. 基于资源名的查询
@@ -307,6 +308,39 @@ rsc2 := resourceManager.GetSingleResourceByName("Capitano")
 - 外部输入的字典，作为资源池的初始资源的一部分
 - OpenAPI 中的 example 字段，作为资源池的初始资源的一部分(TODO: @xunzhou24)
 - 测试过程中的 response，包含了请求的资源
+
+注意，对于 response 的响应体的解析，工具会把嵌套的每一个 field 都当做一个资源进行存储，因此对于复杂的响应体，可能会产生大量的资源。
+例如，对于下面的 JSON:
+```json
+{
+  "id": 1,
+  "name": "test",
+  "address": {
+    "city": "test_city",
+    "country": "test_country"
+  }
+}
+```
+我们会将其解析为:
+```json
+{
+  "resourceName": "id",
+  "resourcevalue": 1
+},
+{
+  "resourceName": "city",
+  "resourcevalue": "test_city"
+},
+{
+  "resourceName": "address",
+  "resourcevalue": {
+    "city": "test_city",
+    "country": "test_country"
+  }
+},
+...
+```
+注意在上面的例子中，address 本身作为一个资源存储，address.city 和 address.country 也作为资源存储。
 
 
 ## 3.4. Testcase Queue
@@ -324,7 +358,8 @@ rsc2 := resourceManager.GetSingleResourceByName("Capitano")
 
 - 测试用例中，序列本身和序列中的每个操作均有独立的优先级可供计算
 - 参见[`case_manager.go`](../pkg/casemanager/case_manager.go)，目前优先级的计算主要依赖于*是否产生新的覆盖*（无论是内部服务的覆盖还是系统API的响应状态的覆盖），我们将依据这一变化，适当随机增减优先级
-- 每轮测试执行完毕后，会根据优先级，对队列中的测试用例重新排序。
+- 每轮测试执行完毕后，会根据优先级，对队列中的测试用例重新排序
+- 优先级可以禁用，此时队列将退化为 FIFO 队列
 
 建议参考的方案：
 - AFL
@@ -342,7 +377,7 @@ rsc2 := resourceManager.GetSingleResourceByName("Capitano")
 ![You can download the raw file, and edit using draw.io](seq_extend.svg)
 
 1. 内部服务接口的依赖构建: 参考 Restler 的方案，通过文档解析构建内部服务接口的依赖关系。
-2. 测试序列的拆解与扩展: 将外部请求序列（如 req1, req2, req3...）拆解为内部服务调用（如 req1-1, req1-2, req2-1, req3-1, req3-2...）；从拆解出的接口中选取一个 consumer（如 req-x），依据接口关联追加相关系统接口到测试序列末尾。
+2. 测试序列的拆解与扩展: 将外部请求序列（如 req1, req2, req3...）拆解为内部服务调用（如 req1-1, req1-2, req2-1, req3-1, req3-2...）；从拆解出的接口中选取一个 producer，req-x-i，也就是服务x的i接口；依据**该服务内部**的接口依赖，找出其 producer req-x-j，req-x-k...；将其 producer 追加到测试序列中；通过 Reachability Info Map，找出 producer 和系统外部接口的可达性关系，找出 producer 的可达的外部接口，req-k；将其追加到测试序列中。
 3. 扩展机制与优先级结合: 暂时忽略优先级，专注于扩展机制的实验验证。扩展时按以下顺序尝试追加请求（可设置概率权重）：仅依据外部接口的依赖；基于高置信度的内部接口依赖进行拆解扩展；基于任意置信度的内部接口依赖进行拆解扩展；随机追加请求。
 
 ## 3.5. Operation Case Queues
@@ -361,27 +396,29 @@ rsc2 := resourceManager.GetSingleResourceByName("Capitano")
 
 ## 3.6. Test Driver
 
-测试执行，发送请求和处理响应，更新运行时数据模块中的数据
+测试执行，发送请求和处理响应，更新运行时数据模块中的数据。
 
 
 ## 3.7. Trace Manager
 
-拉取和解析 trace，并根据 trace 数据，生成预处理反馈，引导测试
+拉取和解析 trace，并根据 trace 数据，生成预处理反馈，引导测试。
 
 ### 3.7.1. Trace Fetcher
 
-- 需要提前修改服务，使得我们能够从请求的响应（头或者响应体）中获取 trace ID
-- OpenTelemetry Demo 中，使用 Jaeger 提供的 API 进行 trace 搜集
-- 参考这个 [官方文档](https://www.jaegertracing.io/docs/2.4/apis/)
+- 需要提前修改服务，使得我们能够从请求的响应（头或者响应体）中获取 trace ID；响应头的 key 可以在配置中自定义，默认为 `X-Trace-ID`
+- OpenTelemetry Demo 中，使用 Jaeger 提供的 API 进行 trace 搜集，参考 [官方文档](https://www.jaegertracing.io/docs/2.4/apis/)
+- 此外，本工具也提供了对 Tempo 的支持，参考 [Tempo](https://grafana.com/docs/tempo/latest/api_docs/) 的 API 进行 trace 搜集
 
-**Note**: 由于服务内部的 trace 收集等需要一定的时间，因此请求完后，我们并不能马上获取到 trace 数据，需要等待几秒钟，本项目中按照3秒钟的时间进行等待。
+**Note**: 由于服务内部的 trace 收集等需要一定的时间，因此请求完后，我们并不能马上获取到 trace 数据，需要等待几秒钟，本项目中等待时间硬编码在代码中，修改的话需要重新编译。
 
 
 ### 3.7.2. Trace 分析
 
-1. 记录覆盖的调用边和调用次数，更新 DFG 实例
-2. 统计覆盖率更新，上报给 Call Info Graph
-3. 更新 DFG，补充缺失的依赖关系，修改错误的依赖关系 [TODO: 具体实现待定 @xunzhou24]
+1. 解析 trace 数据，获取需要的信息，包括 traceId, spanId, parentId 等
+2. 根据 span 中的信息，推测相关信息，包括 service, semantic type（例如 HTTP, gRPC 等）
+3. 记录覆盖的调用边和调用次数，更新 DFG 实例
+4. 统计覆盖率更新，上报给 Call Info Graph
+5. 更新 DFG，补充缺失的依赖关系，修改错误的依赖关系，同时更新 Reachability Info Map [TODO: 具体实现待定 @xunzhou24]
 
 
 ### 3.8. Call Info Graph
@@ -392,8 +429,8 @@ rsc2 := resourceManager.GetSingleResourceByName("Capitano")
 Edge， a -> b 表示存在数据流从 a 到 b，同时携带了调用次数信息
 | Field            | Type       | Description                         |
 |------------------|------------|-------------------------------------|
-| `source`           | `Operation`  | 表示源 Operation               |
-| `target`           | `Operation`  | 表示目标 Operation             |
+| `source`           | `ServiceEndpoint`  | 表示源 endpoint，归属于某个服务   |
+| `target`           | `ServiceEndpoint`  | 表示目标 endpoint，归属于某个服务 |
 | `hit_count`       | `int`        | 表示调用次数                       |
 
 
@@ -411,6 +448,10 @@ Edge， a -> b 表示存在数据流从 a 到 b，同时携带了调用次数信
 | `system_api`              | 系统对外暴露的 HTTP 接口                                                   |
 | `internal_service_interface` | 内部服务的接口（包括 HTTP, gRPC 等）                                      |
 | `confidence_level`        | 置信度，表示该路径的真实性                                                 |
+
+在具体实现中，`confidence_level` 体现在，我们定义了两个独立的 map，分别存储高置信度和低置信度的可达性关系。
+- 低置信度的可达性关系，表示该路径是通过 DFG 解析出来的
+- 高置信度的可达性关系，表示该路径是通过 trace 分析出来的
 
 ## 3.8. 网络相关
 
@@ -441,6 +482,7 @@ Edge， a -> b 表示存在数据流从 a 到 b，同时携带了调用次数信
 - [x] testcase queue 的优先级的基础实现
 - [x] operation case queues 的设计与实现
 - [x] 基础版本的 mutation 策略
-- [ ] 内部服务接口和系统接口关联的模块：设计与实现
+- [x] 内部服务接口和系统接口关联的模块：设计与实现
+- [x] 利用可达性扩展接口依赖关系，更好地扩展序列
 - [ ] TODO
 
