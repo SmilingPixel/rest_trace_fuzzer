@@ -21,29 +21,46 @@ def load_config(config_path: str) -> List[Dict[str, Any]]:
 
 def to_camel_case(snake_str: str, upper_first: bool = False) -> str:
     """
-    Convert a snake_case string to CamelCase or camelCase.
+    Convert a snake_case string to CamelCase or camelCase, with special handling for certain fixed terms.
+
+    This function transforms a snake_case string into either:
+      - CamelCase (e.g., 'my_variable_name' -> 'MyVariableName')
+      - camelCase (e.g., 'my_variable_name' -> 'myVariableName') if `upper_first` is False.
+
+    Certain well-known terms are treated specially and converted to fixed casing:
+        - Acronyms such as 'url', 'id', 'http', 'https', and 'api' are converted to uppercase ('URL', 'ID', etc.)
+        - Specific terms like 'openapi' are converted to 'OpenAPI'
 
     Args:
-        snake_str (str): The snake_case string.
-        upper_first (bool): Whether to make the first letter uppercase.
+        snake_str (str): The input string in snake_case format.
+        upper_first (bool): If True, the resulting string will start with an uppercase letter (CamelCase).
+                            If False, the first letter will be lowercase (camelCase),
+                            unless it is one of the special fixed terms.
 
     Returns:
-        str: The CamelCase or camelCase string.
+        str: The converted string in CamelCase or camelCase, with special terms preserved in their intended format.
     """
+
+    # Define a set of acronyms and special terms to be treated differently
+    fixed_term_map = {
+        'url': 'URL',
+        'id': 'ID',
+        'http': 'HTTP',
+        'https': 'HTTPS',
+        'api': 'API',
+        'openapi': 'OpenAPI'
+    }
+
     components = snake_str.split('_')
     for i in range(len(components)):
-        if components[i].lower() in ('url', 'id', 'http', 'https'):
-            components[i] = components[i].upper()
-        elif components[i].lower() == 'openapi':
-            components[i] = 'OpenAPI'
+        if components[i].lower() in fixed_term_map:
+            components[i] = fixed_term_map[components[i].lower()]
         else:
             components[i] = components[i].title()
     if not upper_first:
         components[0] = components[0][0].lower() + components[0][1:]
-        if components[0].lower() in ('url', 'id', 'http', 'https'):
-            components[0] = components[0].upper()
-        elif components[0].lower() == 'openapi':
-            components[0] = 'OpenAPI'
+        if components[0].lower() in fixed_term_map:
+            components[0] = fixed_term_map[components[0].lower()]
     return ''.join(components)
 
 def to_upper_snake_case(snake_str: str) -> str:

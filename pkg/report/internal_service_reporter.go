@@ -2,7 +2,9 @@ package report
 
 import (
 	"os"
-	"resttracefuzzer/pkg/feedback"
+	fuzzruntime "resttracefuzzer/pkg/runtime"
+	"resttracefuzzer/pkg/static"
+	"slices"
 
 	"github.com/bytedance/sonic"
 	"github.com/rs/zerolog/log"
@@ -19,21 +21,30 @@ func NewInternalServiceReporter() *InternalServiceReporter {
 
 // GenerateInternalServiceReport generates the internal service report.
 // The report includes the edge coverage.
-func (r *InternalServiceReporter) GenerateInternalServiceReport(runtimeGraph *feedback.RuntimeGraph, outputPath string) error {
+func (r *InternalServiceReporter) GenerateInternalServiceReport(
+	callInfoGraph *fuzzruntime.CallInfoGraph,
+	runtimeReachabilityMap *fuzzruntime.RuntimeReachabilityMap,
+	outputPath string,
+) error {
 	// At present, we only report the edge coverage.
 	coveredEdges := 0
-	for _, edge := range runtimeGraph.Edges {
+	for _, edge := range callInfoGraph.Edges {
 		if edge.HitCount > 0 {
 			coveredEdges++
 		}
 	}
 	// Calculate the coverage of the edges.
-	edgeCoverage := float64(coveredEdges) / float64(len(runtimeGraph.Edges))
+	edgeCoverage := float64(coveredEdges) / float64(len(callInfoGraph.Edges))
+
+	slices.SortFunc(callInfoGraph.Edges, func(a, b *fuzzruntime.CallInfoEdge) int {
+		return static.CompareInternalServiceEndpoint(a.Source, b.Source)
+	})
 
 	// Generate the report and marshal it to JSON.
 	report := InternalServiceTestReport{
-		EdgeCoverage: edgeCoverage,
-		FinalRuntimeGraph: runtimeGraph,
+		EdgeCoverage:       edgeCoverage,
+		RuntimeHighConfidenceReachabilityMap: NewReachabilityMapForReport(runtimeReachabilityMap.HighConfidenceMap),
+		FinalCallInfoGraph: callInfoGraph,
 	}
 	reportJSON, err := sonic.Marshal(report)
 	if err != nil {

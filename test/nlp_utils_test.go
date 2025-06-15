@@ -42,6 +42,9 @@ func TestMatchVariableNames(t *testing.T) {
 		{"petStoreExample", "pet_store_example", true},
 		{"petStore", "petStoreExample", false},
 		{"pet_store", "pet_store_example", false},
+		{"id", "id", false},               // Common field names should not match
+		{"createdAt", "updatedAt", false}, // Common field names should not match
+		{"petId", "pet_id", true},         // Non-common prefix should still match
 	}
 
 	similarityCalculator := utils.NewIdentitySimilarityCalculator()
@@ -55,35 +58,35 @@ func TestMatchVariableNames(t *testing.T) {
 // TestIdentitySimilarityCalculator tests the CalculateSimilarity function of the IdentitySimilarityCalculator.
 // It verifies that the similarity between various pairs of strings is correctly calculated based on identity.
 func TestIdentitySimilarityCalculator(t *testing.T) {
-    calculator := utils.NewIdentitySimilarityCalculator()
+	calculator := utils.NewIdentitySimilarityCalculator()
 
-    tests := []struct {
-        str1     string
-        str2     string
-        expected float64
-    }{
-        {"identical", "identical", 1.0},
-        {"different", "identical", 0.0},
-        {"", "", 1.0},
-        {"", "nonempty", 0.0},
-    }
+	tests := []struct {
+		str1     string
+		str2     string
+		expected float64
+	}{
+		{"identical", "identical", 1.0},
+		{"different", "identical", 0.0},
+		{"", "", 1.0},
+		{"", "nonempty", 0.0},
+	}
 
-    for _, test := range tests {
-        result := calculator.CalculateSimilarity(test.str1, test.str2)
-        assert.Equal(t, test.expected, result)
-    }
+	for _, test := range tests {
+		result := calculator.CalculateSimilarity(test.str1, test.str2)
+		assert.Equal(t, test.expected, result)
+	}
 }
 
 // TestLevenshteinSimilarityCalculator tests the CalculateSimilarity function of the LevenshteinSimilarityCalculator.
 // It verifies that the similarity between various pairs of strings is correctly calculated using the Levenshtein algorithm.
 func TestLevenshteinSimilarityCalculator(t *testing.T) {
-    testCalculateSimilarity(t, utils.NewLevenshteinSimilarityCalculator())
+	testCalculateSimilarity(t, utils.NewLevenshteinSimilarityCalculator())
 }
 
 // TestJaccardSimilarityCalculator tests the CalculateSimilarity function of the JaccardSimilarityCalculator.
 // It verifies that the similarity between various pairs of strings is correctly calculated using the Jaccard similarity algorithm.
 func TestJaccardSimilarityCalculator(t *testing.T) {
-    testCalculateSimilarity(t, utils.NewJaccardSimilarityCalculator())
+	testCalculateSimilarity(t, utils.NewJaccardSimilarityCalculator())
 }
 
 // testCalculateSimilarity tests the CalculateSimilarity function from the utils package.
@@ -133,17 +136,40 @@ func TestConvertToStandardCase(t *testing.T) {
 func TestExtractLastSegment(t *testing.T) {
 	tests := []struct {
 		input      string
-		delimiters string
+		delimiters []string
 		expected   string
 	}{
-		{"/oteldemo.CartService/GetCart", "/.", "GetCart"},
-		{"com.example.ClassName.methodName", ".", "methodName"},
-		{"path/to/file.txt", "/", "file.txt"},
-		{"path-to-file.txt", "-", "file.txt"},
+		{"/oteldemo.CartService/GetCart", []string{"/", "."}, "GetCart"},
+		{"com.example.ClassName.methodName", []string{".", " "}, "methodName"},
+		{"path/to/file.txt", []string{"/"}, "file.txt"},
+		{"path-to-file.txt", []string{"-"}, "file.txt"},
 	}
 
 	for _, test := range tests {
 		result := utils.ExtractLastSegment(test.input, test.delimiters)
+		assert.Equal(t, test.expected, result)
+	}
+}
+
+// TestSplitByDelimiters tests the SplitByDelimiters function from the utils package.
+// It verifies that various input strings are correctly split into segments based on the provided delimiters.
+func TestSplitByDelimiters(t *testing.T) {
+	tests := []struct {
+		input      string
+		delimiters []string
+		expected   []string
+	}{
+		{"/oteldemo.CartService/GetCart", []string{"/", "."}, []string{"", "oteldemo", "CartService", "GetCart"}},
+		{"com.example.ClassName.methodName", []string{".", " "}, []string{"com", "example", "ClassName", "methodName"}},
+		{"path/to/file.txt", []string{"/"}, []string{"path", "to", "file.txt"}},
+		{"path-to-file.txt", []string{"-"}, []string{"path", "to", "file.txt"}},
+		{"a,b;c|d", []string{",", ";", "|"}, []string{"a", "b", "c", "d"}},
+		{"singleword", []string{"/"}, []string{"singleword"}},
+		{"", []string{"/"}, []string{""}},
+	}
+
+	for _, test := range tests {
+		result := utils.SplitByDelimiters(test.input, test.delimiters)
 		assert.Equal(t, test.expected, result)
 	}
 }

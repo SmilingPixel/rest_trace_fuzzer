@@ -1,3 +1,7 @@
+// Package http provides middleware utilities for HTTP clients.
+// This includes interfaces and implementations for intercepting and modifying HTTP requests and responses.
+// The package supports custom middleware logic, such as logging, authentication, and header manipulation,
+// with the ability to execute Starlark scripts for dynamic request handling.
 package http
 
 import (
@@ -5,10 +9,11 @@ import (
 	"io"
 	"os"
 
+	"maps"
+
 	"github.com/rs/zerolog/log"
 	"go.starlark.net/starlark"
 	"go.starlark.net/syntax"
-	"maps"
 )
 
 // HTTPClientMiddleware defines the interface for HTTP client middleware.
@@ -16,9 +21,9 @@ import (
 // It can be used for logging, authentication, modifying headers, etc.
 type HTTPClientMiddleware interface {
 	// HandleRequest processes the HTTP request.
-    // It takes the request path, method, headers, path parameters, query parameters, and body as input.
-    // It returns the modified request path, method, headers, path parameters, query parameters, body, and an error if any.
-    HandleRequest(path, method string, headers map[string]string, pathParams, queryParams map[string]string, body []byte) (resPath, resMethod string, resHeaders map[string]string, resPathParams, resQueryParams map[string]string, resBody []byte, err error)
+	// It takes the request path, method, headers, path parameters, query parameters, and body as input.
+	// It returns the modified request path, method, headers, path parameters, query parameters, body, and an error if any.
+	HandleRequest(path, method string, headers map[string]string, pathParams, queryParams map[string]string, body []byte) (resPath, resMethod string, resHeaders map[string]string, resPathParams, resQueryParams map[string]string, resBody []byte, err error)
 }
 
 // EmptyHTTPClientMiddlewareSlice returns an empty slice of HTTPClientMiddleware.
@@ -27,17 +32,18 @@ func EmptyHTTPClientMiddlewareSlice() []HTTPClientMiddleware {
 	return make([]HTTPClientMiddleware, 0)
 }
 
-
 // HTTPClientScriptMiddleware is a middleware that runs a Starlark script to handle HTTP requests.
 // The script can modify the request and response by returning modified values for headers, path parameters, query parameters, and body.
 // The script should define global variables "headers", "pathParams", "queryParams", and "body" to return the modified values.
 // headers, pathParams, and queryParams should be a Dict, and body should be a string.
 // For example:
-//  # Example Starlark script
-//  headers = {"Authorization": "Bearer new_token"}
-//  pathParams = {"id": "123"}
-//  queryParams = {"search": "new_query"}
-//  body = "[1, 2, 3]"
+//
+//	# Example Starlark script
+//	headers = {"Authorization": "Bearer new_token"}
+//	pathParams = {"id": "123"}
+//	queryParams = {"search": "new_query"}
+//	body = "[1, 2, 3]"
+//
 // It can be used for logging, authentication, modifying headers, etc.
 // For how to write Starlark scripts, see: https://github.com/google/starlark-go/blob/master/doc/spec.md
 type HTTPClientScriptMiddleware struct {
@@ -70,7 +76,7 @@ func NewHTTPClientScriptMiddleware(scriptPath string) *HTTPClientScriptMiddlewar
 
 	return &HTTPClientScriptMiddleware{
 		ScriptPath: scriptPath,
-		Script: script,
+		Script:     script,
 	}
 }
 

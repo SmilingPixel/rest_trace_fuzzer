@@ -1,11 +1,11 @@
 package fuzzer
 
 // FuzzingSnapshot represents a snapshot of the fuzzing process.
-// It includes metrics such as runtime graph edge coverage and the count of covered status codes.
+// It includes metrics such as runtime call info graph edge coverage and the count of covered status codes.
 // TODO: Add more metrics. @xunzhou24
 type FuzzingSnapshot struct {
-	// RuntimeGraphEdgeCoverage is the percentage of edges covered in the runtime graph.
-	RuntimeGraphEdgeCoverage float64 `json:"runtimeGraphEdgeCoverage"`
+	// CallInfoGraphEdgeCoveredCount is the number of edges covered in the runtime call info graph.
+	CallInfoGraphEdgeCoveredCount int `json:"callInfoGraphEdgeCoveredCount"`
 
 	// CoveredStatusCodeCount is the number of unique status codes covered during fuzzing.
 	CoveredStatusCodeCount int `json:"coveredStatusCodeCount"`
@@ -14,18 +14,18 @@ type FuzzingSnapshot struct {
 // NewFuzzingSnapshot creates a new FuzzingSnapshot.
 func NewFuzzingSnapshot() *FuzzingSnapshot {
 	return &FuzzingSnapshot{
-		RuntimeGraphEdgeCoverage: 0.0,
+		CallInfoGraphEdgeCoveredCount: 0,
 		CoveredStatusCodeCount:   0,
 	}
 }
 
 // Update updates the snapshot with the edge coverage and the count of covered status codes.
 // It returns whether the update is successful and a higher coverage is achieved.
-func (s *FuzzingSnapshot) Update(edgeCoverage float64, statusCodeCount int) bool {
+func (s *FuzzingSnapshot) Update(edgeCoveredCount int, statusCodeCount int) bool {
 	ret := false
-	if edgeCoverage > s.RuntimeGraphEdgeCoverage {
+	if edgeCoveredCount > s.CallInfoGraphEdgeCoveredCount {
 		ret = true
-		s.RuntimeGraphEdgeCoverage = edgeCoverage
+		s.CallInfoGraphEdgeCoveredCount = edgeCoveredCount
 	}
 	if statusCodeCount > s.CoveredStatusCodeCount {
 		ret = true

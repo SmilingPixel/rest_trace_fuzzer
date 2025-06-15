@@ -9,12 +9,16 @@ def load_json(file_path):
 def build_graph(data):
     G = nx.DiGraph()
     
-    for edge in data["finalRuntimeGraph"]["edges"]:
+    for edge in data["finalCallInfoGraph"]["edges"]:
         source = edge["source"]["serviceName"]
         target = edge["target"]["serviceName"]
         method = edge["target"]["simpleAPIMethod"]["method"]
         
-        G.add_edge(source, target, label=method)
+        if args.allow_mutiple_edges:
+            G.add_edge(source, target, label=method)
+        else:
+            if not G.has_edge(source, target):
+                G.add_edge(source, target, label=method)
     
     return G
 
@@ -34,6 +38,8 @@ def draw_graph(G, show_label=False):
 def main(file_path, show_label=False):
     data = load_json(file_path)
     G = build_graph(data)
+    print(f"Number of nodes: {G.number_of_nodes()}")
+    print(f"Number of edges: {G.number_of_edges()}")
     draw_graph(G, show_label)
 
 if __name__ == "__main__":
@@ -41,5 +47,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Visualize Service Graph")
     parser.add_argument("--file_path", type=str, help="Path to the JSON file", required=True)
     parser.add_argument("--show_label", action='store_true', help="Display edge labels", required=False)
+    parser.add_argument("--allow_mutiple_edges", action='store_true', help="Allow multiple edges between nodes (edges of different methods between the same node pair are seen as same one)", required=False)
     args = parser.parse_args()
     main(args.file_path, args.show_label)

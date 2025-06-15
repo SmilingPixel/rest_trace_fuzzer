@@ -10,34 +10,37 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// APIDataflowNode represents a node in the dataflow graph of the internal APIs.
-type APIDataflowNode struct {
-	ServiceName     string          `json:"serviceName"`
-	SimpleAPIMethod SimpleAPIMethod `json:"simpleAPIMethod"`
-}
-
 // APIDataflowEdge represents an edge in the dataflow graph of the internal APIs.
 //
 // The edge represents the dataflow between two nodes.
 // The data pass from SourceData to TargetData, both of which are parameters of the API.
 // For example, `placeOrder` of CheckoutService passes `userInfo` to `emptyCart` of CartService.
 type APIDataflowEdge struct {
-	Source         *APIDataflowNode  `json:"source"`
-	Target         *APIDataflowNode  `json:"target"`
-	SourceProperty SimpleAPIProperty `json:"sourceProperty"`
-	TargetProperty SimpleAPIProperty `json:"targetProperty"`
+	Source         InternalServiceEndpoint `json:"source"`
+	Target         InternalServiceEndpoint `json:"target"`
+	SourceProperty SimpleAPIProperty        `json:"sourceProperty"`
+	TargetProperty SimpleAPIProperty        `json:"targetProperty"`
+}
+
+func (e *APIDataflowEdge) GetSource() InternalServiceEndpoint {
+	return e.Source
+}
+
+func (e *APIDataflowEdge) GetTarget() InternalServiceEndpoint {
+	return e.Target
 }
 
 // APIDataflowGraph represents the dataflow graph of the internal APIs.
+// It implements [resttracefuzzer/pkg/utils/AbstractGraph] interface, to support graph related algorithms.
 type APIDataflowGraph struct {
-	Edges []*APIDataflowEdge `json:"edges"`
+	*utils.Graph[InternalServiceEndpoint, *APIDataflowEdge]
 }
 
 // NewAPIDataflowGraph creates a new APIDataflowGraph.
 func NewAPIDataflowGraph() *APIDataflowGraph {
-	edges := make([]*APIDataflowEdge, 0)
+	graph := utils.NewGraph[InternalServiceEndpoint, *APIDataflowEdge]()
 	return &APIDataflowGraph{
-		Edges: edges,
+		Graph: graph,
 	}
 }
 
@@ -93,7 +96,7 @@ func (g *APIDataflowGraph) parseServiceOperationPair(
 		sourceParam := sourceParamRef.Value
 		simpleAPIProperty := SimpleAPIProperty{
 			Name: sourceParam.Name,
-			Typ: OpenAPITypes2SimpleAPIPropertyType(sourceParam.Schema.Value.Type),
+			Typ:  OpenAPITypes2SimpleAPIPropertyType(sourceParam.Schema.Value.Type),
 		}
 		sourceRequestProperties = append(sourceRequestProperties, simpleAPIProperty)
 	}
@@ -103,7 +106,7 @@ func (g *APIDataflowGraph) parseServiceOperationPair(
 		targetParam := targetParamRef.Value
 		simpleAPIProperty := SimpleAPIProperty{
 			Name: targetParam.Name,
-			Typ: OpenAPITypes2SimpleAPIPropertyType(targetParam.Schema.Value.Type),
+			Typ:  OpenAPITypes2SimpleAPIPropertyType(targetParam.Schema.Value.Type),
 		}
 		targetRequestProperties = append(targetRequestProperties, simpleAPIProperty)
 	}
@@ -124,22 +127,47 @@ func (g *APIDataflowGraph) parseServiceOperationPair(
 	}
 
 	// Response body
-	// We only handle response with status code 200
+	// We only handle response with status code 200 (OK), 201 (Created), 202 (Accepted)
+	successStatusCode := []int{consts.StatusOK, consts.StatusCreated, consts.StatusAccepted}
 	if sourceOperation.Responses != nil {
-		sourceResponse, exist := sourceOperation.Responses.Map()[strconv.FormatInt(consts.StatusOK, 10)]
+		var sourceResponse *openapi3.ResponseRef
+		var exist bool
+		for _, statusCode := range successStatusCode {
+			sourceResponse, exist = sourceOperation.Responses.Map()[strconv.FormatInt(int64(statusCode), 10)]
+			if exist {
+				break
+			}
+		}
 		if !exist {
-			log.Warn().Msg("[APIDataflowGraph.parseServiceOperationPair] No response with status code 200 found")
+			log.Warn().Msgf("[APIDataflowGraph.parseServiceOperationPair] No response with status codes 200, 201, or 202 found, operation ID: %s", sourceOperation.OperationID)
 		} else {
-			sourceResponseProperties = extractPropertiesFromSchema(sourceResponse.Value.Content.Get("application/json").Schema)
+			contentMap := sourceResponse.Value.Content
+			if len(contentMap) == 0 {
+				log.Debug().Msgf("[APIDataflowGraph.parseServiceOperationPair] No response content found, operation ID: %s", sourceOperation.OperationID)
+			} else {
+				sourceResponseProperties = extractPropertiesFromSchema(sourceResponse.Value.Content.Get("application/json").Schema)
+			}
 		}
 	}
 
 	if targetOperation.Responses != nil {
-		targetResponse, exist := targetOperation.Responses.Map()[strconv.FormatInt(consts.StatusOK, 10)]
+		var targetResponse *openapi3.ResponseRef
+		var exist bool
+		for _, statusCode := range successStatusCode {
+			targetResponse, exist = targetOperation.Responses.Map()[strconv.FormatInt(int64(statusCode), 10)]
+			if exist {
+				break
+			}
+		}
 		if !exist {
-			log.Warn().Msg("[APIDataflowGraph.parseServiceOperationPair] No response with status code 200 found")
+			log.Warn().Msgf("[APIDataflowGraph.parseServiceOperationPair] No response with success status codes (200, 201, 202) found, operation ID: %s", targetOperation.OperationID)
 		} else {
-			targetResponseProperties = extractPropertiesFromSchema(targetResponse.Value.Content.Get("application/json").Schema)
+			contentMap := targetResponse.Value.Content
+			if len(contentMap) == 0 {
+				log.Warn().Msgf("[APIDataflowGraph.parseServiceOperationPair] No response content found, operation ID: %s", targetOperation.OperationID)
+			} else {
+				targetResponseProperties = extractPropertiesFromSchema(targetResponse.Value.Content.Get("application/json").Schema)
+			}
 		}
 	}
 
@@ -152,18 +180,6 @@ func (g *APIDataflowGraph) parseServiceOperationPair(
 		sourceService, sourceMethod, sourceResponseProperties,
 		targetService, targetMethod, targetResponseProperties,
 	)
-}
-
-// AddEdge adds an edge to the dataflow graph.
-func (g *APIDataflowGraph) AddEdge(source, target *APIDataflowNode, sourceProp, targetProp SimpleAPIProperty) {
-	edge := &APIDataflowEdge{
-		Source:         source,
-		Target:         target,
-		SourceProperty: sourceProp,
-		TargetProperty: targetProp,
-	}
-	log.Trace().Msgf("[APIDataflowGraph.AddEdge] Adding edge: %v -> %v", source, target)
-	g.Edges = append(g.Edges, edge)
 }
 
 // extractPropertiesFromSchema extracts the properties from the schema.
@@ -217,15 +233,22 @@ func (g *APIDataflowGraph) tryMatchPropertiesAndUpdateGraph(
 		for _, targetProp := range targetProperties {
 			// TODO: better algorithm for matching parameters @xunzhou24
 			if utils.MatchVariableNames(sourceProp.Name, targetProp.Name, similarityCalculator, threshold) {
-				sourceNode := &APIDataflowNode{
+				sourceNode := InternalServiceEndpoint{
 					ServiceName:     sourceService,
 					SimpleAPIMethod: sourceMethod,
 				}
-				targetNode := &APIDataflowNode{
+				targetNode := InternalServiceEndpoint{
 					ServiceName:     targetService,
 					SimpleAPIMethod: targetMethod,
 				}
-				g.AddEdge(sourceNode, targetNode, sourceProp, targetProp)
+				edge := &APIDataflowEdge{
+					Source:         sourceNode,
+					Target:         targetNode,
+					SourceProperty: sourceProp,
+					TargetProperty: targetProp,
+				}
+				g.AddEdge(edge)
+				log.Trace().Msgf("[APIDataflowGraph.tryMatchPropertiesAndUpdateGraph] Adding edge: %v -> %v, source property:, %v, target property: %v", sourceNode, targetNode, sourceProp, targetProp)
 				// Only one edge is allowed between the same source and target nodes
 				return
 			}

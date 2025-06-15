@@ -1,10 +1,19 @@
+/**
+ * Package utils provides utility functions for working with OpenAPI specifications.
+ *
+ * This package includes functions for schema manipulation, endpoint path processing,
+ * and type conversions related to OpenAPI 3.0 specifications. It leverages the
+ * "github.com/getkin/kin-openapi/openapi3" library for OpenAPI schema handling.
+ */
 package utils
 
 import (
 	"reflect"
+	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/rs/zerolog/log"
+	"slices"
 )
 
 // flattenSchema flattens a schema to a list of schemas.
@@ -71,4 +80,59 @@ func PrimitiveSchemaType2ReflectKind(schemaType *openapi3.Types) reflect.Kind {
 	default:
 		return 0
 	}
+}
+
+// SplitEndpointPath splits the endpoint path into segments by slash.
+// For example, "/api/v1/user/{id}" will be split into ["api", "v1", "user", "{id}"].
+func SplitEndpointPath(endpoint string) []string {
+	parts := SplitByDelimiters(endpoint, []string{"/"})
+	nonEmptyParts := make([]string, 0)
+	for _, part := range parts {
+		if part != "" {
+			nonEmptyParts = append(nonEmptyParts, part)
+		}
+	}
+	return nonEmptyParts
+}
+
+// IfPathSegmentIsPathParam checks if the path segment is a path parameter.
+// A path parameter is a segment that starts with '{' and ends with '}'.
+// For example, "{id}" is a path parameter, while "user" is not.
+func IfPathSegmentIsPathParam(segment string) bool {
+	if len(segment) < 2 {
+		return false
+	}
+	return segment[0] == '{' && segment[len(segment)-1] == '}'
+}
+
+
+// IsCommonFieldName checks if the given field name is a common field name.
+// Common field names are typically used for metadata or identifiers in schemas.
+// The function converts the input name to lowercase before performing the check
+// to ensure case-insensitive comparison.
+//
+// Common field names include:
+// - "id"
+// - "createdat"
+// - "updatedat"
+// - "deletedat"
+// - "createdby"
+// - "updatedby"
+//
+// Parameters:
+// - name: The field name to check.
+//
+// Returns:
+// - true if the field name is a common field name, false otherwise.
+func IsCommonFieldName(name string) bool {
+	commonFieldNames := []string{
+		"id",
+		"createdat",
+		"updatedat",
+		"deletedat",
+		"createdby",
+		"updatedby",
+	}
+	name = strings.ToLower(name)
+	return slices.Contains(commonFieldNames, name)
 }

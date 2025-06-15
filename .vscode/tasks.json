@@ -1,24 +1,28 @@
 {
     // See https://go.microsoft.com/fwlink/?LinkId=733558
     // for the documentation about the tasks.json format
+    // This file defines tasks for automating common actions in the project.
+    // It uses Makefile commands to build, run, and clean the project.
+    // Tasks can be executed directly from the VS Code interface.
     "version": "2.0.0",
 
-    // Reuse make commands to build, run, and clean the project
     "tasks": [
         {
-            "type": "shell",
-            "label": "Build",
-            "command": "make build",
+            "type": "shell", // Specifies that the task runs a shell command
+            "label": "Build", // Label displayed in the VS Code task list
+            "command": "make build", // Command to build the project
         },
         {
             "type": "shell",
-            "label": "Run",
-            "command": "make run",
+            "label": "Run on config", // Task to run the project with a specific configuration
+            "command": "make run CONFIG_FILE=./config/custom_config.json", // Example usage of the CONFIG_FILE variable
         },
         {
             "type": "shell",
-            "label": "Clean",
-            "command": "make clean",
+            "label": "Clean", // Task to clean the project (both build and output)
+            "command": "make clean", // Command to clean the project
         }
-    ]
+    ],
+
+    "cwd": "${workspaceFolder}" // Sets the working directory for the tasks
 }

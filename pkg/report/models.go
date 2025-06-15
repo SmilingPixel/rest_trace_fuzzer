@@ -1,16 +1,18 @@
 package report
 
 import (
+	"fmt"
 	"resttracefuzzer/pkg/casemanager"
-	"resttracefuzzer/pkg/feedback"
 	"resttracefuzzer/pkg/resource"
+	fuzzruntime "resttracefuzzer/pkg/runtime"
 	"resttracefuzzer/pkg/static"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
 )
 
-type StatusHitCountReport struct {
+type APIMethodStatusHitCountReport struct {
 	APIMethod static.SimpleAPIMethod `json:"APIMethod"`
 	Status    int                    `json:"status"`
 	HitCount  int                    `json:"hitCount"`
@@ -27,53 +29,64 @@ type SystemTestReport struct {
 	// Ignore this field when marshalling to JSON.
 	// This field has same information as statusHitCountReport.
 	// You should set it using SetStatusHitCountReport.
-	StatusHitCount map[static.SimpleAPIMethod]map[int]int `json:"-"`
+	APIMethodStatusHitCount map[static.SimpleAPIMethod]map[int]int `json:"-"`
 
 	// statusHitCountReport is the report of the status hit count.
 	// This field is used when marshalling to JSON.
 	// It is generated from statusHitCount.
 	// You should set statusHitCount using SetStatusHitCountReport.
-	StatusHitCountReport []StatusHitCountReport `json:"statusHitCountReport"`
+	APIMethodStatusHitCountReport []APIMethodStatusHitCountReport `json:"APIMethodStatusHitCountReport"`
 }
 
 // SetStatusHitCountReport sets the status hit count report.
 func (r *SystemTestReport) SetStatusHitCountReport(statusHitCount map[static.SimpleAPIMethod]map[int]int) {
-	r.StatusHitCount = statusHitCount
-	r.StatusHitCountReport = make([]StatusHitCountReport, 0)
+	r.APIMethodStatusHitCount = statusHitCount
+	r.APIMethodStatusHitCountReport = make([]APIMethodStatusHitCountReport, 0)
 	for APIMethod, statusCount := range statusHitCount {
 		for status, hitCount := range statusCount {
-			r.StatusHitCountReport = append(r.StatusHitCountReport, StatusHitCountReport{
+			r.APIMethodStatusHitCountReport = append(r.APIMethodStatusHitCountReport, APIMethodStatusHitCountReport{
 				APIMethod: APIMethod,
 				Status:    status,
 				HitCount:  hitCount,
 			})
 		}
 	}
+	slices.SortFunc(r.APIMethodStatusHitCountReport, func(a, b APIMethodStatusHitCountReport) int {
+		return static.CompareSimpleAPIMethod(a.APIMethod, b.APIMethod)
+	})
 }
 
-// InternalServiceTestReport is the report of the internal service test.
+// InternalServiceTestReport is the report of states of the internal service after fuzzing.
 type InternalServiceTestReport struct {
 
 	// EdgeCoverage is the coverage of the edge.
 	EdgeCoverage float64 `json:"edgeCoverage"`
 
-	// FinalRuntimeGraph is the final runtime graph.
-	FinalRuntimeGraph *feedback.RuntimeGraph `json:"finalRuntimeGraph"`
+	// FinalCallInfoGraph is the final runtime call info graph.
+	FinalCallInfoGraph *fuzzruntime.CallInfoGraph `json:"finalCallInfoGraph"`
+
+	// RuntimeHighConfidenceReachabilityMap is the runtime reachability map.
+	// By default, it only includes high confidence reachability map.
+	RuntimeHighConfidenceReachabilityMap *ReachabilityMapForReport `json:"runtimeHighConfidenceReachabilityMap"`
 }
 
 // FuzzerStateReport is the report of the fuzzer state.
 type FuzzerStateReport struct {
 
-	// ResourcePool is the resource pool.
-	ResourceNameMap map[string][]resource.Resource `json:"resourceNameMap"`
+	// ResourceNameMap is the map of resource name to resource.
+	// It is not jsonified, as we would call its custom method to jsonified it.
+	// ResourceNameMapJsonObject is the jsonified (for resources) version of ResourceNameMap, and would be set when ResourceNameMap is set.
+	ResourceNameMap map[string][]resource.Resource `json:"-"`
 
+	// ResourceJSONObjectNameMap is the jsonified version of ResourceNameMap.
+	ResourceJSONObjectNameMap map[string][]interface{} `json:"resourceNameMap"`
 }
 
 // OperationCaseForReport stores info of an operation tested during fuzzing.
 // Simplified version of [resttracefuzzer/pkg/casemanager.OperationCase]
 type OperationCaseForReport struct {
 	// APIMethod is the API method.
-	APIMethod          static.SimpleAPIMethod `json:"APIMethod"`
+	APIMethod static.SimpleAPIMethod `json:"APIMethod"`
 
 	// RequestHeaders contains the headers to be sent with the request.
 	RequestHeaders map[string]string `json:"requestHeaders"`
@@ -114,7 +127,7 @@ type TestScenarioForReport struct {
 	// OperationCaseLength is the length of the operation cases.
 	// It is used to improve the readability of the report.
 	OperationCaseLength int `json:"operationCaseLength"`
-	
+
 	// EndTime is the end time of the test scenario.
 	EndTime time.Time `json:"endTime"`
 
@@ -129,24 +142,49 @@ func NewReportFromTestScenario(testScenario *casemanager.TestScenario) *TestScen
 		operationCases = append(operationCases, NewReportFromOperationCase(operationCase))
 	}
 	return &TestScenarioForReport{
-		OperationCases: operationCases,
+		OperationCases:      operationCases,
 		OperationCaseLength: len(operationCases),
-		EndTime:          time.Now(),
-		TestScenarioUUID: testScenario.UUID,
+		EndTime:             time.Now(),
+		TestScenarioUUID:    testScenario.UUID,
 	}
 }
 
-
 // TestLogReport is the report of the test log.
-// It contains the history of testing.
+// It contains the history of testing, and other information as well.
 // To reduce size of the report, it uses a simplified version of the tested scenario.
 type TestLogReport struct {
+	// TestedScenarios is the list of tested scenarios.
 	TestedScenarios []*TestScenarioForReport `json:"testedScenarios"`
+
+	// TestedScenariosLengthCount records the number of tested scenarios of each length.
+	// It maps from length of the tested scenarios to the number of tested scenarios.
+	TestedScenariosLengthCount map[int]int `json:"testedScenariosLengthCount"`
 }
 
 // NewTestLogReport creates a new TestLogReport.
 func NewTestLogReport() *TestLogReport {
 	return &TestLogReport{
 		TestedScenarios: make([]*TestScenarioForReport, 0),
+		TestedScenariosLengthCount: make(map[int]int),
 	}
+}
+
+// ReachabilityMapForReport is the report of the reachability map.
+// It contains the reachability information of the system.
+// It is a simplified version of [resttracefuzzer/pkg/static.ReachabilityMap].
+type ReachabilityMapForReport struct {
+	// M maps from external API to internal APIs.
+	// external API is string representation of [resttracefuzzer/pkg/static.SimpleAPIMethod], as json key.
+	M map[string][]static.InternalServiceEndpoint `json:"m"`
+}
+
+// NewReachabilityMapForReport creates a new ReachabilityMapForReport from a ReachabilityMap.
+func NewReachabilityMapForReport(reachabilityMap *static.ReachabilityMap) *ReachabilityMapForReport {
+	reachabilityMapForReport := &ReachabilityMapForReport{
+		M: make(map[string][]static.InternalServiceEndpoint),
+	}
+	for external, internals := range reachabilityMap.External2Internal {
+		reachabilityMapForReport.M[fmt.Sprintf("%v", external)] = internals
+	}
+	return reachabilityMapForReport
 }
