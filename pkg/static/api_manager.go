@@ -1,6 +1,10 @@
 package static
 
 import (
+	"maps"
+	"resttracefuzzer/internal/config"
+	"resttracefuzzer/pkg/utils"
+	"slices"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -20,13 +24,25 @@ type APIManager struct {
 	InternalServiceAPIDoc *openapi3.T
 
 	// The map from the service name to the map from the method to the OpenAPI operation.
-	InternalServiceAPIMap map[string]map[SimpleAPIMethod]*openapi3.Operation
+	// It include all internal APIs as well as those of frontend.
+	ServiceAPIMap map[string]map[SimpleAPIMethod]*openapi3.Operation
 
-	// The dependency graph of the API.
+	// The dependency graph of system API.
+	// It only contains the external APIs, but internal service APIs may be used to enhance the graph (you can set it by config `use-internal-service-api-dependency`).
 	APIDependencyGraph *APIDependencyGraph
+
+	// The dependency graph of the internal APIs.
+	// It is a map from the service name to the dependency graph of the service.
+	// Service names are formatted using [resttracefuzzer/pkg/utils.FormatServiceName].
+	InternalServiceAPIDependencyGraphMap map[string]*APIDependencyGraph
 
 	// The Dataflow graph of the internal APIs.
 	APIDataflowGraph *APIDataflowGraph
+
+	// Reachability information of external APIs and internal service interfaces.
+	// This map is initialized from API doc, and would not be updated in the process of fuzzing.
+	// We will keep updating the dynamic (runtime) version in runtime package
+	StaticReachabilityMap *ReachabilityMap
 }
 
 // NewAPIManager creates a new APIManager.
@@ -34,58 +50,201 @@ func NewAPIManager() *APIManager {
 	return &APIManager{}
 }
 
+// InitFromDocs initializes the API manager from docs, including that of external APIs and of internal service interfaces.
+// It do some initilization work that needs both docs as well, such as reachability map.
+func (m *APIManager) InitFromDocs(externalDoc, internalDoc *openapi3.T) {
+	m.initFromSystemDoc(externalDoc)
+	m.initFromServiceDoc(internalDoc)
+
+	// add frontend APIs' info to ServiceAPIMap
+	// We hardcode `frontend` as the frontend 'service'
+	// TODO: make frontend 'service' name configurable @xunzhou24
+	frontendServiceName := "frontend"
+	frontendServiceAPIMap := make(map[SimpleAPIMethod]*openapi3.Operation)
+	maps.Copy(frontendServiceAPIMap, m.APIMap)
+	m.ServiceAPIMap[frontendServiceName] = frontendServiceAPIMap
+
+	// Generate the dataflow graph of the service APIs.
+	m.APIDataflowGraph = NewAPIDataflowGraph()
+	m.APIDataflowGraph.ParseFromServiceDocument(m.ServiceAPIMap)
+
+	// Compute reachability map from the API doc.
+	// we only check reachability from external APIs to internal APIs
+	nodes := m.APIDataflowGraph.GetAllNodes()
+	externalEndpointNodeSet := make(map[InternalServiceEndpoint]struct{})
+	for _, node := range nodes {
+		if node.ServiceName == frontendServiceName {
+			externalEndpointNodeSet[node] = struct{}{}
+		}
+	}
+	m.StaticReachabilityMap = NewReachabilityMap()
+	for node := range externalEndpointNodeSet {
+		distanceFromNode := m.APIDataflowGraph.GetDistanceMapBySource(node) // get a distance map of all nodes that are reachable from the node
+		for targetNode := range distanceFromNode {
+			if targetNode.ServiceName != frontendServiceName {
+				log.Debug().Msgf("[APIManager.InitFromDocs] Adding reachability from %s to %s", node.ID(), targetNode.ID())
+				m.StaticReachabilityMap.AddReachability(node.SimpleAPIMethod, targetNode)
+			}
+		}
+	}
+}
+
 // InitFromDoc initializes the API manager from an OpenAPI document.
 // The document is of interfaces of the whole system.
-func (m *APIManager) InitFromSystemDoc(doc *openapi3.T) {
+func (m *APIManager) initFromSystemDoc(doc *openapi3.T) {
 	m.APIDoc = doc
 	m.APIMap = make(map[SimpleAPIMethod]*openapi3.Operation)
 	for path, pathItem := range doc.Paths.Map() {
 		for method, operation := range pathItem.Operations() {
 			// By default, the type of the API is HTTP.
-			m.APIMap[SimpleAPIMethod{Method: method, Endpoint: path, Typ: SimpleAPIMethodTypeHTTP}] = operation
+			simpleAPIMethod := SimpleAPIMethod{
+				Method:   method,
+				Endpoint: path,
+				Typ:      SimpleAPIMethodTypeHTTP,
+			}
+			m.APIMap[simpleAPIMethod] = operation
 		}
 	}
 }
 
-// InitFromServiceDocs initializes the API manager from the OpenAPI document of the services.
-func (m *APIManager) InitFromServiceDoc(doc *openapi3.T) {
+// initFromServiceDocs initializes the API manager from the OpenAPI document of the internal services.
+func (m *APIManager) initFromServiceDoc(doc *openapi3.T) {
 	m.InternalServiceAPIDoc = doc
-	m.InternalServiceAPIMap = make(map[string]map[SimpleAPIMethod]*openapi3.Operation)
-	// TODO: Implement dependency graph and dataflow graph initialization @xunzhou24
-	for _, pathItem := range doc.Paths.Map() {
-		for _, operation := range pathItem.Operations() {
+	m.ServiceAPIMap = make(map[string]map[SimpleAPIMethod]*openapi3.Operation)
+	for httpPath, pathItem := range doc.Paths.Map() {
+		for httpMethod, operation := range pathItem.Operations() {
 			// In OpenAPI generated by protoc-gen-openapi, operationID is in the format of `{Service}_{Method}`.
 			// We can use this format to extract the service name and method name.
 			operationID := operation.OperationID
 			// Split the operationID by `_`.
 			operationIDParts := strings.Split(operationID, "_")
 			if len(operationIDParts) != 2 {
-				log.Warn().Msgf("[APIManager.InitFromServiceDoc] Invalid operationID: %s", operationID)
+				log.Warn().Msgf("[APIManager.initFromServiceDoc] Invalid operationID: %s", operationID)
 				continue
 			}
 			serviceName := operationIDParts[0]
-			methodName := operationIDParts[1]
-			// TODO: we treat all the methods as gRPC methods for now. @xunzhou24
-			simpleMethod := SimpleAPIMethod{Method: methodName, Typ: SimpleAPIMethodTypeGRPC}
-			if _, exists := m.InternalServiceAPIMap[serviceName]; !exists {
-				m.InternalServiceAPIMap[serviceName] = make(map[SimpleAPIMethod]*openapi3.Operation)
+			methodName := operationIDParts[1] // used only when the operation is a gRPC one, as HTTP method is available in map key
+
+			// We require the user to tag API types in the OpenAPI doc.
+			// The tag should be in the format of `APIType_{APIType}`.
+			// We can use this format to extract the API type.
+			// If the tag is not present, we assume the API type is gRPC by default.
+			var simpleMethod SimpleAPIMethod
+			for _, tag := range operation.Tags {
+				if strings.HasPrefix(tag, "APIType_") {
+					apiType := strings.TrimPrefix(tag, "APIType_")
+					if apiType == "" {
+						log.Warn().Msgf("[APIManager.initFromServiceDoc] Invalid API type: %s", tag)
+						continue
+					}
+					// We only support HTTP and gRPC APIs.
+					if apiType == "HTTP" {
+						simpleMethod = SimpleAPIMethod{
+							Endpoint: httpPath,
+							Method:   httpMethod,
+							Typ:      SimpleAPIMethodTypeHTTP,
+						}
+					} else if apiType == "gRPC" {
+						simpleMethod = SimpleAPIMethod{
+							Endpoint: methodName,
+							Method:   methodName,
+							Typ:      SimpleAPIMethodTypeGRPC,
+						}
+					} else {
+						log.Warn().Msgf("[APIManager.initFromServiceDoc] Unsupported API type: %s", apiType)
+						continue
+					}
+					break
+				}
 			}
-			m.InternalServiceAPIMap[serviceName][simpleMethod] = operation
+
+			if _, exists := m.ServiceAPIMap[serviceName]; !exists {
+				m.ServiceAPIMap[serviceName] = make(map[SimpleAPIMethod]*openapi3.Operation)
+			}
+			m.ServiceAPIMap[serviceName][simpleMethod] = operation
 		}
 	}
+}
 
-	// Generate the dataflow graph of the internal APIs.
-	m.APIDataflowGraph = NewAPIDataflowGraph()
-	m.APIDataflowGraph.ParseFromServiceDocument(m.InternalServiceAPIMap)
+// InitDependencyGraph initializes the dependency graph of the API manager.
+// It accepts the graph of the external API dependency and the internal API dependency (a map from service to corresponding dependency graph).
+// If config `use-internal-service-api-dependency` is set to true, the internal API dependency will be used to enhance the fuzzing.
+// Otherwise, `internalAPIDependencyGraph` will be ignored (you can pass any value in such case).
+func (m *APIManager) InitDependencyGraph(externalAPIDependencyGraph *APIDependencyGraph, internalAPIDependencyGraphMap map[string]*APIDependencyGraph) {
+	// Just copy the external API dependency graph to the API manager.
+	m.APIDependencyGraph = externalAPIDependencyGraph
+
+	// If the config `use-internal-service-api-dependency` is set to true, we will use the internal API dependency graph to enhance the fuzzing.
+	if config.GlobalConfig.UseInternalServiceAPIDependency {
+		if len(internalAPIDependencyGraphMap) == 0 {
+			log.Warn().Msg("[APIManager.InitDependencyGraph] internalAPIDependencyGraphMap is empty, it would be ignored")
+			return
+		}
+		// To handle different service name formats (formats in trace may not be the same as those in OpenAPI doc),
+		// we need to format the service name in the dependency graph.
+		m.InternalServiceAPIDependencyGraphMap = make(map[string]*APIDependencyGraph)
+		for serviceName, dependencyGraph := range internalAPIDependencyGraphMap {
+			formattedServiceName := utils.FormatServiceName(serviceName)
+			m.InternalServiceAPIDependencyGraphMap[formattedServiceName] = dependencyGraph
+		}
+	}
+}
+
+// GetOperationByMethod returns the OpenAPI operation of the given API method.
+func (m *APIManager) GetOperationByMethod(method SimpleAPIMethod) (*openapi3.Operation, bool) {
+	if operation, ok := m.APIMap[method]; ok {
+		return operation, true
+	}
+	return nil, false
 }
 
 // GetRandomAPIMethod returns a random API method from the API manager.
-func (m *APIManager) GetRandomAPIMethod() (SimpleAPIMethod, *openapi3.Operation) {
+func (m *APIManager) GetRandomAPIMethod() SimpleAPIMethod {
 	// Golang map iteration order is random.
 	// See [official doc](https://go.dev/blog/maps#iteration-order).
-	for method, operation := range m.APIMap {
-		return method, operation
+	for method := range m.APIMap {
+		return method
 	}
-	log.Warn().Msg("[APIManager.GetRandomAPIMethod] No API method found")
-	return SimpleAPIMethod{}, nil
+	log.Warn().Msg("[APIManager.GetRandomAPIMethod] APIMap is empty, return empty method")
+	return SimpleAPIMethod{}
+}
+
+// GetConsumerAPIMethodsByProducersForSystem returns the consumer API methods of the given producer API methods.
+// Producers and consumers are all external / system APIs. Please refer to `GetConsumerAPIMethodsByProducersForInternalService` for the internal APIs.
+// You should set the `APIDependencyGraph` field of the API manager before calling this function.
+func (m *APIManager) GetConsumerAPIMethodsByProducersForSystem(producers []SimpleAPIMethod) []SimpleAPIMethod {
+	var res []SimpleAPIMethod
+	for _, producer := range producers {
+		if consumers, ok := m.APIDependencyGraph.Graph[producer]; ok {
+			res = append(res, consumers...)
+		}
+	}
+	// sort and remove duplicates
+	slices.SortFunc(res, func(a, b SimpleAPIMethod) int {
+		return CompareSimpleAPIMethod(a, b)
+	})
+	res = slices.Compact(res)
+	return res
+}
+
+// GetConsumerAPIMethodsByProducersForInternalService returns the consumer API methods of the given producer API methods.
+// Producers and consumers are all internal / service APIs. Please refer to `GetConsumerAPIMethodsByProducersForSystem` for the system APIs.
+// You should set the `InternalServiceAPIDependencyGraphMap` field of the API manager before calling this function.
+func (m *APIManager) GetConsumerAPIMethodsByProducersForInternalService(serviceName string, producers []SimpleAPIMethod) []SimpleAPIMethod {
+	var res []SimpleAPIMethod
+	if dependencyGraph, ok := m.InternalServiceAPIDependencyGraphMap[serviceName]; ok {
+		for _, producer := range producers {
+			if consumers, ok := dependencyGraph.Graph[producer]; ok {
+				res = append(res, consumers...)
+			}
+		}
+	} else {
+		log.Warn().Msgf("[APIManager.GetConsumerAPIMethodsByProducersForInternalService] Service %s not found", serviceName)
+	}
+	// sort and remove duplicates
+	slices.SortFunc(res, func(a, b SimpleAPIMethod) int {
+		return CompareSimpleAPIMethod(a, b)
+	})
+	res = slices.Compact(res)
+	return res
 }

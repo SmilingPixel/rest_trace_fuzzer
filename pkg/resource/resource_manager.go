@@ -36,8 +36,8 @@ func NewResourceManager() *ResourceManager {
 	resourceNameMap := make(map[string][]Resource)
 	resourceHashSet := make(map[string]map[uint64]struct{})
 	return &ResourceManager{
-		ResourceTypeMap: resourceTypeMap,
-		ResourceNameMap: resourceNameMap,
+		ResourceTypeMap:      resourceTypeMap,
+		ResourceNameMap:      resourceNameMap,
 		ResourceName2HashSet: resourceHashSet,
 	}
 }
@@ -89,12 +89,9 @@ func (m *ResourceManager) GetSingleResourceByName(resourceName string) Resource 
 	// For example, if the resource name is userName, we can get the resource by "name".
 	resourceNameParts := utils.SplitIntoWords(resourceName)
 	resources = m.ResourceNameMap[resourceNameParts[len(resourceNameParts)-1]]
-	if len(resources) > 0 {
-		return resources[rand.IntN(len(resources))]
-	}
 
 	if len(resources) == 0 {
-		log.Warn().Msgf("[ResourceManager.GetRandomResourceByName] No resource of name %s", resourceName)
+		log.Warn().Msgf("[ResourceManager.GetSingleResourceByName] No resource found for name %s. Returning a random resource if available.", resourceName)
 		return nil
 	}
 
@@ -157,7 +154,7 @@ func (m *ResourceManager) LoadFromExternalDictFile(filePath string) error {
 		resourceValue := dictValue.Value
 		resource, err := NewResourceFromValue(resourceValue)
 		if err != nil {
-			log.Warn().Msgf("[ResourceManager.LoadFromExternalDictFile] Failed to create resource: %s, err: %v", resourceName, err)
+			log.Err(err).Msgf("[ResourceManager.LoadFromExternalDictFile] Failed to create resource: %s, err: %v", resourceName, err)
 			continue
 		}
 		m.storeResource(resource, resourceName, false) // For resources loaded from external dictionary, we do not store sub-resources.
@@ -258,7 +255,7 @@ func (m *ResourceManager) storeResource(resource Resource, resourceName string, 
 		}
 	case static.SimpleAPIPropertyTypeArray:
 		// Heuristic rules to get the name of the array elements.
-		arrayElementName := utils.GetArrayElementNameHeuristic(resourceName)
+		arrayElementName := utils.GetSingularFormNameHeuristic(resourceName)
 		for _, subResource := range resource.(*ResourceArray).Value {
 			m.storeResource(subResource, arrayElementName, shouldStoreSubResources)
 		}
@@ -267,7 +264,7 @@ func (m *ResourceManager) storeResource(resource Resource, resourceName string, 
 	}
 }
 
-//isResourceEmpty checks if the resource is empty.
+// isResourceEmpty checks if the resource is empty.
 func isResourceEmpty(resource Resource) bool {
 	if resource == nil {
 		return true
@@ -279,6 +276,8 @@ func isResourceEmpty(resource Resource) bool {
 		return len(resource.(*ResourceObject).Value) == 0
 	case static.SimpleAPIPropertyTypeArray:
 		return len(resource.(*ResourceArray).Value) == 0
+	case static.SimpleAPIPropertyTypeEmpty:
+		return true
 	default:
 		return false
 	}

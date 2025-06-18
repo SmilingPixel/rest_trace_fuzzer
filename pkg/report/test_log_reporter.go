@@ -25,6 +25,7 @@ func NewTestLogReporter() *TestLogReporter {
 // To reduce the size of the report, it removes some info (such as response body) from origin tested operation, and uses a simplified version of the tested scenario in the report.
 func (r *TestLogReporter) LogTestScenario(testScenario *casemanager.TestScenario) {
 	r.TestLogReport.TestedScenarios = append(r.TestLogReport.TestedScenarios, NewReportFromTestScenario(testScenario))
+	r.TestLogReport.TestedScenariosLengthCount[len(testScenario.OperationCases)]++
 }
 
 // GenerateTestLogReport generates the test log report.

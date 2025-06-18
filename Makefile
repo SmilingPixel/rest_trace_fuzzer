@@ -17,7 +17,10 @@ build:
 # Run the project
 .PHONY: run
 run:
-	bash scripts/run.sh "$(BUILD_DIR)/$(BINARY)"
+	bash scripts/run.sh "$(BUILD_DIR)/$(BINARY)" "$(CONFIG_FILE)"
+
+# Example usage:
+# make run CONFIG_FILE=./config/custom_config.json
 
 # Clean the program output
 .PHONY: clean-output

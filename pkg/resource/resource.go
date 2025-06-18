@@ -47,6 +47,44 @@ type Resource interface {
 	Copy() Resource
 }
 
+// type ResourceEmpty represents an empty resource.
+type ResourceEmpty struct {
+}
+
+func NewResourceEmpty() *ResourceEmpty {
+	return &ResourceEmpty{}
+}
+
+func (r *ResourceEmpty) String() string {
+	return "{}"
+}
+
+func (r *ResourceEmpty) ToJSONObject() any {
+	return nil
+}
+
+// Type of ResourceEmpty is unknown.
+func (r *ResourceEmpty) Typ() static.SimpleAPIPropertyType {
+	return static.SimpleAPIPropertyTypeUnknown
+}
+
+func (r *ResourceEmpty) Hashcode() uint64 {
+	return 0
+}
+
+func (r *ResourceEmpty) GetRawValue() any {
+	return nil
+}
+
+func (r *ResourceEmpty) SetByRawValue(value any) {
+	// We assume the value is map[string]interface{} type.
+	// Do nothing, as the resource is empty.
+}
+
+func (r *ResourceEmpty) Copy() Resource {
+	return &ResourceEmpty{}
+}
+
 // ResourceInteger represents a integer resource.
 type ResourceInteger struct {
 	Value int64
@@ -374,6 +412,10 @@ func (r *ResourceArray) Copy() Resource {
 // NewResourceFromValue creates a new resource.
 // For non-primitive types, it recursively creates sub-resources.
 func NewResourceFromValue(value any) (Resource, error) {
+	if value == nil {
+		return NewResourceEmpty(), nil
+	}
+	
 	propertyType := static.DeterminePropertyType(value)
 	switch propertyType {
 	case static.SimpleAPIPropertyTypeString:

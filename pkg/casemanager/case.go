@@ -15,16 +15,22 @@ import (
 )
 
 const (
-	// When increasing or decreasing the energy of a test scenario by a random value (normal distribution),
+	// When increasing or decreasing the energy of a test scenario or operation case by a random value (normal distribution),
 	// the mean and standard deviation of the normal distribution.
-	EnergyIncrMean   = 5
-	EnergyIncrStdDev = 2
-	EnergyDecrMean   = 3
-	EnergyDecrStdDev = 1
+	ScenarioEnergyIncrMean   = 5
+	ScenarioEnergyIncrStdDev = 2
+	ScenarioEnergyDecrMean   = 3
+	ScenarioEnergyDecrStdDev = 1
+	OperationCaseEnergyIncrMean   = 5
+	OperationCaseEnergyIncrStdDev = 2
+	OperationCaseEnergyDecrMean   = 3
+	OperationCaseEnergyDecrStdDev = 1
 
-	// Maximal and minimal values for the energy of a test scenario.
-	MaxEnergy = 20
-	MinEnergy = 0
+	// Maximal and minimal values for the energy of a test scenario or operation case.
+	MaxScenarioEnergy = 20
+	MinScenarioEnergy = 0
+	MaxOperationCaseEnergy = 20
+	MinOperationCaseEnergy = 0
 )
 
 // An OperationCase includes 3 parts:
@@ -77,6 +83,18 @@ type OperationCase struct {
 	// It is used to generate or mutate the request body.
 	// The field would not be json encoded.
 	RequestBodyResource resource.Resource `json:"-"`
+
+	// Energy is the energy of the operation case.
+	// It is used to prioritize the operation cases.
+	// The higher the energy, the higher the priority.
+	Energy int `json:"energy"`
+
+	// ExecutedCount is the number of times the test operation case is executed.
+	// TODO: How to handle when copy the operation case? @xunzhou24
+	ExecutedCount int `json:"executedCount"`
+
+	// UUID is the unique identifier of the test operation case.
+	UUID uuid.UUID `json:"uuid"`
 }
 
 // A TestScenario is a sequence of [resttracefuzzer/pkg/casemanager/OperationCase].
@@ -119,19 +137,19 @@ func (ts *TestScenario) IsExecutedSuccessfully() bool {
 		return false
 	}
 	lastOperationCase := ts.OperationCases[len(ts.OperationCases)-1]
-	return lastOperationCase.ResponseStatusCode == 200
+	return http.IsStatusCodeSuccess(lastOperationCase.ResponseStatusCode)
 }
 
 // IncreaseEnergyByRandom increases the energy of the test scenario by a random value (normal distribution).
 func (ts *TestScenario) IncreaseEnergyByRandom() {
-	added := max(0, int(utils.NormInt64(EnergyIncrMean, EnergyIncrStdDev)))
-	ts.Energy = min(ts.Energy+added, MaxEnergy)
+	added := max(0, int(utils.NormInt64(ScenarioEnergyIncrMean, ScenarioEnergyIncrStdDev)))
+	ts.Energy = min(ts.Energy+added, MaxScenarioEnergy)
 }
 
 // DecreaseEnergyByRandom decreases the energy of the test scenario by a random value (normal distribution).
 func (ts *TestScenario) DecreaseEnergyByRandom() {
-	subtracted := max(0, int(utils.NormInt64(EnergyDecrMean, EnergyDecrStdDev)))
-	ts.Energy = max(ts.Energy-subtracted, MinEnergy)
+	subtracted := max(0, int(utils.NormInt64(ScenarioEnergyDecrMean, ScenarioEnergyDecrStdDev)))
+	ts.Energy = max(ts.Energy-subtracted, MinScenarioEnergy)
 }
 
 // Copy creates a deep copy of the test scenario.
@@ -149,10 +167,13 @@ func (ts *TestScenario) Copy() *TestScenario {
 }
 
 // Reset resets the test scenario.
-// It resets the executed count and energy to 0, and gives the test scenario a new UUID.
+// It resets the executed count and energy (of both scenario itself and its cases) to 0, and gives the test scenario a new UUID.
 func (ts *TestScenario) Reset() {
 	ts.ExecutedCount = 0
 	ts.Energy = 0
+	for _, operationCase := range ts.OperationCases {
+		operationCase.Reset()
+	}
 	newUUID, err := uuid.NewRandom()
 	if err != nil {
 		log.Err(err).Msg("[TestScenario.Reset] Failed to generate UUID")
@@ -160,14 +181,26 @@ func (ts *TestScenario) Reset() {
 	ts.UUID = newUUID
 }
 
+// AppendOperationCase appends an operation case to the test scenario.
+func (ts *TestScenario) AppendOperationCase(operationCase *OperationCase) {
+	ts.OperationCases = append(ts.OperationCases, operationCase)
+}
+
 // NewOperationCase creates a new OperationCase.
 func NewOperationCase(
 	apiMethod static.SimpleAPIMethod,
 	operation *openapi3.Operation,
 ) *OperationCase {
+	newUUID, err := uuid.NewRandom()
+	if err != nil {
+		log.Err(err).Msg("[NewOperationCase] Failed to generate UUID")
+	}
 	return &OperationCase{
 		APIMethod: apiMethod,
 		Operation: operation,
+		Energy:    0,
+		ExecutedCount: 0,
+		UUID: newUUID,
 	}
 }
 
@@ -224,7 +257,23 @@ func (oc *OperationCase) Copy() *OperationCase {
 		RequestPathParamResources:  requestPathParamResources,
 		RequestQueryParamResources: requestQueryParamResources,
 		RequestBodyResource:        requestBodyResources,
+
+		Energy:                   oc.Energy,
+		ExecutedCount:            oc.ExecutedCount,
+		UUID:                     oc.UUID,
 	}
+}
+
+// Reset resets the test operation case.
+// It resets the executed count and energy to 0, and gives the test operation case a new UUID.
+func (oc *OperationCase) Reset() {
+	oc.ExecutedCount = 0
+	oc.Energy = 0
+	newUUID, err := uuid.NewRandom()
+	if err != nil {
+		log.Err(err).Msg("[OperationCase.Reset] Failed to generate UUID")
+	}
+	oc.UUID = newUUID
 }
 
 // SetRequestPathParamsByResources sets the request path parameters by the given resources.
@@ -290,7 +339,14 @@ func (oc *OperationCase) SetRequestBodyByResource(resource resource.Resource) {
 	oc.RequestBody = []byte(jsonStr)
 }
 
-// AppendOperationCase appends an operation case to the test scenario.
-func (ts *TestScenario) AppendOperationCase(operationCase *OperationCase) {
-	ts.OperationCases = append(ts.OperationCases, operationCase)
+// IncreaseEnergyByRandom increases the energy of the test operation case by a random value (normal distribution).
+func (oc *OperationCase) IncreaseEnergyByRandom() {
+	added := max(0, int(utils.NormInt64(OperationCaseEnergyIncrMean, OperationCaseEnergyIncrStdDev)))
+	oc.Energy = min(oc.Energy+added, MaxOperationCaseEnergy)
+}
+
+// DecreaseEnergyByRandom decreases the energy of the test operation case by a random value (normal distribution).
+func (oc *OperationCase) DecreaseEnergyByRandom() {
+	subtracted := max(0, int(utils.NormInt64(OperationCaseEnergyDecrMean, OperationCaseEnergyDecrStdDev)))
+	oc.Energy = max(oc.Energy-subtracted, MinOperationCaseEnergy)
 }

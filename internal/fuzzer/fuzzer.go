@@ -1,12 +1,12 @@
 package fuzzer
 
-import "resttracefuzzer/pkg/feedback"
+import fuzzruntime "resttracefuzzer/pkg/runtime"
 
 // Fuzzer is the interface that defines the basic methods of a fuzzer.
 type Fuzzer interface {
 	// Start starts the fuzzer.
 	Start() error
 
-	// GetRuntimeGraph gets the runtime graph.
-	GetRuntimeGraph() *feedback.RuntimeGraph
+	// GetCallInfoGraph gets the runtime call info graph.
+	GetCallInfoGraph() *fuzzruntime.CallInfoGraph
 }

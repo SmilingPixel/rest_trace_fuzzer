@@ -11,6 +11,7 @@ import (
 	"resttracefuzzer/pkg/parser"
 	"resttracefuzzer/pkg/report"
 	"resttracefuzzer/pkg/resource"
+	fuzzruntime "resttracefuzzer/pkg/runtime"
 	"resttracefuzzer/pkg/static"
 	"resttracefuzzer/pkg/strategy"
 	"time"
@@ -81,18 +82,21 @@ func main() {
 		}
 		log.Info().Msgf("[main] Log to file is enabled, I will write logs to %s", logFilePath)
 		log.Logger = log.Output(fileWriter)
+
+		// log config again to file
+		configStr, _ := sonic.MarshalString(config.GlobalConfig)
+		log.Info().Msgf("[main] Fuzzer config: %s", configStr)
 	}
 
 	APIManager := static.NewAPIManager()
 
-	// read OpenAPI spec and parse it
+	// read system OpenAPI spec and parse it
 	APIParser := parser.NewOpenAPIParser()
-	doc, err := APIParser.ParseSystemDocFromPath(config.GlobalConfig.OpenAPISpecPath)
+	systemDoc, err := APIParser.ParseSystemDocFromPath(config.GlobalConfig.OpenAPISpecPath)
 	if err != nil {
-		log.Err(err).Msgf("[main] Failed to parse OpenAPI spec")
+		log.Err(err).Msgf("[main] Failed to parse system OpenAPI spec")
 		return
 	}
-	APIManager.InitFromSystemDoc(doc)
 
 	// Parse doc of internal services
 	serviceDoc, err := APIParser.ParseServiceDocFromPath(config.GlobalConfig.InternalServiceOpenAPIPath)
@@ -100,7 +104,33 @@ func main() {
 		log.Err(err).Msgf("[main] Failed to parse internal service OpenAPI spec")
 		return
 	}
-	APIManager.InitFromServiceDoc(serviceDoc)
+
+	// Initialize the API manager using parsed docs
+	APIManager.InitFromDocs(systemDoc, serviceDoc)
+
+	// Read API dependency files
+	// You can generate the dependency files by running tools we support (e.g., Restler)
+	if config.GlobalConfig.DependencyFileType != "" {
+		dependencyFileParser, err := parser.NewAPIDependencyParserByType(config.GlobalConfig.DependencyFileType)
+		if err != nil {
+			log.Err(err).Msgf("[main] Failed to create dependency file parser, type: %s", config.GlobalConfig.DependencyFileType)
+			return
+		}
+		dependencyGraph, err := dependencyFileParser.ParseFromFile(config.GlobalConfig.DependencyFilePath)
+		if err != nil {
+			log.Err(err).Msgf("[main] Failed to parse dependency file, path: %s", config.GlobalConfig.DependencyFilePath)
+			return
+		}
+		var internalServiceAPIDependencyGraphMap map[string]*static.APIDependencyGraph
+		if config.GlobalConfig.InternalServiceAPIDependencyFilePath != "" {
+			internalServiceAPIDependencyGraphMap, err = dependencyFileParser.ParseFromServiceMapFile(config.GlobalConfig.InternalServiceAPIDependencyFilePath)
+			if err != nil {
+				log.Err(err).Msgf("[main] Failed to parse internal service API dependency map file, path: %s", config.GlobalConfig.InternalServiceAPIDependencyFilePath)
+				return
+			}
+		}
+		APIManager.InitDependencyGraph(dependencyGraph, internalServiceAPIDependencyGraphMap)
+	}
 
 	// Parse extra headers
 	extraHeaders := make(map[string]string)
@@ -124,29 +154,16 @@ func main() {
 	}
 	fuzzStrategist := strategy.NewFuzzStrategist(resourceManager)
 	resourceMutateStrategist := strategy.NewResourceMutateStrategy()
-	caseManager := casemanager.NewCaseManager(APIManager, resourceManager, fuzzStrategist, resourceMutateStrategist, extraHeaders)
 	responseProcesser := feedback.NewResponseProcesser(APIManager, resourceManager)
-	runTimeGraph := feedback.NewRuntimeGraph(APIManager.APIDataflowGraph)
-
-	// Read API dependency files
-	// You can generate the dependency files by running Restler
-	// We only parse Restler's output for now
-	// TODO: parse other dependency files @xunzhou24
-	var dependencyFileParser parser.APIDependencyParser
-	if config.GlobalConfig.DependencyFileType != "" {
-		if config.GlobalConfig.DependencyFileType == "Restler" {
-			dependencyFileParser = parser.NewAPIDependencyRestlerParser()
-		} else {
-			log.Err(err).Msgf("[main] Unsupported dependency file type: %s", config.GlobalConfig.DependencyFileType)
-			return
-		}
-		dependecyGraph, err := dependencyFileParser.ParseFromPath(config.GlobalConfig.DependencyFilePath)
-		if err != nil {
-			log.Err(err).Msgf("Failed to parse dependency file")
-			return
-		}
-		APIManager.APIDependencyGraph = dependecyGraph
+	traceDBs := make([]trace.TraceDB, 0) // traceDBs is a list of trace databases, used to store traces
+	if config.GlobalConfig.SaveRawTrace {
+		saveDir := fmt.Sprintf("%s/raw_trace_%s", config.GlobalConfig.OutputDir, t.Format(outputFileTimeFormat))
+		traceDBs = append(traceDBs, trace.NewRawTraceFileSaver(saveDir))
 	}
+	traceManager := trace.NewTraceManager(traceDBs)
+	callInfoGraph := fuzzruntime.NewCallInfoGraph(APIManager.APIDataflowGraph)
+	reachabilityMap := fuzzruntime.NewRuntimeReachabilityMapFromStaticMap(APIManager.StaticReachabilityMap)
+	caseManager := casemanager.NewCaseManager(APIManager, resourceManager, fuzzStrategist, resourceMutateStrategist, reachabilityMap, extraHeaders)
 
 	// testLogReporter logs the tested operations
 	testLogReporter := report.NewTestLogReporter()
@@ -158,8 +175,9 @@ func main() {
 			APIManager,
 			caseManager,
 			responseProcesser,
-			trace.NewTraceManager(),
-			runTimeGraph,
+			traceManager,
+			callInfoGraph,
+			reachabilityMap,
 			testLogReporter,
 		)
 	} else {
@@ -191,7 +209,11 @@ func main() {
 	}
 	internalServiceReporter := report.NewInternalServiceReporter()
 	internalServiceReportPath := fmt.Sprintf("%s/internal_service_report_%s.json", config.GlobalConfig.OutputDir, t.Format(outputFileTimeFormat))
-	err = internalServiceReporter.GenerateInternalServiceReport(mainFuzzer.GetRuntimeGraph(), internalServiceReportPath)
+	err = internalServiceReporter.GenerateInternalServiceReport(
+		mainFuzzer.GetCallInfoGraph(),
+		reachabilityMap,
+		internalServiceReportPath,
+	)
 	if err != nil {
 		log.Err(err).Msgf("[main] Failed to generate internal service report")
 		return

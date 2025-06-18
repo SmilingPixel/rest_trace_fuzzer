@@ -2,29 +2,35 @@ package casemanager
 
 import (
 	"fmt"
+	"math/rand/v2"
+	"resttracefuzzer/internal/config"
 	"resttracefuzzer/pkg/resource"
+	fuzzruntime "resttracefuzzer/pkg/runtime"
 	"resttracefuzzer/pkg/static"
 	"resttracefuzzer/pkg/strategy"
 	"sort"
 
 	"maps"
 
+	"slices"
+
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/rs/zerolog/log"
-)
-
-const (
-	// MaxAllowedExecutedCount is the default maximum executed times of a test scenario.
-	MaxAllowedExecutedCount = 3
-
-	// MaxAllowedScenarios is the default maximum number of test scenarios in the queue.
-	MaxAllowedScenarios = 114
 )
 
 // CaseManager manages the test cases.
 type CaseManager struct {
 	// TestScenarios is a list of test scenarios.
+	// In each loop of testing, a test scenario will be popped from the queue and executed.
+	// The test scenario is a combination of one or multiple operations.
 	TestScenarios []*TestScenario
+
+	// TestOperationCaseQueueMap is a map of test operation case queue.
+	// The key is the API method, and the value is a list of test operation cases.
+	// Only cases that have already been executed will be put into its queue.
+	// So each operation case should have a non-empty request parameters, and energy as well.
+	// It is used to get a new operation case to execute when extending a test scenario.
+	TestOperationCaseQueueMap map[static.SimpleAPIMethod][]*OperationCase
 
 	// The API manager.
 	APIManager *static.APIManager
@@ -38,6 +44,9 @@ type CaseManager struct {
 	// The mutation strategist.
 	ResourceMutateStrategy *strategy.ResourceMutateStrategy
 
+	// The runtime reachability map. It is used to track the reachability of system components at runtime, and enhance the producer-consumer relationship.
+	RuntimeReachabilityMap *fuzzruntime.RuntimeReachabilityMap
+
 	// GlobalExtraHeaders is the global extra headers, which will be added to each request.
 	// It is a map of header name to header value.
 	// It can be used for simple cases, e.g., adding an authorization header.
@@ -49,17 +58,21 @@ func NewCaseManager(
 	APIManager *static.APIManager,
 	resourceManager *resource.ResourceManager,
 	fuzzStrategist *strategy.FuzzStrategist,
-	ResourceMutateStrategy *strategy.ResourceMutateStrategy,
+	resourceMutateStrategy *strategy.ResourceMutateStrategy,
+	runtimeReachabilityMap *fuzzruntime.RuntimeReachabilityMap,
 	globalExtraHeaders map[string]string,
 ) *CaseManager {
 	testScenarios := make([]*TestScenario, 0)
+	testOperationCaseQueueMap := make(map[static.SimpleAPIMethod][]*OperationCase)
 	m := &CaseManager{
-		APIManager:             APIManager,
-		ResourceManager:        resourceManager,
-		FuzzStrategist:         fuzzStrategist,
-		ResourceMutateStrategy: ResourceMutateStrategy,
-		TestScenarios:          testScenarios,
-		GlobalExtraHeaders:     globalExtraHeaders,
+		APIManager:                APIManager,
+		ResourceManager:           resourceManager,
+		FuzzStrategist:            fuzzStrategist,
+		ResourceMutateStrategy:    resourceMutateStrategy,
+		RuntimeReachabilityMap:    runtimeReachabilityMap,
+		TestScenarios:             testScenarios,
+		GlobalExtraHeaders:        globalExtraHeaders,
+		TestOperationCaseQueueMap: testOperationCaseQueueMap,
 	}
 	m.initTestcasesFromDoc()
 	return m
@@ -67,8 +80,7 @@ func NewCaseManager(
 
 // Pop pops a test scenario of highest priority from the queue.
 func (m *CaseManager) Pop() (*TestScenario, error) {
-	// TODO: Implement this method with different strategies. @xunzhou24
-	// We select the first test scenario for now.
+	// Select the first test scenario, as we have implemented the priority mechanism in the pushAndSort method.
 	if len(m.TestScenarios) == 0 {
 		log.Error().Msg("[CaseManager.Pop] No test scenario available")
 		return nil, fmt.Errorf("no test scenario available")
@@ -111,7 +123,7 @@ func (m *CaseManager) PopAndPopulate() (*TestScenario, error) {
 		if requestBodySchema != nil {
 			requestBodyResrc, err := m.generateRequestBodyResourceFromSchema(requestBodySchema)
 			if err != nil {
-				log.Err(err).Msg("[CaseManager.PopAndFillRequest] Failed to generate request body resource")
+				log.Err(err).Msgf("[CaseManager.PopAndFillRequest] Failed to generate request body resource, scenario UUID: %s", testScenario.UUID.String())
 				return nil, err
 			}
 			operationCase.SetRequestBodyByResource(requestBodyResrc)
@@ -120,7 +132,7 @@ func (m *CaseManager) PopAndPopulate() (*TestScenario, error) {
 	return testScenario, nil
 }
 
-// pushAndSort pushes a test scenario to the case manager and sorts the test scenarios by energy.
+// pushAndSort pushes a test scenario to the case manager and sorts the test scenarios by energy (if energy function is enabled in config).
 // It also culls the test scenarios if there are too many.
 func (m *CaseManager) pushAndSort(testcase *TestScenario) {
 	m.push(testcase)
@@ -133,14 +145,64 @@ func (m *CaseManager) push(testcase *TestScenario) {
 }
 
 // sortAndCullByEnergy sorts the test scenarios by energy and culls the test scenarios if there are too many.
+// If energy function is not enabled in config, it only culls the test scenarios.
 func (m *CaseManager) sortAndCullByEnergy() {
-	sort.Slice(m.TestScenarios, func(i, j int) bool {
-		return m.TestScenarios[i].Energy > m.TestScenarios[j].Energy
-	})
-
-	if len(m.TestScenarios) > MaxAllowedScenarios {
-		m.TestScenarios = m.TestScenarios[:MaxAllowedScenarios]
+	if config.GlobalConfig.EnableEnergyScenario {
+		sort.Slice(m.TestScenarios, func(i, j int) bool {
+			return m.TestScenarios[i].Energy > m.TestScenarios[j].Energy
+		})
 	}
+
+	if len(m.TestScenarios) > config.GlobalConfig.MaxAllowedScenarios {
+		m.TestScenarios = m.TestScenarios[:config.GlobalConfig.MaxAllowedScenarios]
+	}
+}
+
+// pushAndSortOperationCase pushes a test operation case to the case manager and sorts the test operation cases by energy (if energy function is enabled in config).
+// It also culls the test operation cases if there are too many.
+func (m *CaseManager) pushAndSortOperationCase(operationCase *OperationCase) {
+	m.pushOperationCase(operationCase)
+	m.sortAndCullOperationCaseByEnergy()
+}
+
+// pushOperationCase adds a test operation case to the case manager.
+func (m *CaseManager) pushOperationCase(testcase *OperationCase) {
+	// Get the API method of the operation case.
+	apiMethod := testcase.APIMethod
+	// Get the queue of the API method.
+	operationCaseQueue, exist := m.TestOperationCaseQueueMap[apiMethod]
+	if !exist {
+		operationCaseQueue = make([]*OperationCase, 0)
+	}
+	// Add the operation case to the queue.
+	// Check if the operation case is already in the queue before adding it.
+	for _, operationCase := range operationCaseQueue {
+		if operationCase.UUID == testcase.UUID {
+			return
+		}
+	}
+	operationCaseQueue = append(operationCaseQueue, testcase)
+	// Update the queue in the map.
+	m.TestOperationCaseQueueMap[apiMethod] = operationCaseQueue
+}
+
+// sortAndCullOperationCaseByEnergy sorts the test operation cases by energy and culls the test operation cases if there are too many.
+func (m *CaseManager) sortAndCullOperationCaseByEnergy() {
+	for apiMethod, operationCaseQueue := range m.TestOperationCaseQueueMap {
+		if config.GlobalConfig.EnableEnergyScenario {
+			sort.Slice(operationCaseQueue, func(i, j int) bool {
+				return operationCaseQueue[i].Energy > operationCaseQueue[j].Energy
+			})
+		}
+		if len(operationCaseQueue) > config.GlobalConfig.MaxAllowedOperationCases {
+			m.TestOperationCaseQueueMap[apiMethod] = operationCaseQueue[:config.GlobalConfig.MaxAllowedOperationCases]
+		}
+	}
+}
+
+// GetScenarioSize returns the size of the test scenarios.
+func (m *CaseManager) GetScenarioSize() int {
+	return len(m.TestScenarios)
 }
 
 // EvaluateScenarioAndTryUpdate evaluates the given metrics for the given test scenario that has been executed,
@@ -156,24 +218,40 @@ func (m *CaseManager) EvaluateScenarioAndTryUpdate(hasAchieveNewCoverage bool, e
 	}
 
 	// If it has achieved new coverage or has not been executed for enough times,
-	// mutate it and put it back to the queue.
-	if hasAchieveNewCoverage || executedScenario.ExecutedCount < MaxAllowedExecutedCount {
-		mutatedScenario, err := m.mutateScenario(executedScenario)
-		if err != nil {
-			log.Err(err).Msg("[CaseManager.evaluateScenarioAndTryUpdate] Failed to mutate scenario")
-			return err
-		}
-		m.pushAndSort(mutatedScenario)
+	// put it back to the queue.
+	if hasAchieveNewCoverage || executedScenario.ExecutedCount < config.GlobalConfig.MaxAllowedScenarioExecutedCount {
+		newScenario := executedScenario.Copy()
+		m.pushAndSort(newScenario)
 	}
 
 	// Extend the scenario to generate a new one
-	newScenario, err := m.extendScenarioIfExecSuccess(executedScenario)
+	extendedScenario, err := m.extendScenarioIfExecSuccess(executedScenario)
 	if err != nil {
 		log.Err(err).Msg("[CaseManager.evaluateScenarioAndTryUpdate] Failed to process scenario")
-		return err
+		// return err
+	} else if extendedScenario != nil {
+		m.pushAndSort(extendedScenario)
 	}
-	if newScenario != nil {
-		m.pushAndSort(newScenario)
+
+	return nil
+}
+
+// EvaluateOperationCaseAndTryUpdate evaluates the given metrics for the given test operation case that has been executed,
+// determines whether to put the operation to the queue.
+// It returns an error if any.
+func (m *CaseManager) EvaluateOperationCaseAndTryUpdate(hasAchieveNewCoverage bool, executedOperationCase *OperationCase) error {
+	// Update the executed count and energy
+	executedOperationCase.ExecutedCount++
+	if hasAchieveNewCoverage {
+		executedOperationCase.IncreaseEnergyByRandom()
+	} else {
+		executedOperationCase.DecreaseEnergyByRandom()
+	}
+
+	// If it has achieved new coverage or has not been executed for enough times,
+	// put it to the queue.
+	if hasAchieveNewCoverage || executedOperationCase.ExecutedCount < config.GlobalConfig.MaxAllowedOperationCaseExecutedCount {
+		m.pushAndSortOperationCase(executedOperationCase)
 	}
 
 	return nil
@@ -183,7 +261,13 @@ func (m *CaseManager) EvaluateScenarioAndTryUpdate(hasAchieveNewCoverage bool, e
 func (m *CaseManager) extendScenarioIfExecSuccess(existingScenario *TestScenario) (*TestScenario, error) {
 	// This might involve modifying request parameters, headers, body, etc.
 	if !existingScenario.IsExecutedSuccessfully() {
-		log.Warn().Msg("[CaseManager.extendScenarioIfExecSuccess] The existing scenario is not executed successfully")
+		log.Warn().Msg("[CaseManager.extendScenarioIfExecSuccess] The existing scenario is not executed successfully (Last operation's response code is not 2xx)")
+		return nil, nil
+	}
+
+	// Check if the existing scenario has reached the maximum number of operations.
+	if len(existingScenario.OperationCases) >= config.GlobalConfig.MaxOpsPerScenario {
+		log.Debug().Msgf("[CaseManager.extendScenarioIfExecSuccess] The existing scenario (UUID: %s) has reached the maximum number of operations", existingScenario.UUID.String())
 		return nil, nil
 	}
 
@@ -192,20 +276,191 @@ func (m *CaseManager) extendScenarioIfExecSuccess(existingScenario *TestScenario
 	newScenario.Reset()
 	// The new one will inherit the energy from the existing one.
 	newScenario.Energy = existingScenario.Energy / 2
-	// We append a random operation to the scenario for now.
-	// TODO: append an operation based on API dependency @xunzhou24
-	newAPIMethod, newOperation := m.APIManager.GetRandomAPIMethod()
-	newOperationCase := OperationCase{
-		Operation: newOperation,
-		APIMethod: newAPIMethod,
+
+	// Append a new operation.
+	// When generating a new operation case, we will try to get a operation from operation case queue (which is sorted by energy in advance).
+	candidateAPIMethods, err := m.resolveCandidateAPIMethods(newScenario)
+	if err != nil {
+		log.Err(err).Msg("[CaseManager.extendScenarioIfExecSuccess] Failed to resolve candidate API methods")
+		return nil, err
 	}
-	newScenario.OperationCases = append(newScenario.OperationCases, &newOperationCase)
+	if len(candidateAPIMethods) == 0 {
+		log.Warn().Msg("[CaseManager.extendScenarioIfExecSuccess] No candidates available for extending the scenario")
+		return nil, nil
+	}
+
+	// Generate operation cases and select one from the candidates.
+	candidateOperationCases := make([]*OperationCase, 0)
+	for _, apiMethod := range candidateAPIMethods {
+		var operationCase *OperationCase
+		// First try to get the operation case from the queue.
+		operationCaseQueue, exist := m.TestOperationCaseQueueMap[apiMethod]
+		if exist && len(operationCaseQueue) > 0 {
+			// Get the first operation case (whose energy is the highest) from the queue.
+			// As it is picked from the queue only as a candidate, we do not remove it from the queue right now.
+			operationCase = operationCaseQueue[0]
+		} else {
+			// If the queue is empty, we need to create a new operation case.
+			operation, exist := m.APIManager.GetOperationByMethod(apiMethod)
+			if !exist {
+				log.Warn().Msgf("[CaseManager.extendScenarioIfExecSuccess] The API method %v does not exist in the API manager", apiMethod)
+				continue
+			}
+			operationCase = NewOperationCase(apiMethod, operation)
+		}
+		// Add the operation case to the candidate operation cases.
+		candidateOperationCases = append(candidateOperationCases, operationCase)
+	}
+
+	if len(candidateOperationCases) == 0 {
+		log.Warn().Msgf("[CaseManager.extendScenarioIfExecSuccess] No candidates available for extending the scenario (UUID: %s)", existingScenario.UUID.String())
+		return nil, nil
+	}
+	// Select the operation case with the highest energy from the candidate operation cases
+	// if energy function is enabled in config.
+	// Otherwise, we will randomly select one.
+	var newOperationCase *OperationCase
+	if config.GlobalConfig.EnableEnergyOperation {
+		sort.Slice(candidateOperationCases, func(i, j int) bool {
+			return candidateOperationCases[i].Energy > candidateOperationCases[j].Energy
+		})
+		newOperationCase = candidateOperationCases[0]
+	} else {
+		newOperationCase = candidateOperationCases[rand.IntN(len(candidateOperationCases))]
+	}
+
+	// If the operation is selected from the queue, we need to remove it from the queue (We can check it by checking its UUID).
+	// In addition, considering that the operations in queue have all been executed before, we should do some mutation.
+	selectedAPIMethod := newOperationCase.APIMethod
+	operationCaseQueue, exist := m.TestOperationCaseQueueMap[selectedAPIMethod]
+	if exist {
+		for i, operationCase := range operationCaseQueue {
+			if operationCase.UUID == newOperationCase.UUID {
+				// Remove the operation case from the queue.
+				// TestOperationCaseQueueMap must be updated immediately
+				// after the operation case is removed from the queue.
+				// Otherwise, if an error occurs in the mutation, the deletion may lost,
+				// leading to data inconsistency or even memory leak!
+				operationCaseQueue = slices.Delete(operationCaseQueue, i, i+1)
+				m.TestOperationCaseQueueMap[selectedAPIMethod] = operationCaseQueue
+
+				// **Note**: break as soon as we find the operation case
+				// so deleting while iterating the slice is safe.
+				// If you want to continue to iterate, please use a copy of the slice.
+				break
+			}
+		}
+	}
+
+	newScenario.OperationCases = append(newScenario.OperationCases, newOperationCase)
 	return newScenario, nil
 }
 
-// Init initializes the case queue.
+// resolveCandidateAPIMethods resolves the candidate API methods based on the test scenario.
+// We will try to get candidate API methods based on producer-consumer relationship.
+// The producer-consumer relationship includes two parts:
+//  1. producer-consumer relationship in system APIs
+//  2. producer-consumer relationship deduced from internal service APIs. For example, if system API A calls internal service API X1, system API B calls internal service API X2,
+//     and internal service API X1 has a producer-consumer relationship with X2, then we can guess that system API A and B may have a producer-consumer relationship.
+//
+// If there is no consumer, we will randomly select an API method.
+func (m *CaseManager) resolveCandidateAPIMethods(testScenario *TestScenario) ([]static.SimpleAPIMethod, error) {
+	// Our final candidate API methods.
+	candidateAPIMethods := make([]static.SimpleAPIMethod, 0)
+
+	// ------ Part 1: use external API dependency ------
+	// system-level producer-consumer relationship
+	producers := make([]static.SimpleAPIMethod, 0)
+	for _, operationCase := range testScenario.OperationCases {
+		producers = append(producers, operationCase.APIMethod)
+	}
+	consumers := m.APIManager.GetConsumerAPIMethodsByProducersForSystem(producers)
+	candidateAPIMethods = append(candidateAPIMethods, consumers...)
+
+	// ------ Part 2: enhance by internal service API dependency ------
+	// internal-service-level producer-consumer relationship
+	// 1. For each operation case in the existing scenario, get the internal service APIs it called.
+	// 2. For each internal service API (treat it as producer) we have in step 1, find its corresponding consumer (internal service) APIs.
+	// 3. For each internal service consumer API, find system APIs that call it.
+	// 4. Collect all system APIs in step 3, and add them to the candidate API methods.
+	internalServiceEndpoints := make([]static.InternalServiceEndpoint, 0)
+	for _, operationCase := range testScenario.OperationCases {
+		// Get the internal service APIs it called.
+		// Use high confidence map only (i.e., the map that is updated from traces), as the operation case is executed successfully, and there should exist corresponding traces.
+		currServiceInternalServiceEndpoints, err := m.RuntimeReachabilityMap.GetReachableInternalEndpointsByExternalAPI(operationCase.APIMethod, true)
+		if err != nil {
+			log.Err(err).Msgf("[CaseManager.resolveCandidateAPIMethods] Failed to get reachable internal endpoints by external API %v", operationCase.APIMethod)
+			return nil, err
+		}
+		internalServiceEndpoints = append(internalServiceEndpoints, currServiceInternalServiceEndpoints...)
+	}
+	// sort and remove duplicates
+	slices.SortFunc(internalServiceEndpoints, func(a, b static.InternalServiceEndpoint) int {
+		return static.CompareInternalServiceEndpoint(a, b)
+	})
+	internalServiceEndpoints = slices.Compact(internalServiceEndpoints)
+
+	// Get the internal service consumers for each internal service endpoint.
+	internalServiceConsumers := make([]static.InternalServiceEndpoint, 0)
+	if config.GlobalConfig.UseInternalServiceAPIDependency {
+		for _, internalServiceEndpoint := range internalServiceEndpoints {
+			currEndpointConsumers := m.APIManager.GetConsumerAPIMethodsByProducersForInternalService(
+				internalServiceEndpoint.ServiceName,
+				[]static.SimpleAPIMethod{internalServiceEndpoint.SimpleAPIMethod},
+			)
+			// consumer is SimpleAPIMethod, so we need to supplement the service name
+			for _, currEndpointConsumer := range currEndpointConsumers {
+				internalServiceConsumers = append(internalServiceConsumers, static.InternalServiceEndpoint{
+					ServiceName:     internalServiceEndpoint.ServiceName,
+					SimpleAPIMethod: currEndpointConsumer,
+				})
+			}
+		}
+	}
+
+	// Find which system APIs call the internal service consumers, and collect them.
+	systemConsumers := make([]static.SimpleAPIMethod, 0)
+	internalServiceConsumersSet := make(map[static.InternalServiceEndpoint]struct{})
+	for _, internalServiceConsumer := range internalServiceConsumers {
+		internalServiceConsumersSet[internalServiceConsumer] = struct{}{}
+	}
+	// Iterate all system APIs, resolve their internal service endpoints, and check if they are in the internal service consumers.
+	// Deduplication is not needed here, as we iterate the API map in the order of the system APIs.
+	for systemAPIMethod := range m.APIManager.APIMap {
+		// We allow using low-confidence map here, as the system API might not have been executed yet.
+		reachableInternalServiceEndpoints, err := m.RuntimeReachabilityMap.GetReachableInternalEndpointsByExternalAPI(systemAPIMethod, true)
+		if err != nil {
+			log.Err(err).Msgf("[CaseManager.resolveCandidateAPIMethods] Failed to get reachable internal endpoints by external API %v", systemAPIMethod)
+			return nil, err
+		}
+		for _, reachableInternalServiceEndpoint := range reachableInternalServiceEndpoints {
+			if _, exist := internalServiceConsumersSet[reachableInternalServiceEndpoint]; exist {
+				systemConsumers = append(systemConsumers, systemAPIMethod)
+				break
+			}
+		}
+	}
+
+	// aggregate the system consumers
+	candidateAPIMethods = append(candidateAPIMethods, systemConsumers...)
+
+	// ------ Part 3: Post-process ------
+	// If there are no candidates until now, we can randomly select an API method.
+	if len(candidateAPIMethods) == 0 {
+		log.Info().Msg("[CaseManager.resolveCandidateAPIMethods] No candidates available, randomly select an API method")
+		candidateAPIMethods = append(candidateAPIMethods, m.APIManager.GetRandomAPIMethod())
+	}
+
+	// Deduplicate the candidate API methods by unique sort.
+	slices.SortFunc(candidateAPIMethods, func(a, b static.SimpleAPIMethod) int {
+		return static.CompareSimpleAPIMethod(a, b)
+	})
+	candidateAPIMethods = slices.Compact(candidateAPIMethods)
+	return candidateAPIMethods, nil
+}
+
+// initTestcasesFromDoc initializes the test cases from the OpenAPI document.
 func (m *CaseManager) initTestcasesFromDoc() error {
-	// TODO: Implement this method. @xunzhou24
 	// At the beginning, each testcase is a simple request to each API.
 	for method, operation := range m.APIManager.APIMap {
 		operationCase := NewOperationCase(method, operation)
@@ -217,53 +472,68 @@ func (m *CaseManager) initTestcasesFromDoc() error {
 
 // mutateScenario mutates the given test scenario and returns it.
 // Mutation would not reset the scenario, i.e., the executed count and energy will be inherited from the existing one. (This is different from extending)
+// Deprecated: this function is not used anymore, mutation in value generation strategy is used instead.
 func (m *CaseManager) mutateScenario(scenario *TestScenario) (*TestScenario, error) {
 	// copy the given scenario
 	newScenario := scenario.Copy()
-	// The new one will inherit the energy from the existing one.
-	newScenario.Energy = scenario.Energy / 2
 
 	// For each operation in the scenario, we mutate the request params, headers, and body.
-	for _, operationCase := range newScenario.OperationCases {
-		requestPathParamResrc := operationCase.RequestPathParamResources
-		requestQueryParamResrc := operationCase.RequestQueryParamResources
-		requestBodyResrc := operationCase.RequestBodyResource
-		// mutate the request path params
-		for key, resrc := range requestPathParamResrc {
-			mutatedResrc, err := m.ResourceMutateStrategy.MutateResource(resrc)
-			if err != nil {
-				log.Err(err).Msgf("[CaseManager.mutateScenario] Failed to mutate request path param %v", key)
-				return nil, err
-			}
-			requestPathParamResrc[key] = mutatedResrc
+	for i, operationCase := range newScenario.OperationCases {
+		mutatedOperationCase, err := m.mutateOperationCase(operationCase)
+		if err != nil {
+			log.Err(err).Msgf("[CaseManager.mutateScenario] Failed to mutate operation case %v", operationCase.APIMethod)
+			return nil, err
 		}
-		// mutate the request query params
-		for key, resrc := range requestQueryParamResrc {
-			mutatedResrc, err := m.ResourceMutateStrategy.MutateResource(resrc)
-			if err != nil {
-				log.Err(err).Msgf("[CaseManager.mutateScenario] Failed to mutate request query param %v", key)
-				return nil, err
-			}
-			requestQueryParamResrc[key] = mutatedResrc
-		}
-		// mutate the request body
-		if requestBodyResrc != nil {
-			mutatedResrc, err := m.ResourceMutateStrategy.MutateResource(requestBodyResrc)
-			if err != nil {
-				log.Err(err).Msgf("[CaseManager.mutateScenario] Failed to mutate request body")
-				return nil, err
-			}
-			requestBodyResrc = mutatedResrc
-		}
-		// set the mutated resources back to the operation case
-		// use `Set...ByResource` to set the actual request params at the same time
-		operationCase.SetRequestPathParamsByResources(requestPathParamResrc)
-		operationCase.SetRequestQueryParamsByResources(requestQueryParamResrc)
-		operationCase.SetRequestBodyByResource(requestBodyResrc)
+		newScenario.OperationCases[i] = mutatedOperationCase
 	}
 	return newScenario, nil
 }
 
+// mutateOperationCase mutates the given test operation case and returns it.
+// Mutation would not reset the operation case, i.e., the executed count and energy will be inherited from the existing one.
+// Deprecated: this function is not used anymore, mutation in value generation strategy is used instead.
+func (m *CaseManager) mutateOperationCase(operationCase *OperationCase) (*OperationCase, error) {
+	// copy the given operation case
+	newOperationCase := operationCase.Copy()
+
+	requestPathParamResrc := newOperationCase.RequestPathParamResources
+	requestQueryParamResrc := newOperationCase.RequestQueryParamResources
+	requestBodyResrc := newOperationCase.RequestBodyResource
+	// mutate the request path params
+	for key, resrc := range requestPathParamResrc {
+		mutatedResrc, err := m.ResourceMutateStrategy.MutateResource(resrc)
+		if err != nil {
+			log.Err(err).Msgf("[CaseManager.mutateOperationCase] Failed to mutate request path param %s, resource: %s", key, resrc.String())
+			return nil, err
+		}
+		requestPathParamResrc[key] = mutatedResrc
+	}
+	// mutate the request query params
+	for key, resrc := range requestQueryParamResrc {
+		mutatedResrc, err := m.ResourceMutateStrategy.MutateResource(resrc)
+		if err != nil {
+			log.Err(err).Msgf("[CaseManager.mutateOperationCase] Failed to mutate request query param %s, resource: %s", key, resrc.String())
+			return nil, err
+		}
+		requestQueryParamResrc[key] = mutatedResrc
+	}
+	// mutate the request body
+	if requestBodyResrc != nil {
+		mutatedResrc, err := m.ResourceMutateStrategy.MutateResource(requestBodyResrc)
+		if err != nil {
+			log.Err(err).Msgf("[CaseManager.mutateOperationCase] Failed to mutate request body, resource: %s", requestBodyResrc.String())
+			return nil, err
+		}
+		requestBodyResrc = mutatedResrc
+	}
+	// set the mutated resources back to the operation case
+	// use `Set...ByResource` to set the actual request params at the same time
+	newOperationCase.SetRequestPathParamsByResources(requestPathParamResrc)
+	newOperationCase.SetRequestQueryParamsByResources(requestQueryParamResrc)
+	newOperationCase.SetRequestBodyByResource(requestBodyResrc)
+
+	return newOperationCase, nil
+}
 
 // generateRequestBodyResourceFromSchema generates a request body resource from a schema.
 // It returns a json object as a resource and error if any.
