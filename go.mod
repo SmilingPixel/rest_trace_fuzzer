@@ -3,12 +3,12 @@ module resttracefuzzer
 go 1.23.4
 
 require (
-	github.com/bytedance/sonic v1.13.3
+	github.com/bytedance/sonic v1.14.0
 	github.com/cloudwego/hertz v0.10.1
 	github.com/getkin/kin-openapi v0.132.0
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
-	github.com/openai/openai-go v1.11.0
+	github.com/openai/openai-go v1.12.0
 	github.com/rs/zerolog v1.34.0
 	github.com/stretchr/testify v1.10.0
 	go.starlark.net v0.0.0-20250225190231-0d3f41d403af
@@ -16,7 +16,7 @@ require (
 
 require (
 	github.com/bytedance/gopkg v0.1.1 // indirect
-	github.com/bytedance/sonic/loader v0.2.4 // indirect
+	github.com/bytedance/sonic/loader v0.3.0 // indirect
 	github.com/cloudwego/base64x v0.1.5 // indirect
 	github.com/cloudwego/gopkg v0.1.4 // indirect
 	github.com/cloudwego/netpoll v0.7.0 // indirect
