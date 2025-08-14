@@ -3,6 +3,9 @@
 
 name: Go Build
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: [ "main" ]
