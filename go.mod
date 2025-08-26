@@ -4,13 +4,13 @@ go 1.23.4
 
 require (
 	github.com/bytedance/sonic v1.14.0
-	github.com/cloudwego/hertz v0.10.1
-	github.com/getkin/kin-openapi v0.132.0
+	github.com/cloudwego/hertz v0.10.2
+	github.com/getkin/kin-openapi v0.133.0
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
 	github.com/openai/openai-go v1.12.0
 	github.com/rs/zerolog v1.34.0
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.0
 	go.starlark.net v0.0.0-20250225190231-0d3f41d403af
 )
 
@@ -42,6 +42,7 @@ require (
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
+	github.com/woodsbury/decimal128 v1.3.0 // indirect
 	golang.org/x/arch v0.0.0-20210923205945-b76863e36670 // indirect
 	golang.org/x/sys v0.29.0 // indirect
 	google.golang.org/protobuf v1.34.1 // indirect
