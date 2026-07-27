@@ -5,7 +5,7 @@ go 1.25
 require (
 	github.com/bytedance/sonic v1.15.2
 	github.com/cloudwego/hertz v0.10.5
-	github.com/getkin/kin-openapi v0.142.0
+	github.com/getkin/kin-openapi v0.145.0
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
 	github.com/openai/openai-go v1.12.0
