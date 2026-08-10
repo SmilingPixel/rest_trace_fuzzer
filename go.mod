@@ -4,8 +4,8 @@ go 1.25
 
 require (
 	github.com/bytedance/sonic v1.15.2
-	github.com/cloudwego/hertz v0.10.5
-	github.com/getkin/kin-openapi v0.142.0
+	github.com/cloudwego/hertz v0.10.6
+	github.com/getkin/kin-openapi v0.146.0
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
 	github.com/openai/openai-go v1.12.0
@@ -19,7 +19,7 @@ require (
 	github.com/bytedance/sonic/loader v0.5.1 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect
 	github.com/cloudwego/gopkg v0.2.0 // indirect
-	github.com/cloudwego/netpoll v0.7.3 // indirect
+	github.com/cloudwego/netpoll v0.7.5 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/go-openapi/jsonpointer v0.22.5 // indirect
