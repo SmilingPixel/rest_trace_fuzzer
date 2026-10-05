@@ -3,7 +3,7 @@ module resttracefuzzer
 go 1.25
 
 require (
-	github.com/bytedance/sonic v1.15.3
+	github.com/bytedance/sonic v1.15.4
 	github.com/cloudwego/hertz v0.10.6
 	github.com/getkin/kin-openapi v0.149.0
 	github.com/google/uuid v1.6.0
